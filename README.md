@@ -1,1 +1,1479 @@
+[gyeongin1_v4 (7).html](https://github.com/user-attachments/files/28218869/gyeongin1_v4.7.html)
 well
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웰체크 거래처 관리장 | 경인1사무소</title>
+<style>
+/* ===== RESET & ROOT ===== */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --dw:#F47920;--dw-l:#FFF4EC;--dw-m:#FA9A4B;
+  --bg:#F8F7F5;--bg2:#F2F0EC;--bg3:#E8E4DE;
+  --white:#FFFFFF;
+  --bd:#E4E0DA;--bd2:#CEC9C2;
+  --t1:#2D2926;--t2:#7A736A;--t3:#B0A89E;
+  --r:8px;--rl:12px;
+  /* 담당자 파스텔 5색 */
+  --gang-bg:#DCE9FC;--gang-t:#2B5FA0;
+  --kim-bg:#D8F0E4;--kim-t:#1E6B42;
+  --jung-bg:#FCE3D2;--jung-t:#9A4020;
+  --jo-bg:#EDE0F8;--jo-t:#6B35B0;
+  --choi-bg:#FDF0B8;--choi-t:#8A6800;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);height:100vh;overflow:hidden;display:flex}
+
+/* ===== SIDEBAR ===== */
+.sb{width:220px;min-width:220px;background:var(--white);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
+
+/* 로고 */
+.sb-logo{display:flex;align-items:center;gap:9px;padding:14px 14px 10px;border-bottom:1px solid var(--bd)}
+.sb-logo svg{flex-shrink:0;border-radius:8px}
+.sb-logo-text{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
+.sb-logo-sub{font-size:10px;color:var(--t3)}
+
+/* 사무소명 */
+.sb-office{padding:10px 14px 2px}
+.sb-office-name{font-size:17px;font-weight:800;color:var(--dw);letter-spacing:-.4px}
+.sb-office-sub{font-size:10px;color:var(--t3);margin-top:2px}
+
+/* 사이드바 스크롤 */
+.sb-scroll{flex:1;overflow-y:auto;padding:8px 0 16px}
+.sb-scroll::-webkit-scrollbar{width:3px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* 큰 카테고리 버튼 */
+.cat-btn{display:flex;align-items:center;gap:8px;padding:9px 12px 9px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;border-left:3px solid transparent;margin:1px 0;color:var(--t2)}
+.cat-btn:hover{background:var(--bg2);color:var(--t1)}
+.cat-btn .cat-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#cat-cal{color:var(--t1)}
+#cat-cal .cat-icon{background:#EAF1FB}
+#cat-cal.cat-active{background:#E2EDF8;border-left-color:#4A7EC7;color:#163D70}
+#cat-list .cat-icon{background:#F5F0E8}
+#cat-list.cat-active{background:var(--bg2);border-left-color:var(--dw);color:var(--t1)}
+
+/* 구분선 */
+.sb-div{height:0.5px;background:var(--bd);margin:6px 14px}
+
+/* 하위 메뉴 */
+.sub-menu{padding:0}
+/* 담당자 원형 배지 */
+.mr-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:9px;font-weight:700;flex-shrink:0;border:1.5px solid}
+.sub-item{display:flex;align-items:center;gap:7px;padding:6px 14px 6px 32px;font-size:11px;color:var(--t2);cursor:pointer;transition:.12s;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
+.sub-item:hover{background:var(--bg2);color:var(--t1)}
+.sub-item.sub-active{background:var(--bg2);color:var(--t1);font-weight:600}
+.sub-item:hover{background:var(--bg2);color:var(--t1)}
+.sub-item.sub-active{background:var(--bg2);color:var(--t1);font-weight:600}
+.sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* 아코디언 */
+.acc-hd{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 24px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;transition:.12s;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
+.acc-hd:hover{background:var(--bg2);color:var(--t1)}
+.acc-hd .cv{font-size:11px;margin-left:auto;transition:transform .18s;color:var(--t3)}
+.acc-hd.open .cv{transform:rotate(180deg)}
+.acc-body{display:none}.acc-body.open{display:block}
+
+/* 전국 사업부 */
+.sb-nat{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 8px 14px;cursor:pointer;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0;transition:.12s}
+.sb-nat:hover{background:var(--bg2)}
+.sb-nat-left{display:flex;align-items:center;gap:6px}
+.sb-nat-title{font-size:11px;font-weight:700;color:var(--t2)}
+.sb-nat-lock{font-size:9px;color:#e53e3e;font-weight:600;display:flex;align-items:center;gap:3px}
+.sb-nat-cv{font-size:11px;color:var(--t3);transition:transform .18s}
+.sb-nat.open .sb-nat-cv{transform:rotate(180deg)}
+.biz-g{margin:0 6px 1px}
+.biz-hd{display:flex;align-items:center;gap:5px;padding:5px 8px;font-size:10px;font-weight:600;color:var(--t2);cursor:pointer;border-radius:var(--r);transition:.12s;user-select:none}
+.biz-hd:hover{background:var(--bg2)}
+.biz-hd .bcv{font-size:10px;margin-left:auto;transition:transform .18s}
+.biz-hd.open .bcv{transform:rotate(180deg)}
+.biz-body{display:none;padding:3px 0 4px 14px;flex-wrap:wrap;gap:3px}
+.biz-body.open{display:flex}
+.biz-tag{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--bg2);color:var(--t2);cursor:pointer;border:0.5px solid transparent;transition:.12s}
+.biz-tag:hover{border-color:var(--bd2)}
+.biz-tag.cur{background:var(--dw-l);color:var(--dw);border-color:var(--dw-m);font-weight:700}
+
+/* ===== MAIN ===== */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
+
+/* 뷰 패널 */
+.view-panel{display:none;position:absolute;inset:0;flex-direction:column;overflow:hidden}
+.view-panel.v-active{display:flex}
+
+/* ===== 캘린더 뷰 ===== */
+/* 헤더 */
+.cal-head{background:var(--white);border-bottom:1.5px solid var(--bd);padding:13px 20px 11px;display:flex;align-items:center;justify-content:space-between}
+.cal-head-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.6px}
+.cal-head-right{font-size:11px;color:var(--t3)}
+
+/* 탑바 */
+.cal-topbar{background:var(--white);border-bottom:1px solid var(--bd);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mr-lbl{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
+.mr-btn{padding:4px 11px;font-size:11px;font-weight:600;border-radius:999px;cursor:pointer;border:1px solid var(--bd2);background:var(--white);color:var(--t1);transition:.15s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.mr-circle{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1.5px solid;display:inline-block}
+#mb-all{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-gang{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-kim{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-jung{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-jo{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-choi{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+.mr-btn.mb-dim{opacity:1}
+.mr-btn.mb-on{opacity:1;border-color:var(--t2);color:var(--t1);font-weight:700;box-shadow:none}
+.topbar-sep{width:0.5px;height:16px;background:var(--bd2);flex-shrink:0}
+.spl{font-size:10px;padding:3px 8px;border-radius:999px;font-weight:600}
+.spl-g{background:#E4F5EE;color:#145C38}
+.spl-y{background:#FEF8E6;color:#7A5C00}
+.spl-r{background:#FEEEEE;color:#B01A1A}
+
+/* 캘린더 컨텐츠 */
+.cal-content{flex:1;overflow-y:auto;padding:12px 14px;display:flex;gap:14px;align-items:flex-start}
+.cal-content::-webkit-scrollbar{width:4px}
+.cal-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* 네비 */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav-btns{display:flex;gap:3px}
+.nav-btn{width:28px;height:28px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:15px;font-family:inherit;transition:.12s}
+.nav-btn:hover{background:var(--bg2)}
+.cal-ym{font-size:15px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:7px}
+.now-badge{font-size:9px;background:var(--dw-l);color:var(--dw);padding:2px 7px;border-radius:999px;font-weight:700;border:1px solid var(--dw-m)}
+
+/* 범례 */
+.leg-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:5px 10px;background:var(--white);border:0.5px solid var(--bd);border-radius:var(--r);flex-wrap:wrap}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2)}
+
+/* 달력 */
+.cal-grid-wrap{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:12px;min-width:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-dh{padding:8px 5px;font-size:11px;font-weight:700;color:var(--t2);text-align:center;background:var(--bg3);border-bottom:1px solid var(--bd2)}
+
+/* 날짜 셀 */
+.dc{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s;overflow:hidden}
+.dc:nth-child(7n){border-right:none}
+.dc:hover{background:var(--dw-l)}
+.dc-top{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none}
+.day-num{font-size:13px;font-weight:700;color:var(--t1);line-height:1}
+.today-circle{background:var(--dw);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.add-btn{display:none}
+
+/* 오전/오후/종일 영역 */
+.dc-am{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.dc-all{flex:1;padding:0 4px 3px;overflow:hidden;display:flex;flex-direction:column}
+.zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
+
+/* 이벤트 칩 */
+.ev{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;display:flex;align-items:center;gap:3px;cursor:pointer;position:relative;z-index:1;transition:.1s}
+.ev:hover{filter:brightness(.93)}
+.ev input[type=checkbox]{
+  width:10px;height:10px;cursor:pointer;flex-shrink:0;margin:0;
+  appearance:none;-webkit-appearance:none;
+  border:1.5px solid rgba(255,255,255,0.7);border-radius:2px;
+  background:transparent;position:relative;
+}
+.ev input[type=checkbox]:checked{
+  background:white;border-color:white;
+}
+.ev input[type=checkbox]:checked::after{
+  content:'✓';position:absolute;top:-2px;left:0px;
+  font-size:9px;color:#333;font-weight:700;line-height:1;
+}
+.ev-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-weight:600}
+.ev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.6)}
+.ev-allday{font-size:11px;padding:4px 6px;font-weight:700;border-radius:5px}
+
+/* 빈칸 */
+.ec{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
+.ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
+.ec:nth-child(7n){border-right:none}
+
+/* 하단 패널 */
+.bot-panels{display:flex;flex-direction:column;gap:12px;width:260px;flex-shrink:0;position:sticky;top:0}
+.pnl{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);padding:12px}
+.pnl-title{font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.risk-item{display:flex;gap:6px;padding:5px 0;border-bottom:0.5px solid var(--bd);font-size:11px}
+.risk-item:last-child{border-bottom:none;padding-bottom:0}
+.ri-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.ri-name{font-weight:600;color:var(--t1)}
+.ri-sub{color:var(--t2);font-size:10px;margin-top:1px}
+.memo-area{width:100%;min-height:108px;font-size:12px;padding:8px 10px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--bg2);color:var(--t1);resize:vertical;font-family:inherit;line-height:1.6}
+.memo-area:focus{outline:none;border-color:var(--dw);background:var(--white)}
+
+/* ===== 거래처 현황판 뷰 ===== */
+.list-head{background:var(--white);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
+.list-head-title{font-size:15px;font-weight:700;color:var(--t1)}
+.fp-row{display:flex;gap:4px;flex-wrap:wrap}
+.fpill{padding:3px 9px;font-size:11px;border-radius:999px;border:1px solid var(--bd2);background:var(--white);color:var(--t2);cursor:pointer;font-family:inherit;font-weight:500;transition:.12s}
+.fpill:hover{background:var(--bg2)}
+.fpill.fp-on{font-weight:700;border-width:1.5px;background:var(--bg2)}
+.list-content{flex:1;overflow-y:auto}
+.list-content::-webkit-scrollbar{width:4px}
+.list-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.list-sec{font-size:11px;font-weight:700;color:var(--t2);padding:8px 14px 6px;background:var(--bg2);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:6px}
+.list-sec::after{content:'';flex:1;height:0.5px;background:var(--bd2);margin-left:6px}
+.gtbl{width:100%;border-collapse:collapse;font-size:11px}
+.gtbl th{padding:7px 12px;font-size:10px;font-weight:700;color:var(--t3);text-align:left;background:var(--bg2);border-bottom:0.5px solid var(--bd);white-space:nowrap;position:sticky;top:0}
+.gtbl td{padding:8px 12px;border-bottom:0.5px solid var(--bd);color:var(--t1);vertical-align:middle;white-space:nowrap}
+.gtbl tbody tr:hover td{background:var(--dw-l);cursor:pointer}
+.mr-chip{display:inline-flex;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.edu-bdg{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.edu-ok{background:#E4F5EE;color:#145C38}
+.edu-warn{background:#FEF8E6;color:#7A5C00}
+.edu-danger{background:#FEEEEE;color:#B01A1A}
+.edu-none{background:var(--bg2);color:var(--t3)}
+.dv-bdg{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;background:var(--bg2);color:var(--t2)}
+.dv-yes{background:#E6F1FB;color:#1048A0}
+.gm-wrap{display:flex;align-items:center;gap:5px}
+.gm-wrap2{display:flex;align-items:center;gap:5px}
+.gm-bar{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;min-width:50px}
+.gm-fill{height:100%;border-radius:3px}
+.gm-num{font-size:10px;color:var(--t2);white-space:nowrap}
+.rp{display:inline-block;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;background:var(--bg2);color:var(--t2)}
+.cnt-yes{color:#145C38;font-weight:600;font-size:10px}
+.cnt-no{color:var(--t3);font-size:10px}
+
+/* ===== 모달 ===== */
+.ov{display:none;position:fixed;inset:0;background:rgba(45,41,38,.4);z-index:200;align-items:center;justify-content:center}
+.ov.ov-open{display:flex}
+.modal{background:var(--white);border-radius:var(--rl);border:0.5px solid var(--bd);padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.modal-sm{width:340px}
+.modal-lg{width:400px;max-height:80vh;overflow-y:auto}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.modal-title{font-size:14px;font-weight:700;color:var(--t1)}
+.modal-x{cursor:pointer;color:var(--t3);font-size:20px;background:none;border:none;font-family:inherit;line-height:1}
+.modal-x:hover{color:var(--t1)}
+.fld{margin-bottom:10px}
+.fld label{display:block;font-size:10px;font-weight:700;color:var(--t2);margin-bottom:3px;letter-spacing:.2px}
+.fld input,.fld select,.fld textarea{width:100%;padding:7px 10px;font-size:12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);font-family:inherit;transition:.12s}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--dw);background:var(--white)}
+.fld textarea{min-height:70px;resize:vertical;line-height:1.5}
+.fld-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modal-btns{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
+.btn{padding:7px 16px;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;font-family:inherit;border:0.5px solid var(--bd2);transition:.12s}
+.btn-cancel{background:var(--white);color:var(--t2)}.btn-cancel:hover{background:var(--bg2)}
+.btn-save{background:var(--dw);color:white;border-color:var(--dw)}.btn-save:hover{background:#d96810}
+.btn-del{background:var(--white);color:#B01A1A;border-color:#F7C1C1}.btn-del:hover{background:#FEEEEE}
+/* 상세 모달 */
+.dm-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-top:4px}
+.dm-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.dm-field{background:var(--bg2);border-radius:var(--r);padding:8px 10px}
+.dm-field-lbl{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.4px;text-transform:uppercase;margin-bottom:3px}
+.dm-field-val{font-size:12px;font-weight:600;color:var(--t1)}
+.gauge-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:5px 0 3px}
+.gauge-fill2{height:100%;border-radius:4px}
+.hist-item{display:flex;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--bd);font-size:11px}
+.hist-item:last-child{border-bottom:none}
+.hist-date{color:var(--t3);font-size:10px;min-width:40px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sb">
+  <!-- 로고 -->
+  <div class="sb-logo">
+    <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="14" fill="#F47920"/>
+      <text x="50" y="70" text-anchor="middle" font-family="serif" font-size="62" font-weight="900" fill="white">龍</text>
+    </svg>
+    <div>
+      <div class="sb-logo-text">웰체크 거래처 관리장</div>
+      <div class="sb-logo-sub">Daewoong</div>
+    </div>
+  </div>
+
+  <!-- 사무소명 -->
+  <div class="sb-office">
+    <div class="sb-office-name">경인1사무소</div>
+    <div class="sb-office-sub">웰체크 공유 시스템</div>
+  </div>
+
+  <div class="sb-scroll">
+    <!-- 교육간호사 캘린더 -->
+    <div class="cat-btn" id="cat-cal" onclick="switchView('cal')">
+      <div class="cat-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563a8" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+      </div>
+      교육간호사 캘린더
+    </div>
+
+    <div class="sb-div"></div>
+
+    <!-- 거래처 현황판 -->
+    <div class="cat-btn" id="cat-list" onclick="switchView('list')">
+      <div class="cat-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A5C3A" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="#7A5C3A"/><circle cx="3" cy="12" r="1.5" fill="#7A5C3A"/><circle cx="3" cy="18" r="1.5" fill="#7A5C3A"/></svg>
+      </div>
+      거래처 현황판
+    </div>
+
+    <!-- 거래처 하위 -->
+    <div id="list-sub" style="display:none">
+      <div class="sub-item sub-active" id="sub-all" onclick="setSubNav(this);listFilter('all','all')" style="padding-left:14px;font-weight:700;color:var(--t1)">경인1 전체 현황</div>
+      <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">담당자별 현황 <span class="cv">▾</span></div>
+      <div class="acc-body open">
+        <div class="sub-item" onclick="setSubNav(this);listFilter('gang','all')"><span class="sub-dot" style="background:var(--gang-bg);border:1.5px solid var(--gang-t)"></span>강태경</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('kim','all')"><span class="sub-dot" style="background:var(--kim-bg);border:1.5px solid var(--kim-t)"></span>김태정</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('jung','all')"><span class="sub-dot" style="background:var(--jung-bg);border:1.5px solid var(--jung-t)"></span>정영수</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('jo','all')"><span class="sub-dot" style="background:var(--jo-bg);border:1.5px solid var(--jo-t)"></span>조예린</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('choi','all')"><span class="sub-dot" style="background:var(--choi-bg);border:1.5px solid var(--choi-t)"></span>최주호</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('kyung','all')"><span class="sub-dot" style="background:#F8F8F8;border:1.5px solid #888888"></span>김경식</div>
+      </div>
+      <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">지역별 현황 <span class="cv">▾</span></div>
+      <div class="acc-body open">
+        <div class="sub-item" onclick="setSubNav(this);listFilter('all','부평')"><span class="sub-dot" style="background:#E8F0FF;border:1.5px solid #5B7FD4;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>부평구</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('all','계양')"><span class="sub-dot" style="background:#E8FFF0;border:1.5px solid #3A9E6A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>계양구</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('all','김포')"><span class="sub-dot" style="background:#FFF4E8;border:1.5px solid #D4884A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>김포시</div>
+      </div>
+    </div>
+
+    <div class="sb-div"></div>
+
+    <!-- 전국 사업부 -->
+    <div class="sb-nat" onclick="toggleNat(this)">
+      <div class="sb-nat-left">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <div>
+          <div class="sb-nat-title">전국 사업부 현황</div>
+          <div class="sb-nat-lock">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            소장·팀장·사업부장 권한
+          </div>
+        </div>
+      </div>
+      <span class="sb-nat-cv">▾</span>
+    </div>
+    <div id="nat-body" style="display:none">
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 서울3 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">남부1</span><span class="biz-tag">남부2</span><span class="biz-tag">남부3</span><span class="biz-tag">동부1</span><span class="biz-tag">동부2</span><span class="biz-tag">북부1</span><span class="biz-tag">북부2</span><span class="biz-tag">북부3</span><span class="biz-tag">서부1</span><span class="biz-tag">서부2</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 서울4 <span class="bcv">▾</span></div><div class="biz-body open"><span class="biz-tag">강원</span><span class="biz-tag">경기1</span><span class="biz-tag">경기2</span><span class="biz-tag">경기3</span><span class="biz-tag cur">경인1</span><span class="biz-tag">경인2</span><span class="biz-tag">경인3</span><span class="biz-tag">경인4</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 지방3 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">경남1</span><span class="biz-tag">경남2</span><span class="biz-tag">대구1</span><span class="biz-tag">대구2</span><span class="biz-tag">대구3</span><span class="biz-tag">부산1</span><span class="biz-tag">부산2</span><span class="biz-tag">부산3</span><span class="biz-tag">울산</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 지방4 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">광주1</span><span class="biz-tag">광주2</span><span class="biz-tag">대전1</span><span class="biz-tag">대전2</span><span class="biz-tag">전주1</span><span class="biz-tag">전주2</span><span class="biz-tag">청주1</span><span class="biz-tag">청주2</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 폴라리스 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">폴라리스1</span><span class="biz-tag">폴라리스2</span></div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+
+<!-- VIEW 1: 캘린더 -->
+<div id="view-cal" class="view-panel v-active">
+  <div class="cal-head">
+    <div class="cal-head-title">교육간호사 캘린더</div>
+    <div class="cal-head-right">경인1사무소 · 부평 / 계양 / 김포</div>
+  </div>
+  <div class="cal-topbar">
+    <span class="mr-lbl">담당자</span>
+    <button class="mr-btn mb-on" id="mb-all" onclick="filterMR('all')">전체</button>
+    <button class="mr-btn mb-dim" id="mb-gang" onclick="filterMR('gang')"><span style="width:10px;height:10px;border-radius:50%;background:var(--gang-bg);border:1.5px solid var(--gang-t);flex-shrink:0;display:inline-block"></span>강태경</button>
+    <button class="mr-btn mb-dim" id="mb-kim" onclick="filterMR('kim')"><span style="width:10px;height:10px;border-radius:50%;background:var(--kim-bg);border:1.5px solid var(--kim-t);flex-shrink:0;display:inline-block"></span>김태정</button>
+    <button class="mr-btn mb-dim" id="mb-jung" onclick="filterMR('jung')"><span style="width:10px;height:10px;border-radius:50%;background:var(--jung-bg);border:1.5px solid var(--jung-t);flex-shrink:0;display:inline-block"></span>정영수</button>
+    <button class="mr-btn mb-dim" id="mb-jo" onclick="filterMR('jo')"><span style="width:10px;height:10px;border-radius:50%;background:var(--jo-bg);border:1.5px solid var(--jo-t);flex-shrink:0;display:inline-block"></span>조예린</button>
+    <button class="mr-btn mb-dim" id="mb-choi" onclick="filterMR('choi')"><span style="width:10px;height:10px;border-radius:50%;background:var(--choi-bg);border:1.5px solid var(--choi-t);flex-shrink:0;display:inline-block"></span>최주호</button>
+    <button class="mr-btn mb-dim" id="mb-kyung" onclick="filterMR('kyung')"><span class="mr-circle" style="background:#F8F8F8;border-color:#888888"></span>김경식</button>
+  </div>
+  <div class="cal-content">
+    <div style="flex:1;min-width:0">
+    <div class="cal-nav">
+      <div class="nav-btns">
+        <button class="nav-btn" onclick="changeYear(-1)" title="이전 연도">«</button>
+        <button class="nav-btn" onclick="changeMonth(-1)" title="이전 달">‹</button>
+      </div>
+      <div class="cal-ym">
+        <span id="cal-label">2026년 5월</span>
+        <span class="now-badge" id="now-badge">현재</span>
+      </div>
+      <div class="nav-btns">
+        <button class="nav-btn" onclick="changeMonth(1)" title="다음 달">›</button>
+        <button class="nav-btn" onclick="changeYear(1)" title="다음 연도">»</button>
+      </div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-i"><span style="width:9px;height:9px;border-radius:50%;background:#22c55e;display:inline-block;border:1px solid rgba(0,0,0,.1)"></span>40명↑ 활성</div>
+      <div class="leg-i"><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;display:inline-block;border:1px solid rgba(0,0,0,.1)"></span>20~39명</div>
+      <div class="leg-i"><span style="width:9px;height:9px;border-radius:50%;background:#ef4444;display:inline-block;border:1px solid rgba(0,0,0,.1)"></span>20명↓</div>
+      <div style="width:0.5px;height:12px;background:var(--bd2)"></div>
+      <div class="leg-i" style="font-size:9px;color:var(--t3)">날짜 클릭 = 일정 추가</div>
+    </div>
+    <div class="cal-grid-wrap">
+      <div class="cal-grid" id="cal-grid">
+        <div class="cal-dh">일</div><div class="cal-dh">월</div><div class="cal-dh">화</div>
+        <div class="cal-dh">수</div><div class="cal-dh">목</div><div class="cal-dh">금</div><div class="cal-dh">토</div>
+      </div>
+    </div>
+    </div><!-- /cal-left -->
+    <div class="bot-panels">
+      <div class="pnl">
+        <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 심화교육 현황</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
+          <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('all',event)">
+            <div style="font-size:16px;font-weight:700;color:var(--t1)" id="edu-total">—</div>
+            <div style="font-size:9px;color:var(--t2)">총 대상</div>
+          </div>
+          <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('done',event)">
+            <div style="font-size:16px;font-weight:700;color:#145C38" id="edu-done">—</div>
+            <div style="font-size:9px;color:#145C38">이수완료</div>
+          </div>
+          <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('notyet',event)">
+            <div style="font-size:16px;font-weight:700;color:#B01A1A" id="edu-notyet">—</div>
+            <div style="font-size:9px;color:#B01A1A">미이수</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="pnl">
+        <div class="pnl-title">📝 거래처 방문 후 특이사항</div>
+        <textarea class="memo-area" placeholder="방문 후 특이사항을 기록하세요.
+예) 5.14 성모누리의원 6/11 반드시 방문 요청함(환자내원예정)
+예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></textarea>
+      </div>
+    </div>
+  </div>
+</div><!-- /view-cal -->
+
+<!-- VIEW 2: 거래처 현황판 -->
+<div id="view-list" class="view-panel">
+  <div class="list-head">
+    <div class="list-head-title" id="list-title">경인1 거래처 현황판</div>
+    <div class="fp-row">
+      <button class="fpill fp-on" onclick="fpClick(this,'all','all')">전체</button>
+      <button class="fpill" onclick="fpClick(this,'gang','all')"><span style="width:10px;height:10px;border-radius:50%;background:var(--gang-bg);border:1.5px solid var(--gang-t);display:inline-block;flex-shrink:0"></span>강태경</button>
+      <button class="fpill" onclick="fpClick(this,'kim','all')"><span style="width:10px;height:10px;border-radius:50%;background:var(--kim-bg);border:1.5px solid var(--kim-t);display:inline-block;flex-shrink:0"></span>김태정</button>
+      <button class="fpill" onclick="fpClick(this,'jung','all')"><span style="width:10px;height:10px;border-radius:50%;background:var(--jung-bg);border:1.5px solid var(--jung-t);display:inline-block;flex-shrink:0"></span>정영수</button>
+      <button class="fpill" onclick="fpClick(this,'jo','all')"><span style="width:10px;height:10px;border-radius:50%;background:var(--jo-bg);border:1.5px solid var(--jo-t);display:inline-block;flex-shrink:0"></span>조예린</button>
+      <button class="fpill" onclick="fpClick(this,'choi','all')"><span style="width:10px;height:10px;border-radius:50%;background:var(--choi-bg);border:1.5px solid var(--choi-t);display:inline-block;flex-shrink:0"></span>최주호</button>
+      <div style="width:0.5px;height:16px;background:var(--bd2);margin:0 4px;align-self:center"></div>
+      <button class="mr-btn" onclick="fpClick(this,'all','부평')"><span style="background:#E8F0FF;border:1.5px solid #5B7FD4;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>부평</button>
+      <button class="mr-btn" onclick="fpClick(this,'all','계양')"><span style="background:#E8FFF0;border:1.5px solid #3A9E6A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>계양</button>
+      <button class="mr-btn" onclick="fpClick(this,'all','김포')"><span style="background:#FFF4E8;border:1.5px solid #D4884A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>김포</button>
+    </div>
+  </div>
+  <div class="list-content">
+    <div id="list-body"></div>
+  </div>
+</div><!-- /view-list -->
+
+</div><!-- /main -->
+
+<!-- ===== 일정 추가/수정 모달 ===== -->
+<div class="ov" id="add-ov">
+  <div class="modal modal-sm">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="add-title">일정 추가</div>
+        <div id="add-mr-badge" class="dm-badge" style="margin-top:4px;display:none"></div>
+      </div>
+      <button class="modal-x" onclick="closeAdd()">✕</button>
+    </div>
+    <div class="dm-fields">
+      <div class="dm-field">
+        <div class="dm-field-lbl">담당자</div>
+        <select id="inp-mr" onchange="loadClinicsByMR(this.value);updateAddBadge()" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer">
+          <option value="gang">강태경</option><option value="kim">김태정</option>
+          <option value="jung">정영수</option><option value="jo">조예린</option>
+          <option value="choi">최주호</option><option value="kyung">김경식</option>
+        </select>
+      </div>
+      <div class="dm-field">
+        <div class="dm-field-lbl">시간대</div>
+        <select id="inp-time" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer">
+          <option value="all">종일</option>
+          <option value="am">오전</option>
+          <option value="pm">오후</option>
+        </select>
+      </div>
+    </div>
+    <div class="fld">
+      <label>거래처명</label>
+      <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요" autocomplete="off">
+      <datalist id="clinic-list"></datalist>
+    </div>
+    <div class="dm-fields" style="margin-top:8px">
+      <div class="dm-field" style="grid-column:span 2">
+        <div class="dm-field-lbl">마지막 방문일</div>
+        <div id="add-last-visit" style="font-size:12px;font-weight:600;color:var(--t1)">거래처 선택 후 표시</div>
+      </div>
+    </div>
+    <div style="margin-top:8px">
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">웰체크 활성도</div>
+      <div class="gm-wrap" id="add-gauge-wrap" style="display:none">
+        <div class="gm-bar"><div class="gm-fill" id="add-gauge-fill" style="width:0%"></div></div>
+        <span class="gm-num" id="add-gauge-num" style="font-weight:600">0명</span>
+      </div>
+      <div id="add-gauge-empty" style="font-size:11px;color:var(--t3)">거래처 선택 후 표시됩니다</div>
+    </div>
+    <div style="margin-top:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">메모</div>
+      <textarea id="inp-memo" class="memo-area" placeholder="방문 기록, 원장님 성향, 특이사항 등"></textarea>
+    </div>
+    <input type="hidden" id="inp-type" value="visit">
+    <input type="hidden" id="inp-ilmansa" value="미참여">
+    <input type="hidden" id="inp-patients" value="0">
+    <input type="hidden" id="inp-device" value="미도입">
+    <input type="hidden" id="inp-edu" value="미이수">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+      <div style="display:flex;gap:5px">
+        <button type="button" class="type-btn" onclick="setEvType(this,'off')">🌿 연차</button>
+        <button type="button" class="type-btn" onclick="setEvType(this,'office')">🏢 내근</button>
+        <button type="button" class="type-btn" onclick="setEvType(this,'study')">📚 학소</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-del" id="del-btn" style="display:none" onclick="deleteEv()">삭제</button>
+        <button class="btn btn-cancel" onclick="closeAdd()">취소</button>
+        <button class="btn btn-save" onclick="saveEv()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 거래처 상세 모달 ===== -->
+<div class="ov" id="detail-ov">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="dm-name">거래처</div>
+        <div class="dm-badge" id="dm-badge">담당자</div>
+      </div>
+      <button class="modal-x" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="dm-fields">
+      <div class="dm-field"><div class="dm-field-lbl">시간대</div><div class="dm-field-val" id="dm-time">—</div></div>
+      <div class="dm-field"><div class="dm-field-lbl">방문 체크</div><div class="dm-field-val" id="dm-checked">—</div></div>
+      <div class="dm-field" style="grid-column:span 2"><div class="dm-field-lbl">마지막 교육간호사 방문일</div><div class="dm-field-val" id="dm-lastvisit">—</div></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">웰체크 활성도</div>
+      <div class="gauge-bar"><div class="gauge-fill2" id="dm-gauge"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:2px">
+        <span id="dm-patients">0명</span><span id="dm-gauge-lbl">기준 미달</span>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:5px">메모 / 인수인계 기록</div>
+    <textarea class="memo-area" id="dm-memo" style="min-height:80px" placeholder="방문 기록, 원장님 성향, 특이사항 등"></textarea>
+    <div style="font-size:10px;font-weight:700;color:var(--t2);margin:10px 0 6px">방문 이력</div>
+    <div id="dm-hist"></div>
+    <div class="modal-btns" style="margin-top:12px">
+      <button class="btn btn-del" onclick="openEditFromDetail()">수정</button>
+      <button class="btn btn-save" onclick="saveDetailMemo()">메모 저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ===== 한국 공휴일 =====
+var HOLIDAYS = {
+  '2025-1-1':'신정','2025-1-28':'설날전날','2025-1-29':'설날','2025-1-30':'설날다음날',
+  '2025-3-1':'삼일절','2025-5-5':'어린이날','2025-5-6':'대체공휴일','2025-6-6':'현충일',
+  '2025-8-15':'광복절','2025-10-3':'개천절','2025-10-5':'추석','2025-10-6':'추석','2025-10-7':'추석','2025-10-8':'대체공휴일',
+  '2025-10-9':'한글날','2025-12-25':'성탄절',
+  '2026-1-1':'신정','2026-2-16':'설날전날','2026-2-17':'설날','2026-2-18':'설날다음날',
+  '2026-3-1':'삼일절','2026-3-2':'대체공휴일','2026-5-5':'어린이날','2026-5-25':'부처님오신날',
+  '2026-6-6':'현충일','2026-8-17':'광복절','2026-9-24':'추석','2026-9-25':'추석','2026-9-26':'추석',
+  '2026-10-3':'개천절','2026-10-9':'한글날','2026-12-25':'성탄절',
+  '2027-1-1':'신정','2027-2-6':'설날전날','2027-2-7':'설날','2027-2-8':'설날다음날',
+  '2027-3-1':'삼일절','2027-5-5':'어린이날','2027-5-13':'부처님오신날',
+  '2027-6-6':'현충일','2027-8-16':'광복절','2027-10-3':'개천절','2027-10-4':'추석','2027-10-9':'한글날',
+  '2027-10-13':'추석','2027-10-14':'추석','2027-10-15':'대체공휴일','2027-12-25':'성탄절'
+};
+function isHoliday(y,m,d){ return HOLIDAYS[y+'-'+m+'-'+d]||''; }
+
+// ===== 담당자 정보 =====
+var MR = {
+  gang:{bg:'var(--gang-bg)',t:'var(--gang-t)',name:'강태경'},
+  kim: {bg:'var(--kim-bg)', t:'var(--kim-t)', name:'김태정'},
+  jung:{bg:'var(--jung-bg)',t:'var(--jung-t)',name:'정영수'},
+  jo:  {bg:'var(--jo-bg)',  t:'var(--jo-t)',  name:'조예린'},
+  choi:{bg:'var(--choi-bg)',t:'var(--choi-t)',name:'최주호'},
+  kyung:{bg:'#F8F8F8',t:'#555555',name:'김경식'}
+};
+
+// ===== 달력 데이터 =====
+var EVENTS = {
+  '2026-5': [
+    {id:1, day:2,  mr:'jung',label:'부평_연세내과',  region:'부평',patients:108,ilmansa:'참여', edu:'이수완료',device:'혈압계',time:'all',memo:'원장님 협조적. 환자 교육 정착.',checked:false},
+    {id:2, day:6,  mr:'kim', label:'계양_한림의원',  region:'계양',patients:22, ilmansa:'참여', edu:'이수완료',device:'혈압계',time:'am', memo:'웰체크 미활성. 목표 40명 독려 필요.',checked:false},
+    {id:3, day:7,  mr:'kim', label:'김포_중앙내과',  region:'김포',patients:55, ilmansa:'참여', edu:'이수완료',device:'혈압계',time:'pm', memo:'환자 추가 등록 독려 중.',checked:true},
+    {id:4, day:8,  mr:'gang',label:'부평_인하의원',  region:'부평',patients:48, ilmansa:'참여', edu:'D-7이내', device:'미도입',time:'am', memo:'교육 만료 D-6. 신청 안내 긴급.',checked:false},
+    {id:5, day:12, mr:'jo',  label:'계양_서울가정',  region:'계양',patients:95, ilmansa:'참여', edu:'이수완료',device:'혈당계',time:'all',memo:'간호사 숙련도 높음. 삭감 0건 유지.',checked:true},
+    {id:6, day:13, mr:'choi',label:'김포_삼성의원',  region:'김포',patients:18, ilmansa:'참여', edu:'이수완료',device:'당독소',time:'pm', memo:'신규 등록 독려 중.',checked:false},
+    {id:7, day:14, mr:'gang',label:'부평_인하의원',  region:'부평',patients:48, ilmansa:'참여', edu:'D-7이내', device:'미도입',time:'am', memo:'교육 신청 완료 여부 재확인.',checked:false},
+    {id:8, day:14, mr:'choi',label:'김포_미래의원',  region:'김포',patients:8,  ilmansa:'참여', edu:'D-7이내', device:'미도입',time:'pm', memo:'삭감 위험. MR 즉시 연락 요청.',checked:false},
+    {id:9, day:19, mr:'kim', label:'김포_현대내과',  region:'김포',patients:40, ilmansa:'참여', edu:'D-30이내',device:'혈당계',time:'am', memo:'교육 D-25. 사전 연락 권장.',checked:false},
+    {id:10,day:20, mr:'jung',label:'부평_연세내과',  region:'부평',patients:108,ilmansa:'참여', edu:'이수완료',device:'혈압계',time:'pm', memo:'2차 방문. 환자 108명 안정적.',checked:false},
+    {id:11,day:26, mr:'jo',  label:'계양_원광의원',  region:'계양',patients:0,  ilmansa:'미참여',edu:'미이수',  device:'미도입',time:'am', memo:'영업 타겟. 원장 설득 필요.',checked:false},
+    {id:12,day:27, mr:'choi',label:'김포_미래의원',  region:'김포',patients:8,  ilmansa:'참여', edu:'D-7이내', device:'미도입',time:'pm', memo:'삭감 위험 D-3. 즉시 연락.',checked:false}
+  ],
+  '2026-6': [
+    {id:13,day:3,  mr:'gang',label:'부평_연세내과',  region:'부평',patients:108,ilmansa:'참여', edu:'이수완료',device:'혈압계',time:'am', memo:'',checked:false},
+    {id:14,day:5,  mr:'kim', label:'계양_한림의원',  region:'계양',patients:22, ilmansa:'참여', edu:'이수완료',device:'혈압계',time:'pm', memo:'',checked:false},
+    {id:15,day:10, mr:'jung',label:'부평_인하의원',  region:'부평',patients:48, ilmansa:'참여', edu:'이수완료',device:'미도입',time:'all',memo:'',checked:false},
+    {id:16,day:17, mr:'jo',  label:'계양_서울가정',  region:'계양',patients:95, ilmansa:'참여', edu:'이수완료',device:'혈당계',time:'am', memo:'',checked:false},
+    {id:17,day:24, mr:'choi',label:'김포_삼성의원',  region:'김포',patients:18, ilmansa:'참여', edu:'이수완료',device:'당독소',time:'pm', memo:'',checked:false}
+  ]
+};
+var nextId = 100;
+var MEMO_STORE = {}; // 거래처명 → 메모 저장소
+
+// ===== 거래처 현황판 데이터 =====
+var CLINICS = [
+  {mr:'choi',name:'정다운내과',ilmansa:'참여',welcheck:true,patients:317,ilCnt:499,nonCnt:0,lastVisit:'5/12',edu:'미이수',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'조현철내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:454,lastVisit:'7/26',edu:'이수완료',device:'미확인',dues:'비납부',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'한솔내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:56,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'연세소망내과',ilmansa:'참여',welcheck:true,patients:5,ilCnt:460,nonCnt:0,lastVisit:'3/12',edu:'이수완료',device:'미확인',dues:'납부',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'동수녹십자의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'어중건내과',ilmansa:'참여',welcheck:true,patients:48,ilCnt:218,nonCnt:0,lastVisit:'4/8',edu:'이수완료',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'choi',name:'안심내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:4,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'굿모닝내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:4,lastVisit:'11/13',edu:'미이수',device:'미확인',dues:'납부',region:'김포',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'리더스의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'조은의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'현내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'누가의원',ilmansa:'참여',welcheck:true,patients:177,ilCnt:180,nonCnt:4,lastVisit:'5/13',edu:'미이수',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'choi',name:'연세준365의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:40,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'푸른솔가정의학과',ilmansa:'참여',welcheck:true,patients:7,ilCnt:7,nonCnt:20,lastVisit:'4/17',edu:'미이수',device:'미확인',dues:'납부',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'김기택내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'choi',name:'성모누리의원',ilmansa:'참여',welcheck:true,patients:6,ilCnt:9,nonCnt:3,lastVisit:'5/6',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kim',name:'김포정원내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:36,lastVisit:'6/28',edu:'이수완료',device:'미확인',dues:'납부',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kim',name:'든든한내과',ilmansa:'참여',welcheck:true,patients:70,ilCnt:71,nonCnt:35,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kim',name:'남궁의원(연구)',ilmansa:'참여',welcheck:true,patients:2,ilCnt:6,nonCnt:16,lastVisit:'1/29',edu:'이수완료',device:'미확인',dues:'비납부',region:'김포',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kim',name:'김포참조은내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:60,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kim',name:'고촌성모의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:50,lastVisit:'8/29',edu:'미이수',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kim',name:'김내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kim',name:'연세비케이의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kim',name:'퍼스트내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:5,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'kim',name:'김포강심장내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:2,lastVisit:'9/26',edu:'미이수',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'예정',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'kim',name:'조은미래의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:418,lastVisit:'10/21',edu:'미이수',device:'미확인',dues:'비납부',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kim',name:'연세모두의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:11,nonCnt:0,lastVisit:'11/25',edu:'미이수',device:'미확인',dues:'비납부',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'명의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'연세가정의원',ilmansa:'참여',welcheck:true,patients:34,ilCnt:210,nonCnt:0,lastVisit:'5/7',edu:'이수완료',device:'미확인',dues:'납부',region:'계양',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'그랑프리의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'부광의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:4,nonCnt:0,lastVisit:'12/24',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'홍정표내과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'김포속편한내과',ilmansa:'참여',welcheck:true,patients:7,ilCnt:118,nonCnt:387,lastVisit:'5/31',edu:'이수완료',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'한맘의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'다남메디의원',ilmansa:'참여',welcheck:true,patients:4,ilCnt:4,nonCnt:1,lastVisit:'5/7',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'부평삼산내과',ilmansa:'참여',welcheck:true,patients:1,ilCnt:1,nonCnt:0,lastVisit:'3/6',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'미래한솔내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:41,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'사랑의가정의학과의원',ilmansa:'참여',welcheck:true,patients:1,ilCnt:4,nonCnt:2,lastVisit:'6/20',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'중앙성모의원',ilmansa:'참여',welcheck:true,patients:4,ilCnt:5,nonCnt:0,lastVisit:'4/29',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'허정일의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'서울신내과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:39,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'독일내과',ilmansa:'참여',welcheck:true,patients:171,ilCnt:175,nonCnt:12,lastVisit:'5/12',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'우리들내과',ilmansa:'참여',welcheck:true,patients:26,ilCnt:41,nonCnt:0,lastVisit:'5/11',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'탁월한내과의원',ilmansa:'참여',welcheck:true,patients:1,ilCnt:448,nonCnt:0,lastVisit:'1/14',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'우리내과의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:462,nonCnt:0,lastVisit:'6/28',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'두림메디컬의원',ilmansa:'참여',welcheck:true,patients:1,ilCnt:8,nonCnt:0,lastVisit:'6/18',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'아침도시서울의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:0,lastVisit:'8/29',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'삼성베스트내과의원',ilmansa:'참여',welcheck:true,patients:2,ilCnt:2,nonCnt:3,lastVisit:'5/8',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'부평탑내과(연구)',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:7,lastVisit:'9/27',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'중앙신경외과',ilmansa:'참여',welcheck:true,patients:4,ilCnt:4,nonCnt:45,lastVisit:'5/7',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'열린가정의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'연세의원',ilmansa:'참여',welcheck:true,patients:3,ilCnt:4,nonCnt:0,lastVisit:'4/8',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'gang',name:'인천동진의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:0,lastVisit:'9/30',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'예스가정의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:4,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'오이비인후과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:4,lastVisit:'9/30',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'gang',name:'최태열내과',ilmansa:'참여',welcheck:true,patients:339,ilCnt:351,nonCnt:0,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'부평열린내과',ilmansa:'참여',welcheck:true,patients:44,ilCnt:45,nonCnt:128,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'갈산내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'gang',name:'정건연세정신과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'함춘내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'박피부비뇨기과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:4,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'서울정형외과,신경과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:43,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'도입',dh_op:'도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'이수금내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'박안과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'우리가정의학과',ilmansa:'참여',welcheck:true,patients:291,ilCnt:331,nonCnt:0,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'봉정민내과',ilmansa:'참여',welcheck:true,patients:9,ilCnt:469,nonCnt:0,lastVisit:'4/30',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'새성모의원',ilmansa:'참여',welcheck:true,patients:10,ilCnt:10,nonCnt:2,lastVisit:'5/6',edu:'이수완료',device:'미확인',dues:'납부',region:'계양',visited:false,dh:'도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'상우내과의원(연구)',ilmansa:'참여',welcheck:true,patients:94,ilCnt:498,nonCnt:0,lastVisit:'5/13',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'jung',name:'연세사랑의원',ilmansa:'참여',welcheck:true,patients:37,ilCnt:287,nonCnt:0,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'납부',region:'계양',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'김석연내과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'인천평화의원',ilmansa:'참여',welcheck:true,patients:8,ilCnt:15,nonCnt:0,lastVisit:'4/27',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'삼성백내과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kyung',name:'건강플러스내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:0,lastVisit:'3/6',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kyung',name:'방규태내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kyung',name:'박가정의학과의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:40,lastVisit:'6/25',edu:'미이수',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'서울백내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'kyung',name:'연세내과의원',ilmansa:'참여',welcheck:true,patients:1,ilCnt:1,nonCnt:0,lastVisit:'1/22',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'삼성장편한내과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:8,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'마루내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:48,nonCnt:0,lastVisit:'6/28',edu:'미이수',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'성모25의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'리더스내과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:87,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'삼성오케이의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:6,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:false,dh:'도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'대곶중앙의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kyung',name:'연세의원(연구)',ilmansa:'참여',welcheck:true,patients:0,ilCnt:341,nonCnt:0,lastVisit:'2/19',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'소망의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:1,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'성심재활의학과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'효성의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:4,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'계양',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jung',name:'마송김내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'연세새봄내과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:46,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'jung',name:'향산제이메디컬의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:4,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'성혜정형외과의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:0,lastVisit:'8/28',edu:'미이수',device:'미확인',dues:'납부',region:'계양',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'삼성메디칼의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:0,lastVisit:'9/27',edu:'이수완료',device:'미확인',dues:'납부',region:'계양',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'더바른내과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:45,nonCnt:0,lastVisit:'10/30',edu:'이수완료',device:'미확인',dues:'납부',region:'계양',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'gang',name:'간석메디정형외과',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:0,lastVisit:'9/27',edu:'미이수',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'부개내과',ilmansa:'참여',welcheck:true,patients:4,ilCnt:5,nonCnt:0,lastVisit:'4/16',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'gang',name:'부평사랑내과',ilmansa:'참여',welcheck:true,patients:315,ilCnt:321,nonCnt:17,lastVisit:'5/13',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'이삭가정의학과의원',ilmansa:'참여',welcheck:true,patients:8,ilCnt:9,nonCnt:0,lastVisit:'5/11',edu:'이수완료',device:'미확인',dues:'납부',region:'계양',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'한가람메디즈의원',ilmansa:'참여',welcheck:true,patients:4,ilCnt:4,nonCnt:3,lastVisit:'4/27',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'삼성편한내과',ilmansa:'참여',welcheck:true,patients:4,ilCnt:5,nonCnt:0,lastVisit:'4/28',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'jo',name:'참조은내과',ilmansa:'참여',welcheck:true,patients:27,ilCnt:28,nonCnt:61,lastVisit:'5/11',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'kyung',name:'서울메디의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'예정',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'kim',name:'인성의원',ilmansa:'참여',welcheck:true,patients:160,ilCnt:173,nonCnt:0,lastVisit:'5/13',edu:'미이수',device:'미확인',dues:'비납부',region:'김포',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'전두수내과',ilmansa:'참여',welcheck:true,patients:246,ilCnt:252,nonCnt:29,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'키더한성장부평중앙의원',ilmansa:'참여',welcheck:true,patients:35,ilCnt:35,nonCnt:0,lastVisit:'5/13',edu:'미이수',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'안정경내과',ilmansa:'참여',welcheck:true,patients:7,ilCnt:8,nonCnt:0,lastVisit:'5/12',edu:'이수완료',device:'미확인',dues:'비납부',region:'김포',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'서울든든내과',ilmansa:'참여',welcheck:true,patients:418,ilCnt:419,nonCnt:22,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'도입',note:''},
+  {mr:'gang',name:'88하내과의원',ilmansa:'참여',welcheck:true,patients:0,ilCnt:0,nonCnt:45,lastVisit:'3/20',edu:'이수완료',device:'미확인',dues:'납부',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'연세코아내과의원',ilmansa:'참여',welcheck:true,patients:15,ilCnt:16,nonCnt:3,lastVisit:'5/7',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:''},
+  {mr:'jo',name:'사랑의내과',ilmansa:'참여',welcheck:true,patients:13,ilCnt:13,nonCnt:6,lastVisit:'5/13',edu:'미이수',device:'미확인',dues:'비납부',region:'김포',visited:false,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'도입',note:''},
+  {mr:'choi',name:'노상준가정의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:0,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'마로비뇨의학과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:5,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:true,dh:'도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'choi',name:'부평연세바른재활의학과',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:10,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'부평',visited:false,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'gang',name:'자애내과의원',ilmansa:'참여',welcheck:true,patients:51,ilCnt:52,nonCnt:7,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:''},
+  {mr:'jung',name:'호소아청소년과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:3,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'미도입',note:''}
+];
+
+// ===== 상태 =====
+var curYear=2026, curMonth=5, activeMR='all';
+
+var listVisit = 'all';
+var listQuick = 'all';
+var sortField = null;
+var sortDir = 1;
+function setVisitFilter(v){
+  listVisit=v;
+  renderList();
+}
+var listMR='all', listReg='all';
+var TODAY={y:2026,m:5,d:14};
+var editingId=null, addDay=null, addZone='all', detailId=null;
+
+// ===== 유틸 =====
+function gc(p){return p>=40?'#10b981':p>=20?'#f97316':'#ef4444';}
+function gw(p){return p>=40?'100%':p>=20?'55%':'28%';}
+function getKey(){return curYear+'-'+curMonth;}
+function getEvs(){return EVENTS[getKey()]||[];}
+function timeLabel(t){return t==='am'?'오전':t==='pm'?'오후':'종일';}
+
+// ===== 뷰 전환 =====
+function switchView(v){
+  document.getElementById('view-cal').classList.toggle('v-active', v==='cal');
+  document.getElementById('view-list').classList.toggle('v-active', v==='list');
+  document.getElementById('cat-cal').classList.toggle('cat-active', v==='cal');
+  document.getElementById('cat-list').classList.toggle('cat-active', v==='list');
+  var sub = document.getElementById('list-sub');
+  sub.style.display = v==='list' ? 'block' : 'none';
+  if(v==='list') renderList();
+}
+
+// ===== 사이드바 =====
+function toggleAcc(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
+function toggleBiz(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
+function toggleNat(el){
+  el.classList.toggle('open');
+  var body=document.getElementById('nat-body');
+  body.style.display = el.classList.contains('open') ? 'block' : 'none';
+}
+function setSubNav(el){
+  document.querySelectorAll('.sub-item').forEach(function(n){n.classList.remove('sub-active');});
+  el.classList.add('sub-active');
+}
+
+// ===== 담당자 필터 =====
+function filterMR(mr){
+  activeMR=mr;
+  var keys=['all','gang','kim','jung','jo','choi','kyung'];
+  keys.forEach(function(k){
+    var b=document.getElementById('mb-'+k);
+    b.classList.toggle('mb-on', k===mr);
+    b.classList.toggle('mb-dim', k!==mr);
+    b.style.borderColor = k===mr ? 'var(--t1)' : '';
+    b.style.color = k===mr ? 'var(--t1)' : '';
+    b.style.fontWeight = k===mr ? '700' : '';
+  });
+  renderCalendar();
+}
+
+// ===== 달력 렌더링 =====
+function renderCalendar(){
+  var evs=getEvs();
+  var firstDow=new Date(curYear,curMonth-1,1).getDay();
+  var daysInMonth=new Date(curYear,curMonth,0).getDate();
+  var isNow=(curYear===TODAY.y&&curMonth===TODAY.m);
+  document.getElementById('cal-label').textContent=curYear+'년 '+curMonth+'월';
+  document.getElementById('now-badge').style.display=isNow?'inline-block':'none';
+
+  var grid=document.getElementById('cal-grid');
+  while(grid.children.length>7)grid.removeChild(grid.lastChild);
+
+  for(var i=0;i<firstDow;i++){var e=document.createElement('div');e.className='ec';grid.appendChild(e);}
+
+  for(var d=1;d<=daysInMonth;d++){
+    var cell=document.createElement('div');cell.className='dc';
+    cell.style.cursor='pointer';
+    (function(day){ cell.onclick=function(e){ openAdd(day,'all'); }; })(d);
+    var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||e.mr===activeMR);});
+    var allEvs=dayEvs.filter(function(e){return e.time==='all';});
+    var amEvs=dayEvs.filter(function(e){return e.time==='am';});
+    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';});
+
+    // 날짜 헤더
+    var top=document.createElement('div');top.className='dc-top';
+    var dow=(firstDow+d-1)%7;
+    var holName=isHoliday(curYear,curMonth,d);
+    var isRed=(dow===0||!!holName);
+    var dn=document.createElement('div');
+    dn.style.cssText='display:flex;align-items:center;gap:3px;margin-bottom:0';
+    if(isNow&&d===TODAY.d){
+      var tc=document.createElement('div');tc.className='today-circle';tc.textContent=d;
+      dn.appendChild(tc);
+    } else {
+      var numSpan=document.createElement('span');
+      numSpan.className='day-num';
+      numSpan.textContent=d;
+      if(isRed) numSpan.style.color='#e53e3e';
+      dn.appendChild(numSpan);
+    }
+    if(holName){
+      var hlbl=document.createElement('span');
+      hlbl.textContent=holName;
+      hlbl.style.cssText='font-size:7px;color:#e53e3e;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;';
+      dn.appendChild(hlbl);
+    }
+    top.appendChild(dn);cell.appendChild(top);
+
+    // 종일만 있는 경우: 하나의 큰 영역
+    if(allEvs.length>0 && amEvs.length===0 && pmEvs.length===0){
+      var az=document.createElement('div');az.className='dc-all';
+      var lbl=document.createElement('div');lbl.className='zone-lbl';lbl.textContent='종일';
+      az.appendChild(lbl);
+
+      allEvs.forEach(function(ev){az.appendChild(buildChip(ev,true));});
+      cell.appendChild(az);
+    } else {
+      // 오전 영역
+      var am=document.createElement('div');am.className='dc-am';
+      am.appendChild(top);
+      var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.className='zone-lbl';amlbl.textContent='오전';
+      am.appendChild(amlbl);
+  
+      amEvs.forEach(function(ev){am.appendChild(buildChip(ev,false));});
+      var sep=document.createElement("div");sep.className="dc-sep";
+      cell.appendChild(am);
+      cell.appendChild(sep);
+      // 오후 영역
+      var pm=document.createElement('div');pm.className='dc-pm';
+      var pmlbl=document.createElement('div');pmlbl.className='zone-lbl';pmlbl.textContent='오후';
+      pm.appendChild(pmlbl);
+  
+      pmEvs.forEach(function(ev){pm.appendChild(buildChip(ev,false));});
+      cell.appendChild(pm);
+    }
+    grid.appendChild(cell);
+  }
+  var total=firstDow+daysInMonth;
+  var rem=(7-total%7)%7;
+  for(var j=0;j<rem;j++){var e2=document.createElement('div');e2.className='ec';grid.appendChild(e2);}
+}
+
+function buildChip(ev, isAll){
+  var m=MR[ev.mr];
+  var chip=document.createElement('div');
+  chip.className='ev'+(isAll?' ev-allday':'');
+  chip.style.background=m.bg; chip.style.color=m.t;
+  
+  var cb=document.createElement('input');cb.type='checkbox';cb.checked=ev.checked;
+  cb.onclick=function(e){e.stopPropagation();ev.checked=cb.checked;};
+  var txt=document.createElement('span');txt.className='ev-txt';txt.textContent=ev.label;
+  var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
+  chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
+  chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
+  return chip;
+}
+
+// ===== 월/연 이동 =====
+function changeMonth(d){curMonth+=d;if(curMonth>12){curMonth=1;curYear++;}if(curMonth<1){curMonth=12;curYear--;}renderCalendar();}
+function changeYear(d){curYear+=d;renderCalendar();}
+
+// ===== 일정 추가 모달 =====
+function openAdd(day, zone){
+  editingId=null; addDay=day; addZone=zone;
+  document.getElementById('add-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 일정 추가';
+  document.getElementById('inp-clinic').value='';
+  document.getElementById('inp-mr').value='gang';
+  document.getElementById('inp-time').value=zone;
+  document.getElementById('inp-patients').value='';
+  document.getElementById('inp-ilmansa').value='참여';
+  document.getElementById('inp-device').value='미도입';
+  document.getElementById('inp-edu').value='이수완료';
+  document.getElementById('inp-memo').value='';
+  document.getElementById('del-btn').style.display='none';
+  document.getElementById('add-ov').classList.add('ov-open');
+}
+function openEditModal(ev){
+  editingId=ev.id; addDay=ev.day;
+  document.getElementById('add-title').textContent='일정 수정';
+  document.getElementById('inp-clinic').value=ev.label;
+  document.getElementById('inp-mr').value=ev.mr;
+  loadClinicsByMR(ev.mr);
+  document.getElementById('inp-clinic').value=ev.label;
+  document.getElementById('inp-time').value=ev.time;
+  document.getElementById('inp-patients').value=ev.patients;
+  document.getElementById('inp-ilmansa').value=ev.ilmansa;
+  document.getElementById('inp-device').value=ev.device;
+  document.getElementById('inp-edu').value=ev.edu;
+  document.getElementById('inp-memo').value=ev.memo;
+  document.getElementById('del-btn').style.display='inline-block';
+  document.getElementById('detail-ov').classList.remove('ov-open');
+  document.getElementById('add-ov').classList.add('ov-open');
+}
+function saveEv(){
+  var key=getKey(); if(!EVENTS[key])EVENTS[key]=[];
+  var label=document.getElementById('inp-clinic').value.trim();
+  if(!label){alert('거래처명을 입력해주세요.');return;}
+  var ev={
+    id:editingId||nextId++, day:addDay,
+    mr:document.getElementById('inp-mr').value,
+    label:label,
+    region:label.includes('부평')?'부평':label.includes('계양')?'계양':label.includes('김포')?'김포':'기타',
+    patients:parseInt(document.getElementById('inp-patients').value)||0,
+    ilmansa:document.getElementById('inp-ilmansa').value,
+    edu:document.getElementById('inp-edu').value,
+    device:document.getElementById('inp-device').value,
+    time:document.getElementById('inp-time').value,
+    memo:document.getElementById('inp-memo').value,
+    checked:false
+  };
+  // 메모 저장
+  if(ev.label && ev.memo) MEMO_STORE[ev.label] = ev.memo;
+  if(editingId){
+    var idx=EVENTS[key].findIndex(function(e){return e.id===editingId;});
+    if(idx>=0){var old=EVENTS[key][idx];ev.checked=old.checked;EVENTS[key][idx]=ev;}
+  } else { EVENTS[key].push(ev); }
+  closeAdd(); renderCalendar();
+}
+function deleteEv(){
+  if(!editingId)return;
+  var key=getKey();
+  EVENTS[key]=EVENTS[key].filter(function(e){return e.id!==editingId;});
+  closeAdd(); renderCalendar();
+}
+function closeAdd(){document.getElementById('add-ov').classList.remove('ov-open');}
+
+// ===== 거래처 상세 모달 =====
+function openDetail(id){
+  var key=getKey();
+  var ev=(EVENTS[key]||[]).find(function(e){return e.id===id;});
+  if(!ev)return; detailId=id;
+  var m=MR[ev.mr];
+  document.getElementById('dm-name').textContent=ev.label;
+  var badge=document.getElementById('dm-badge');
+  badge.textContent=m.name+' MR'; badge.style.background=m.bg; badge.style.color=m.t;
+  document.getElementById('dm-time').textContent=timeLabel(ev.time);
+  document.getElementById('dm-checked').textContent=ev.checked?'✅ 방문 완료':'⬜ 방문 예정';
+  // 마지막 방문일: 같은 거래처의 체크된 이벤트 중 가장 최근
+  var allEvs2=[];
+  Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(function(e){ if(e.label===ev.label) allEvs2.push(e); }); });
+  var visited=allEvs2.filter(function(e){return e.checked;});
+  document.getElementById('dm-lastvisit').textContent=visited.length>0?visited[visited.length-1].label+'('+curYear+'.'+curMonth+'.'+visited[visited.length-1].day+')':'방문 이력 없음';
+  var p=ev.patients||0;
+  document.getElementById('dm-patients').textContent=p+'명';
+  document.getElementById('dm-gauge').style.width=gw(p);
+  document.getElementById('dm-gauge').style.background=gc(p);
+  document.getElementById('dm-gauge-lbl').textContent=p>=40?'✅ 활성처 달성':p>=20?'⚠ MR 기준 달성':'❌ 기준 미달';
+  document.getElementById('dm-memo').value=MEMO_STORE[ev.label]||ev.memo||'';
+  var hist=document.getElementById('dm-hist');
+  hist.innerHTML=[
+    {date:'5/12',txt:'웰체크 세팅 완료, 간호사 교육 1회차'},
+    {date:'4/8', txt:'일만사 참여 안내, 원장님 긍정 반응'},
+    {date:'3/15',txt:'초기 상담, 디지털기기 관심 표명'}
+  ].map(function(h){return '<div class="hist-item"><span class="hist-date">'+h.date+'</span><span>'+h.txt+'</span></div>';}).join('');
+  document.getElementById('detail-ov').classList.add('ov-open');
+}
+function saveDetailMemo(){
+  var key=getKey();
+  var ev=(EVENTS[key]||[]).find(function(e){return e.id===detailId;});
+  var memoVal=document.getElementById('dm-memo').value;
+  if(ev){
+    ev.memo=memoVal;
+    MEMO_STORE[ev.label]=memoVal;
+    // 같은 거래처 모든 이벤트에 메모 동기화
+    Object.keys(EVENTS).forEach(function(k){
+      (EVENTS[k]||[]).forEach(function(e){ if(e.label===ev.label) e.memo=memoVal; });
+    });
+  }
+  alert('메모가 저장되었습니다.');
+}
+function openEditFromDetail(){
+  var key=getKey();
+  var ev=(EVENTS[key]||[]).find(function(e){return e.id===detailId;});
+  if(ev) openEditModal(ev);
+}
+function closeDetail(){document.getElementById('detail-ov').classList.remove('ov-open');}
+
+// ===== 거래처 현황판 =====
+function listFilter(mr, reg){
+  listMR=mr; listReg=reg;
+  var title='경인1 거래처 현황판';
+  if(mr!=='all') title=MR[mr].name+' 담당 거래처';
+  else if(reg!=='all') title='📍 '+reg+' 지역 거래처';
+  document.getElementById('list-title').textContent=title;
+  var fpRow=document.querySelector('.fp-row');
+  if(fpRow) fpRow.style.display=(mr==='all'&&reg==='all')?'flex':'none';
+  // fp-row 버튼 동기화
+  document.querySelectorAll('.fpill').forEach(function(b){b.classList.remove('fp-on');});
+  if(mr!=='all'){
+    var mrKeys={'gang':'강태경','kim':'김태정','jung':'정영수','jo':'조예린','choi':'최주호','kyung':'김경식'};
+    document.querySelectorAll('.fpill').forEach(function(b){
+      if(b.textContent.trim()===mrKeys[mr]) b.classList.add('fp-on');
+    });
+  } else if(reg!=='all'){
+    document.querySelectorAll('.fpill').forEach(function(b){
+      if(b.textContent.trim()===reg) b.classList.add('fp-on');
+    });
+  } else {
+    var allBtn=document.querySelector('.fpill');
+    if(allBtn) allBtn.classList.add('fp-on');
+  }
+  switchView('list');
+}
+function fpClick(btn, mr, reg){
+  listMR=mr; listReg=reg;
+  document.querySelectorAll('.fpill').forEach(function(b){b.classList.remove('fp-on');});
+  btn.classList.add('fp-on');
+  var title='경인1 거래처 현황판';
+  if(mr!=='all') title=MR[mr].name+' 담당 거래처';
+  else if(reg!=='all') title='📍 '+reg+' 지역 거래처';
+  document.getElementById('list-title').textContent=title;
+  renderList();
+}
+function renderList(){
+  var fpRow=document.getElementById('fp-row');
+  if(fpRow) fpRow.style.display=(listMR==='all'&&listReg==='all')?'flex':'none';
+  var data=CLINICS.filter(function(c){
+    return (listMR==='all'||c.mr===listMR)&&(listReg==='all'||c.region===listReg);
+  });
+  if(listVisit!=='all'){
+    data=data.filter(function(c){ return listVisit==='visited'?c.visited:!c.visited; });
+  }
+  if(listQuick==='low') data=data.filter(function(c){ return (c.patients||0)<20; });
+  if(listQuick==='notyet') data=data.filter(function(c){ return c.edu==='미이수'; });
+  if(listQuick==='unpaid') data=data.filter(function(c){ return c.dues==='비납부'; });
+  // 정렬
+  if(sortField){
+    data=data.slice().sort(function(a,b){
+      var av=a[sortField],bv=b[sortField];
+      if(typeof av==='number') return (av-bv)*sortDir;
+      if(av==='도입'&&bv!=='도입') return -sortDir;
+      if(bv==='도입'&&av!=='도입') return sortDir;
+      return (av||'').localeCompare(bv||'')*sortDir;
+    });
+  }
+  function ecls(e){ return e==='이수완료'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
+  function gcol(p){ return p>=40?'#10b981':p>=20?'#f97316':'#ef4444'; }
+  function gwid(p){ return p>=40?'100%':p>=20?'55%':'28%'; }
+  function dot(v,didx,field){
+    var style=v==='도입'
+      ?'width:11px;height:11px;border-radius:50%;background:#C4A882;display:inline-block;cursor:pointer'
+      :'width:11px;height:11px;border-radius:50%;border:1.5px solid #CCC;display:inline-block;cursor:pointer';
+    return '<span style="'+style+'" data-idx="'+didx+'" data-field="'+field+'" onclick="showDotPopup(this)"></span>';
+  }
+
+  var rows='';
+  data.forEach(function(c){
+    var m=MR[c.mr];
+    var reg=c.region||'미확인';
+    var rb='';
+    var visitMark=c.visited?'<span style="color:#10b981;font-weight:700">O</span>':'<span style="color:#ef4444;font-weight:700">X</span>';
+    var dc=reg==='부평'?'#5B7FD4':reg==='계양'?'#3A9E6A':reg==='김포'?'#D4884A':'#AAA';
+    var regBg=reg==='부평'?'#E8F0FF':reg==='계양'?'#E8FFF0':'#FFF4E8';
+    var duesLabel=c.dues||'해당없음';
+    var duBg=duesLabel==='납부'?'#E4F5EE;color:#145C38':duesLabel==='비납부'?'#FEEEEE;color:#B01A1A':'#F8F8F8;color:#aaa';
+    var idx=CLINICS.indexOf(c);
+    rows+='<tr style="'+(rb?rb+';':'')+'">'
+      +'<td style="white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:'+dc+'">'
+      +'<span style="background:'+regBg+';border:1.5px solid '+dc+';font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%">📍</span>'+reg+'</span></td>'
+      +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
+      +'<td><span style="display:inline-flex;align-items:center;justify-content:space-between;width:100%">'
+      +'<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</span>'
+      +'<span data-idx="'+idx+'" onclick="showNotePopup(this)" style="cursor:pointer;font-size:11px;flex-shrink:0;color:'+(c.note&&c.note.trim()?'#333':'#DCDCDC')+'">📋</span>'
+      +'</span></td>'
+      // 일만사&웰체크 구역
+      +'<td style="text-align:center;border-left:2px solid #C8D8C0">'+visitMark+'</td>'
+      +'<td style="text-align:center"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
+      +'<td style="text-align:center"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
+      +'<td><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
+      +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
+      +'<td style="text-align:center"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
+      // DH 구역
+      +'<td style="text-align:center;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
+      +'<td style="text-align:center">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
+      +'<td style="text-align:center">'+dot(c.dh_sp,idx,'dh_sp')+'</td>'
+      +'<td style="text-align:center">'+dot(c.dh_mb,idx,'dh_mb')+'</td>'
+      +'</tr>';
+  });
+
+  document.getElementById('list-body').innerHTML=
+    '<div class="list-sec" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">'
+    +'<span style="font-weight:700">경인1 거래처 현황판 ('+data.length+'곳)</span>'
+    +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;align-items:center">'
+    +'<button data-vf="all" class="fpill vf-btn '+(listVisit==='all'?'fp-on':'')+'" style="font-size:10px;padding:2px 8px">전체</button>'
+    +'<button data-vf="visited" class="fpill vf-btn '+(listVisit==='visited'?'fp-on':'')+'" style="font-size:10px;padding:2px 8px">방문O</button>'
+    +'<button data-vf="notvisited" class="fpill vf-btn '+(listVisit==='notvisited'?'fp-on':'')+'" style="font-size:10px;padding:2px 8px">방문X</button>'
+    +'<div style="width:0.5px;height:14px;background:#ccc;margin:0 2px"></div>'
+    +'<button data-qf="low" class="fpill qf-btn '+(listQuick==='low'?'fp-on':'')+'" style="font-size:10px;padding:2px 8px;color:#ef4444;border-color:#ef4444">📊 활성도 저조</button>'
+    +'<button data-qf="notyet" class="fpill qf-btn '+(listQuick==='notyet'?'fp-on':'')+'" style="font-size:10px;padding:2px 8px;color:#B01A1A;border-color:#B01A1A">❗ 심화교육 미이수</button>'
+    +'<button data-qf="unpaid" class="fpill qf-btn '+(listQuick==='unpaid'?'fp-on':'')+'" style="font-size:10px;padding:2px 8px;color:#8A6800;border-color:#8A6800">💰 의협회비 미납</button>'
+    +'</div></div>'
+    +'<table class="gtbl"><thead>'
+    +'<tr style="background:var(--bg2)">'
+    +'<th colspan="3" style="border-bottom:0.5px solid var(--bd)"></th>'
+    +'<th colspan="6" style="text-align:center;font-size:10px;color:#2A7A4A;border-left:2px solid #C8D8C0;border-bottom:0.5px solid var(--bd);font-weight:700">일만사 &amp; 웰체크</th>'
+    +'<th colspan="4" style="text-align:center;font-size:10px;color:#1048A0;border-left:2px solid #B8C8D8;border-bottom:0.5px solid var(--bd);font-weight:700">DH 기기</th>'
+    +'</tr>'
+    +'<tr>'
+    +'<th style="width:55px">지역</th>'
+    +'<th style="width:55px">담당자</th>'
+    +'<th style="width:120px">거래처명</th>'
+    +'<th style="width:52px;text-align:center;border-left:2px solid #C8D8C0">교육간호사<br>방문</th>'
+    +'<th style="width:48px;text-align:center">일만사</th>'
+    +'<th style="width:44px;text-align:center">웰체크</th>'
+    +'<th class="sort-th" data-sort="patients" style="width:150px;text-align:center;cursor:pointer">활성도 ↕</th>'
+    +'<th class="sort-th" data-sort="edu" style="width:68px;text-align:center;cursor:pointer">심화교육 ↕</th>'
+    +'<th class="sort-th" data-sort="dues" style="width:56px;text-align:center;cursor:pointer">의협회비 ↕</th>'
+    +'<th class="sort-th" data-sort="dh_op" style="width:56px;text-align:center;border-left:2px solid #B8C8D8;cursor:pointer">옵티나&amp;위스키 ↕</th>'
+    +'<th class="sort-th" data-sort="dh_cp" style="width:48px;text-align:center;cursor:pointer">카트비피 ↕</th>'
+    +'<th class="sort-th" data-sort="dh_sp" style="width:52px;text-align:center;cursor:pointer">더스피로킷 ↕</th>'
+    +'<th class="sort-th" data-sort="dh_mb" style="width:48px;text-align:center;cursor:pointer">모비케어 ↕</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+// ===== 모달 외부 클릭 닫기 =====
+document.getElementById('add-ov').addEventListener('click',function(e){if(e.target===this)closeAdd();});
+document.getElementById('detail-ov').addEventListener('click',function(e){if(e.target===this)closeDetail();});
+
+// vf-btn 이벤트 위임
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('.vf-btn');
+  if(btn) setVisitFilter(btn.dataset.vf);
+});
+
+// ===== 초기화 =====
+switchView('cal');
+renderCalendar();
+
+// ===== 담당자 선택 → 거래처 자동 로드 =====
+function loadClinicsByMR(mr) {
+  var dl = document.getElementById('clinic-list');
+  if (!dl) return;
+  dl.innerHTML = '';
+  if (!mr) return;
+  // 캘린더에는 웰체크 시행처만 (welcheck:true)
+  var filtered = CLINICS.filter(function(c){ return c.mr === mr && c.welcheck === true; });
+  filtered.forEach(function(c){
+    var opt = document.createElement('option');
+    opt.value = c.name;
+    dl.appendChild(opt);
+  });
+  var inp = document.getElementById('inp-clinic');
+  inp.value = '';
+  inp.placeholder = filtered.length > 0
+    ? '▼ ' + filtered.length + '개 거래처 중 선택'
+    : '해당 담당자 웰체크 거래처 없음';
+}
+
+// 거래처 선택 → 일만사/환자수 자동 채우기
+function onClinicSelect() {
+  var name = document.getElementById('inp-clinic').value.trim();
+  var found = CLINICS.find(function(c){ return c.name === name; });
+  if (found) {
+    document.getElementById('inp-ilmansa').value = found.ilmansa;
+    if (found.patients > 0) document.getElementById('inp-patients').value = found.patients;
+  }
+  if (name && MEMO_STORE[name]) {
+    document.getElementById('inp-memo').value = MEMO_STORE[name];
+  }
+  // 마지막 방문일
+  var lv=document.getElementById('add-last-visit');
+  if(lv) lv.textContent=found?(found.lastVisit||'방문 이력 없음'):'거래처 선택 후 표시';
+  // 활성도 게이지
+  var gw=document.getElementById('add-gauge-wrap');
+  var gf=document.getElementById('add-gauge-fill');
+  var gn=document.getElementById('add-gauge-num');
+  var ge=document.getElementById('add-gauge-empty');
+  if(found&&gw){
+    var p=found.patients||0;
+    var col=p>=40?'#10b981':p>=20?'#f97316':'#ef4444';
+    var wid=p>=40?'100%':p>=20?'55%':'28%';
+    gw.style.display='flex';gf.style.width=wid;gf.style.background=col;
+    gn.textContent=p+'명';gn.style.color=col;
+    if(ge) ge.style.display='none';
+  } else if(gw){
+    gw.style.display='none';
+    if(ge) ge.style.display='block';
+  }
+  // 방문 이력 표시
+  var histSection = document.getElementById('add-hist-section');
+  var histList = document.getElementById('add-hist-list');
+  if (name && histSection && histList) {
+    var visits = [];
+    Object.keys(EVENTS).forEach(function(k){
+      (EVENTS[k]||[]).forEach(function(e){
+        if(e.label === name) visits.push({key:k, day:e.day, checked:e.checked, time:e.time});
+      });
+    });
+    if (visits.length > 0) {
+      histSection.style.display = 'block';
+      histList.innerHTML = visits.map(function(v){
+        var dateStr = v.key + '.' + v.day + ' (' + (v.time==='all'?'종일':v.time==='am'?'오전':'오후') + ')';
+        return '<div style="padding:2px 0;color:'+(v.checked?'#145C38':'var(--t2)')+'">'+dateStr+' '+(v.checked?'✅ 방문완료':'⬜ 예정')+'</div>';
+      }).join('');
+    } else {
+      histSection.style.display = 'none';
+    }
+  }
+}
+
+// ===== 심화교육 현황 계산 =====
+function updateEduStats(){
+  var total = CLINICS.filter(function(c){ return c.ilmansa==='참여'; }).length;
+  var done  = CLINICS.filter(function(c){ return c.ilmansa==='참여' && c.edu==='이수완료'; }).length;
+  var notyet= CLINICS.filter(function(c){ return c.ilmansa==='참여' && c.edu==='미이수'; }).length;
+
+  var et=document.getElementById('edu-total');
+  var en=document.getElementById('edu-notyet');
+
+  if(et) et.textContent=total+'곳';
+  var ed=document.getElementById('edu-done');
+  if(ed) ed.textContent=done+'곳';
+  if(en) en.textContent=notyet+'곳';
+
+}
+
+// ===== 초기화 =====
+updateEduStats();
+
+
+function closeDHPopup(){ var p=document.getElementById('dh-popup'); if(p) p.remove(); }
+function closeEduPopup(){ var p=document.getElementById('edu-popup'); if(p) p.remove(); }
+// DH기기 팝업
+function showDHPopup(el){
+  var idx=parseInt(el.dataset.idx);
+  var c=CLINICS[idx];
+  var current=el.dataset.dh||'미도입';
+  var existing=document.getElementById('dh-popup');
+  if(existing) existing.remove();
+  var items=['미도입','도입','예정','옵티나&위스키','카트비피','더스피로킷','모비케어'];
+  var div=document.createElement('div');
+  div.id='dh-popup';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid #ccc;border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:200px';
+  var rect=el.getBoundingClientRect();
+  div.style.top=(rect.bottom+6)+'px';
+  div.style.left=Math.min(rect.left,window.innerWidth-220)+'px';
+  div.innerHTML='<div style="font-size:12px;font-weight:700;margin-bottom:10px">DH기기 설정</div>'
+    +['미도입','도입','예정'].map(function(item){
+      return '<label style="display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px;cursor:pointer">'
+        +'<input type="radio" name="dh-opt" value="'+item+'" '+(current===item?'checked':'')+'/> '+item+'</label>';
+    }).join('')
+    +'<hr style="margin:8px 0;border:none;border-top:0.5px solid #eee"/>'
+    +'<div style="font-size:10px;color:#888;margin-bottom:4px">품목 선택</div>'
+    +['옵티나&위스키','카트비피','더스피로킷','모비케어'].map(function(item){
+      return '<label style="display:flex;align-items:center;gap:7px;padding:3px 0;font-size:11px;cursor:pointer">'
+        +'<input type="checkbox" value="'+item+'"/> '+item+'</label>';
+    }).join('')
+    +'<div style="display:flex;gap:6px;margin-top:10px">'
+    +'<button id="dh-save" style="flex:1;padding:5px;font-size:11px;background:#F47920;color:white;border:none;border-radius:6px;cursor:pointer">저장</button>'
+    +'<button onclick="closeDHPopup()" style="flex:1;padding:5px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+    +'</div>';
+  document.body.appendChild(div);
+  document.getElementById('dh-save').onclick=function(){
+    var sel=div.querySelector('input[name="dh-opt"]:checked');
+    if(sel&&c){
+      c.dh=sel.value;
+      c.dh_op=div.querySelector('input[value="옵티나&위스키"]').checked;
+      c.dh_cp=div.querySelector('input[value="카트비피"]').checked;
+      c.dh_sp=div.querySelector('input[value="더스피로킷"]').checked;
+      c.dh_mb=div.querySelector('input[value="모비케어"]').checked;
+      renderList();
+    }
+    div.remove();
+  };
+  setTimeout(function(){
+    document.addEventListener('click',function handler(e){
+      if(!div.contains(e.target)&&e.target!==el){div.remove();document.removeEventListener('click',handler);}
+    });
+  },100);
+}
+
+// 심화교육 팝업
+function showEduPopup(el){
+  var idx=parseInt(el.dataset.idx);
+  var c=CLINICS[idx];
+  var current=el.dataset.edu||'해당없음';
+  var clinicName=c?c.name:'';
+  var existing=document.getElementById('edu-popup');
+  if(existing) existing.remove();
+  var div=document.createElement('div');
+  div.id='edu-popup';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid #ccc;border-radius:10px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:240px';
+  var rect=el.getBoundingClientRect();
+  div.style.top=(rect.bottom+6)+'px';
+  div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
+  var isTarget=current!=='해당없음';
+  div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">심화교육 현황</div>'
+    +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
+    +(isTarget
+      ?'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+        +'<div>이수 기한: <b style="color:#B01A1A">2026년 12월 31일</b></div>'
+        +'<div style="margin-top:6px">현재: <b style="color:'+(current==='이수완료'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px">'
+        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수완료</button>'
+        +'<button id="edu-yet-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">미이수</button>'
+        +'<button onclick="closeEduPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+        +'</div>'
+      :'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;color:#888;margin-bottom:10px">일만사 미참여 — 해당없음</div>'
+        +'<button onclick="closeEduPopup()" style="width:100%;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+    );
+  document.body.appendChild(div);
+  if(isTarget){
+    document.getElementById('edu-done-btn').onclick=function(){ if(c){c.edu='이수완료';renderList();updateEduStats();} div.remove(); };
+    document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';renderList();updateEduStats();} div.remove(); };
+  }
+  setTimeout(function(){
+    document.addEventListener('click',function handler(e){
+      if(!div.contains(e.target)&&!el.contains(e.target)){div.remove();document.removeEventListener('click',handler);}
+    });
+  },100);
+}
+function updateEdu(name,val){
+  var c=CLINICS.find(function(x){return x.name===name;});
+  if(c){c.edu=val;renderList();updateEduStats();}
+}
+
+function closeEduList(){ var p=document.getElementById('edu-list-popup'); if(p) p.remove(); }
+function showEduList(type, event) {
+  if(event) event.stopPropagation();
+  var existing=document.getElementById('edu-list-popup');
+  if(existing){ existing.remove(); return; }
+  var filtered=CLINICS.filter(function(c){ return c.ilmansa==='참여'; });
+  if(type==='done') filtered=filtered.filter(function(c){ return c.edu==='이수완료'; });
+  if(type==='notyet') filtered=filtered.filter(function(c){ return c.edu==='미이수'; });
+  var titleHtml=type==='done'
+    ?'<span style="color:#145C38">✅ 이수완료 거래처</span>'
+    :type==='notyet'
+    ?'<span style="color:#B01A1A">❗ 미이수 거래처</span>'
+    :'심화교육 대상 전체';
+  var popup=document.createElement('div');
+  popup.id='edu-list-popup';
+  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--white);border:0.5px solid var(--bd2);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);width:320px;max-height:420px;display:flex;flex-direction:column';
+  var rows=filtered.map(function(c){
+    var m=MR[c.mr]||{};
+    var dc=c.region==='부평'?'#5B7FD4':c.region==='계양'?'#3A9E6A':c.region==='김포'?'#D4884A':'#999';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--bd);font-size:11px">'
+      +'<span style="width:6px;height:6px;border-radius:50%;background:'+dc+';flex-shrink:0"></span>'
+      +'<span style="color:var(--t2);width:30px;flex-shrink:0">'+c.region+'</span>'
+      +'<span style="background:'+(m.bg||'#eee')+';color:'+(m.t||'#666')+';padding:1px 6px;border-radius:999px;font-size:10px;flex-shrink:0">'+(m.name||c.mr)+'</span>'
+      +'<span style="font-weight:600;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</span>'
+      +'</div>';
+  }).join('');
+  popup.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<span style="font-size:13px;font-weight:700">'+titleHtml+' ('+filtered.length+'곳)</span>'
+    +'<button onclick="closeEduList()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t2);font-family:inherit;line-height:1">✕</button>'
+    +'</div>'
+    +'<div style="overflow-y:auto;flex:1">'+(rows||'<div style="color:var(--t3);font-size:12px;padding:16px 0;text-align:center">해당 거래처 없음</div>')+'</div>';
+  document.body.appendChild(popup);
+  document.addEventListener('click',function handler(e){
+    var p=document.getElementById('edu-list-popup');
+    if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener('click',handler); }
+  });
+}
+
+function closeNotePopup(){ var p=document.getElementById('note-popup'); if(p) p.remove(); }
+function showNotePopup(el){
+  var idx=parseInt(el.dataset.idx);
+  var c=CLINICS[idx];
+  var existing=document.getElementById('note-popup');
+  if(existing) existing.remove();
+  var div=document.createElement('div');
+  div.id='note-popup';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid var(--bd2);border-radius:10px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.15);width:280px';
+  var rect=el.getBoundingClientRect();
+  div.style.top=(rect.bottom+6)+'px';
+  div.style.left=Math.min(rect.left,window.innerWidth-290)+'px';
+  div.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px">📝 '+c.name+' 특이사항</div>'
+    +'<textarea id="note-ta" style="width:100%;height:100px;font-size:11px;border:0.5px solid var(--bd2);border-radius:6px;padding:7px;font-family:inherit;resize:vertical;box-sizing:border-box" placeholder="예) 5/20 옵티나&위스키 데모 예정&#10;예) 엑스배너 요청함">'+( c.note||'')+'</textarea>'
+    +'<div style="display:flex;gap:6px;margin-top:8px">'
+    +'<button id="note-save" style="flex:1;padding:5px;font-size:11px;background:var(--dw);color:white;border:none;border-radius:6px;cursor:pointer">저장</button>'
+    +'<button onclick="closeNotePopup()" style="flex:1;padding:5px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+    +'</div>';
+  document.body.appendChild(div);
+  document.getElementById('note-save').onclick=function(){
+    c.note=document.getElementById('note-ta').value;
+    div.remove();
+    renderList();
+  };
+  setTimeout(function(){
+    document.addEventListener('click',function handler(e){
+      var p=document.getElementById('note-popup');
+      if(p&&!p.contains(e.target)&&!el.contains(e.target)){p.remove();document.removeEventListener('click',handler);}
+    });
+  },100);
+}
+
+function showDotPopup(el){
+  var existing=document.getElementById('dot-popup');
+  if(existing) existing.remove();
+  var idx=parseInt(el.dataset.idx);
+  var field=el.dataset.field;
+  var c=CLINICS[idx];
+  var cur=c[field]||'미도입';
+  var labels={dh_op:'옵티나&위스키',dh_cp:'카트비피',dh_sp:'더스피로킷',dh_mb:'모비케어'};
+  var div=document.createElement('div');
+  div.id='dot-popup';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid #ccc;border-radius:8px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:140px';
+  var rect=el.getBoundingClientRect();
+  div.style.top=(rect.bottom+4)+'px';
+  div.style.left=Math.min(rect.left-50,window.innerWidth-150)+'px';
+  var title=document.createElement('div');
+  title.style.cssText='font-size:11px;font-weight:700;color:var(--t1);margin-bottom:8px';
+  title.textContent=labels[field];
+  div.appendChild(title);
+  ['미도입','도입'].forEach(function(st){
+    var btn=document.createElement('button');
+    var sel=cur===st;
+    btn.style.cssText='display:flex;align-items:center;gap:7px;width:100%;padding:5px 6px;font-size:11px;font-weight:'+(sel?'700':'400')+';border:none;background:'+(sel?'var(--bg2)':'white')+';cursor:pointer;border-radius:5px;text-align:left';
+    var dot2=document.createElement('span');
+    dot2.style.cssText='width:10px;height:10px;border-radius:50%;flex-shrink:0;'+(st==='도입'?'background:#C4A882':'border:1.5px solid #CCC');
+    btn.appendChild(dot2);
+    btn.appendChild(document.createTextNode(st));
+    btn.onclick=function(){
+      c[field]=st;
+      var vals=[c.dh_op,c.dh_cp,c.dh_sp,c.dh_mb];
+      c.dh=vals.includes('도입')?'도입':'미도입';
+      div.remove();
+      renderList();
+    };
+    div.appendChild(btn);
+  });
+  document.body.appendChild(div);
+  setTimeout(function(){
+    document.addEventListener('click',function handler(e){
+      var p=document.getElementById('dot-popup');
+      if(p&&!p.contains(e.target)&&!el.contains(e.target)){p.remove();document.removeEventListener('click',handler);}
+    });
+  },100);
+}
+function setEvType(btn,type){document.getElementById('inp-type').value=type;document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('type-active');});btn.classList.add('type-active');}
+
+function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=document.getElementById('add-mr-badge');if(b&&MR[mr]){b.textContent=MR[mr].name+' MR';b.style.background=MR[mr].bg;b.style.color=MR[mr].t;b.style.display='inline-flex';}}
+
+function setQuickFilter(v){
+  listQuick = listQuick===v ? 'all' : v;
+  renderList();
+}
+</script>
+</body>
+</html>
