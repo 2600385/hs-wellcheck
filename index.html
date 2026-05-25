@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1472,6 +1473,17 @@ function setQuickFilter(v){
   listQuick = listQuick===v ? 'all' : v;
   renderList();
 }
+</script>
+<script>
+
+const SUPABASE_URL = "https://xqdenxvutactmxcglwsz.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZGVueHZ1dGFjdG14Y2dsd3N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTYzODgsImV4cCI6MjA5NTI3MjM4OH0.sC400aO5fVKbYCYrzHSRSWlmR73vzxo9rgAr2kotr1k";
+
+const supabase = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
 </script>
 </body>
 </html>
