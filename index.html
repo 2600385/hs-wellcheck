@@ -1485,5 +1485,39 @@ const supabase = window.supabase.createClient(
 );
 
 </script>
+<script>
+
+async function saveData() {
+
+  const text = document.getElementById('content').innerText;
+
+  await supabase
+    .from('settings')
+    .upsert([
+      {
+        id:1,
+        content:text
+      }
+    ]);
+
+  alert("저장 완료!");
+}
+
+async function loadData() {
+
+  const { data } = await supabase
+    .from('settings')
+    .select('*')
+    .eq('id',1)
+    .single();
+
+  if(data){
+    document.getElementById('content').innerText = data.content;
+  }
+}
+
+loadData();
+
+</script>
 </body>
 </html>
