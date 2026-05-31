@@ -1774,8 +1774,22 @@ async function loadMemo() {
   }
 
   console.log("불러온 데이터:", data);
-}
 
+  renderList(data);
+}
+function renderList(data) {
+
+  const container = document.getElementById("list");
+
+  container.innerHTML = data.map(item => `
+    <div>
+      <div>${item.date}</div>
+      <div>${item.content}</div>
+    </div>
+  `).join('');
+}
+  <div id="list"></div>
+  
 window.onload = loadMemo;
 
 </script>
