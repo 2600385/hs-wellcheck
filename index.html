@@ -1752,7 +1752,8 @@ const diaryDB = window.supabase.createClient(
 );
 
 async function saveMemo() {
-
+ console.log("saveMemo 실행됨");
+  
   const memo = document.getElementById('visitMemo').value;
 
   const { data, error } = await diaryDB
