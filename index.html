@@ -1762,13 +1762,14 @@ async function saveMemo() {
         date: new Date().toISOString().split('T')[0],
         content: memo
       }
-    ]);
+    ])
+    .select();
 
   console.log('DATA:', data);
   console.log('ERROR:', error);
 
   if (error) {
-    alert(error.message);
+    alert(JSON.stringify(error));
   } else {
     alert('저장 완료');
   }
