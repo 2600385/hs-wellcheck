@@ -1,6 +1,3 @@
-
-raw
-Gyeongin1 v4 · HTML
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -25,26 +22,26 @@ Gyeongin1 v4 · HTML
   --choi-bg:#FDF0B8;--choi-t:#8A6800;
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);height:100vh;overflow:hidden;display:flex}
- 
+
 /* ===== SIDEBAR ===== */
 .sb{width:220px;min-width:220px;background:var(--white);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
- 
+
 /* 로고 */
 .sb-logo{display:flex;align-items:center;gap:9px;padding:14px 14px 10px;border-bottom:1px solid var(--bd)}
 .sb-logo svg{flex-shrink:0;border-radius:8px}
 .sb-logo-text{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
 .sb-logo-sub{font-size:10px;color:var(--t3)}
- 
+
 /* 사무소명 */
 .sb-office{padding:10px 14px 2px}
 .sb-office-name{font-size:17px;font-weight:800;color:var(--dw);letter-spacing:-.4px}
 .sb-office-sub{font-size:10px;color:var(--t3);margin-top:2px}
- 
+
 /* 사이드바 스크롤 */
 .sb-scroll{flex:1;overflow-y:auto;padding:8px 0 16px}
 .sb-scroll::-webkit-scrollbar{width:3px}
 .sb-scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
- 
+
 /* 큰 카테고리 버튼 */
 .cat-btn{display:flex;align-items:center;gap:8px;padding:9px 12px 9px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;border-left:3px solid transparent;margin:1px 0;color:var(--t2)}
 .cat-btn:hover{background:var(--bg2);color:var(--t1)}
@@ -54,10 +51,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #cat-cal.cat-active{background:#E2EDF8;border-left-color:#4A7EC7;color:#163D70}
 #cat-list .cat-icon{background:#F5F0E8}
 #cat-list.cat-active{background:var(--bg2);border-left-color:var(--dw);color:var(--t1)}
- 
+
 /* 구분선 */
 .sb-div{height:0.5px;background:var(--bd);margin:6px 14px}
- 
+
 /* 하위 메뉴 */
 .sub-menu{padding:0}
 /* 담당자 원형 배지 */
@@ -68,14 +65,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sub-item:hover{background:var(--bg2);color:var(--t1)}
 .sub-item.sub-active{background:var(--bg2);color:var(--t1);font-weight:600}
 .sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
- 
+
 /* 아코디언 */
 .acc-hd{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 24px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;transition:.12s;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
 .acc-hd:hover{background:var(--bg2);color:var(--t1)}
 .acc-hd .cv{font-size:11px;margin-left:auto;transition:transform .18s;color:var(--t3)}
 .acc-hd.open .cv{transform:rotate(180deg)}
 .acc-body{display:none}.acc-body.open{display:block}
- 
+
 /* 전국 사업부 */
 .sb-nat{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 8px 14px;cursor:pointer;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0;transition:.12s}
 .sb-nat:hover{background:var(--bg2)}
@@ -94,20 +91,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .biz-tag{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--bg2);color:var(--t2);cursor:pointer;border:0.5px solid transparent;transition:.12s}
 .biz-tag:hover{border-color:var(--bd2)}
 .biz-tag.cur{background:var(--dw-l);color:var(--dw);border-color:var(--dw-m);font-weight:700}
- 
+
 /* ===== MAIN ===== */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
- 
+
 /* 뷰 패널 */
 .view-panel{display:none;position:absolute;inset:0;flex-direction:column;overflow:hidden}
 .view-panel.v-active{display:flex}
- 
+
 /* ===== 캘린더 뷰 ===== */
 /* 헤더 */
 .cal-head{background:var(--white);border-bottom:1.5px solid var(--bd);padding:13px 20px 11px;display:flex;align-items:center;justify-content:space-between}
 .cal-head-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.6px}
 .cal-head-right{font-size:11px;color:var(--t3)}
- 
+
 /* 탑바 */
 .cal-topbar{background:var(--white);border-bottom:1px solid var(--bd);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .mr-lbl{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
@@ -126,12 +123,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .spl-g{background:#E4F5EE;color:#145C38}
 .spl-y{background:#FEF8E6;color:#7A5C00}
 .spl-r{background:#FEEEEE;color:#B01A1A}
- 
+
 /* 캘린더 컨텐츠 */
 .cal-content{flex:1;overflow-y:auto;padding:12px 14px;display:flex;gap:14px;align-items:flex-start}
 .cal-content::-webkit-scrollbar{width:4px}
 .cal-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
- 
+
 /* 네비 */
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .nav-btns{display:flex;gap:3px}
@@ -139,16 +136,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .nav-btn:hover{background:var(--bg2)}
 .cal-ym{font-size:15px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:7px}
 .now-badge{font-size:9px;background:var(--dw-l);color:var(--dw);padding:2px 7px;border-radius:999px;font-weight:700;border:1px solid var(--dw-m)}
- 
+
 /* 범례 */
 .leg-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:5px 10px;background:var(--white);border:0.5px solid var(--bd);border-radius:var(--r);flex-wrap:wrap}
 .leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2)}
- 
+
 /* 달력 */
 .cal-grid-wrap{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:12px;min-width:0}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-dh{padding:8px 5px;font-size:11px;font-weight:700;color:var(--t2);text-align:center;background:var(--bg3);border-bottom:1px solid var(--bd2)}
- 
+
 /* 날짜 셀 */
 .dc{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s;overflow:hidden}
 .dc:nth-child(7n){border-right:none}
@@ -157,14 +154,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .day-num{font-size:13px;font-weight:700;color:var(--t1);line-height:1}
 .today-circle{background:var(--dw);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
 .add-btn{display:none}
- 
+
 /* 오전/오후/종일 영역 */
 .dc-am{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
 .dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
 .dc-pm{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
 .dc-all{flex:1;padding:0 4px 3px;overflow:hidden;display:flex;flex-direction:column}
 .zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
- 
+
 /* 이벤트 칩 */
 .ev{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;display:flex;align-items:center;gap:3px;cursor:pointer;position:relative;z-index:1;transition:.1s}
 .ev:hover{filter:brightness(.93)}
@@ -184,12 +181,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ev-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-weight:600}
 .ev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.6)}
 .ev-allday{font-size:11px;padding:4px 6px;font-weight:700;border-radius:5px}
- 
+
 /* 빈칸 */
 .ec{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
 .ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
 .ec:nth-child(7n){border-right:none}
- 
+
 /* 하단 패널 */
 .bot-panels{display:flex;flex-direction:column;gap:12px;width:260px;flex-shrink:0;position:sticky;top:0}
 .pnl{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);padding:12px}
@@ -201,7 +198,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ri-sub{color:var(--t2);font-size:10px;margin-top:1px}
 .memo-area{width:100%;min-height:108px;font-size:12px;padding:8px 10px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--bg2);color:var(--t1);resize:vertical;font-family:inherit;line-height:1.6}
 .memo-area:focus{outline:none;border-color:var(--dw);background:var(--white)}
- 
+
 /* ===== 거래처 현황판 뷰 ===== */
 .list-head{background:var(--white);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
 .list-head-title{font-size:15px;font-weight:700;color:var(--t1)}
@@ -234,7 +231,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .rp{display:inline-block;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;background:var(--bg2);color:var(--t2)}
 .cnt-yes{color:#145C38;font-weight:600;font-size:10px}
 .cnt-no{color:var(--t3);font-size:10px}
- 
+
 /* ===== 모달 ===== */
 .ov{display:none;position:fixed;inset:0;background:rgba(45,41,38,.4);z-index:200;align-items:center;justify-content:center}
 .ov.ov-open{display:flex}
@@ -270,7 +267,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </style>
 </head>
 <body>
- 
+
 <!-- ===== SIDEBAR ===== -->
 <aside class="sb">
   <!-- 로고 -->
@@ -284,13 +281,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="sb-logo-sub">Daewoong</div>
     </div>
   </div>
- 
+
   <!-- 사무소명 -->
   <div class="sb-office">
     <div class="sb-office-name">경인1사무소</div>
     <div class="sb-office-sub">웰체크 공유 시스템</div>
   </div>
- 
+
   <div class="sb-scroll">
     <!-- 교육간호사 캘린더 -->
     <div class="cat-btn" id="cat-cal" onclick="switchView('cal')">
@@ -299,9 +296,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       교육간호사 캘린더
     </div>
- 
+
     <div class="sb-div"></div>
- 
+
     <!-- 거래처 현황판 -->
     <div class="cat-btn" id="cat-list" onclick="switchView('list')">
       <div class="cat-icon">
@@ -309,7 +306,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       거래처 현황판
     </div>
- 
+
     <!-- 거래처 하위 -->
     <div id="list-sub" style="display:none">
       <div class="sub-item sub-active" id="sub-all" onclick="setSubNav(this);listFilter('all','all')" style="padding-left:14px;font-weight:700;color:var(--t1)">경인1 전체 현황</div>
@@ -329,9 +326,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="sub-item" onclick="setSubNav(this);listFilter('all','김포')"><span class="sub-dot" style="background:#FFF4E8;border:1.5px solid #D4884A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>김포시</div>
       </div>
     </div>
- 
+
     <div class="sb-div"></div>
- 
+
     <!-- 전국 사업부 -->
     <div class="sb-nat" onclick="toggleNat(this)">
       <div class="sb-nat-left">
@@ -355,10 +352,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 </aside>
- 
+
 <!-- ===== MAIN ===== -->
 <div class="main">
- 
+
 <!-- VIEW 1: 캘린더 -->
 <div id="view-cal" class="view-panel v-active">
   <div class="cal-head">
@@ -422,7 +419,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div style="font-size:9px;color:#B01A1A">미이수</div>
           </div>
         </div>
- 
+
       </div>
       <div class="pnl">
         <div class="pnl-title">💰 <span style="color:#8A6800">의협회비 납부 현황</span></div>
@@ -441,29 +438,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
         </div>
       </div>
- 
+
       <div class="pnl" id="req-pnl">
         <div class="pnl-title">📬 <span style="color:#1048A0">신규 일정 요청</span>
           <span id="req-badge" style="display:none;background:#ef4444;color:white;border-radius:999px;font-size:9px;padding:1px 6px;margin-left:4px;font-weight:700"></span>
         </div>
         <div id="req-list" style="font-size:11px;color:var(--t3);text-align:center;padding:8px 0">현재 요청 없음</div>
       </div>
- 
+
                   <div class="pnl">
         <div class="pnl-title">📝 거래처 방문 후 특이사항</div>
-        <textarea id="visitMemo" class="memo-area"
-placeholder="방문 후 특이사항을 기록하세요."></textarea>
-
-<button onclick="saveMemo()">
-저장
-</button>
+        <textarea class="memo-area" placeholder="방문 후 특이사항을 기록하세요.
 예) 5.14 성모누리의원 6/11 반드시 방문 요청함(환자내원예정)
 예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></textarea>
       </div>
     </div>
   </div>
 </div><!-- /view-cal -->
- 
+
 <!-- VIEW 2: 거래처 현황판 -->
 <div id="view-list" class="view-panel">
   <div class="list-head">
@@ -485,9 +477,9 @@ placeholder="방문 후 특이사항을 기록하세요."></textarea>
     <div id="list-body"></div>
   </div>
 </div><!-- /view-list -->
- 
+
 </div><!-- /main -->
- 
+
 <!-- ===== 일정 추가/수정 모달 ===== -->
 <div class="ov" id="add-ov">
   <div class="modal modal-sm">
@@ -558,7 +550,7 @@ placeholder="방문 후 특이사항을 기록하세요."></textarea>
     </div>
   </div>
 </div>
- 
+
 <!-- ===== 거래처 상세 모달 ===== -->
 <div class="ov" id="detail-ov">
   <div class="modal modal-lg">
@@ -591,10 +583,10 @@ placeholder="방문 후 특이사항을 기록하세요."></textarea>
     </div>
   </div>
 </div>
- 
+
 <script>
 var REQUESTS = [];
- 
+
 // ===== 한국 공휴일 =====
 var HOLIDAYS = {
   '2025-1-1':'신정','2025-1-28':'설날전날','2025-1-29':'설날','2025-1-30':'설날다음날',
@@ -611,7 +603,7 @@ var HOLIDAYS = {
   '2027-10-13':'추석','2027-10-14':'추석','2027-10-15':'대체공휴일','2027-12-25':'성탄절'
 };
 function isHoliday(y,m,d){ return HOLIDAYS[y+'-'+m+'-'+d]||''; }
- 
+
 // ===== 담당자 정보 =====
 var MR = {
   gang:{bg:'var(--gang-bg)',t:'var(--gang-t)',name:'강태경'},
@@ -621,7 +613,7 @@ var MR = {
   choi:{bg:'var(--choi-bg)',t:'var(--choi-t)',name:'최주호'},
   kyung:{bg:'#F8F8F8',t:'#555555',name:'김경식'}
 };
- 
+
 // ===== 달력 데이터 =====
 var EVENTS = {
   '2026-4':[{id:100,day:27,mr:'jung',label:'새성모의원',time:'all',memo:'',checked:true,evType:'visit',region:'계양',patients:9},{id:101,day:28,mr:'choi',label:'성모누리',time:'all',memo:'',checked:true,evType:'visit',region:'김포',patients:6},{id:102,day:29,mr:'choi',label:'성모누리',time:'am',memo:'',checked:true,evType:'visit',region:'김포',patients:6},{id:103,day:29,mr:'kim',label:'든든한내과',time:'pm',memo:'',checked:true,evType:'visit',region:'부평',patients:9},{id:104,day:30,mr:'choi',label:'누가의원',time:'all',memo:'',checked:true,evType:'visit',region:'김포',patients:130}],
@@ -630,7 +622,7 @@ var EVENTS = {
 };
 var nextId = 100;
 var MEMO_STORE = {}; // 거래처명 → 메모 저장소
- 
+
 // ===== 거래처 현황판 데이터 =====
 var CLINICS = [
   {mr:'choi',name:'정다운내과',ilmansa:'참여',welcheck:true,patients:316,ilCnt:499,nonCnt:0,lastVisit:'5/12',edu:'미이수',device:'미확인',dues:'납부',region:'김포',visited:true,dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'도입',dh_mb:'미도입',note:'',biz_no:'1379048122',welcheck_cnt:354,ilmansa_cnt:500},
@@ -748,10 +740,10 @@ var CLINICS = [
   {mr:'gang',name:'자애내과의원',ilmansa:'참여',welcheck:true,patients:39,ilCnt:52,nonCnt:7,lastVisit:'5/13',edu:'이수완료',device:'미확인',dues:'비납부',region:'부평',visited:true,dh:'미도입',dh_op:'도입',dh_cp:'도입',dh_sp:'미도입',dh_mb:'미도입',note:'',biz_no:'1229127568',welcheck_cnt:47,ilmansa_cnt:40},
   {mr:'jung',name:'호소아청소년과의원',ilmansa:'미참여',welcheck:false,patients:0,ilCnt:0,nonCnt:3,lastVisit:'-',edu:'해당없음',device:'미확인',dues:'해당없음',region:'김포',visited:false,dh:'도입',dh_op:'미도입',dh_cp:'도입',dh_sp:'도입',dh_mb:'미도입',note:'',biz_no:'1379073941',welcheck_cnt:2,ilmansa_cnt:0}
 ];
- 
+
 // ===== 상태 =====
 var curYear=2026, curMonth=5, activeMR='all';
- 
+
 var listVisit = 'all';
 var listQuick = 'all';
 var sortField = null;
@@ -763,14 +755,14 @@ function setVisitFilter(v){
 var listMR='all', listReg='all';
 var _td=new Date(); var TODAY={y:_td.getFullYear(),m:_td.getMonth()+1,d:_td.getDate()};
 var editingId=null, addDay=null, addZone='all', detailId=null;
- 
+
 // ===== 유틸 =====
 function gc(p){return p>=100?'#10b981':p>=40?'#EAB308':p>=20?'#f97316':'#ef4444';}
 function gw(p){return p>=40?'100%':p>=20?'55%':'28%';}
 function getKey(){return curYear+'-'+curMonth;}
 function getEvs(){return EVENTS[getKey()]||[];}
 function timeLabel(t){return t==='am'?'오전':t==='pm'?'오후':'종일';}
- 
+
 // ===== 뷰 전환 =====
 function switchView(v){
   document.getElementById('view-cal').classList.toggle('v-active', v==='cal');
@@ -781,7 +773,7 @@ function switchView(v){
   sub.style.display = v==='list' ? 'block' : 'none';
   if(v==='list') renderList();
 }
- 
+
 // ===== 사이드바 =====
 function toggleAcc(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
 function toggleBiz(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
@@ -794,7 +786,7 @@ function setSubNav(el){
   document.querySelectorAll('.sub-item').forEach(function(n){n.classList.remove('sub-active');});
   el.classList.add('sub-active');
 }
- 
+
 // ===== 담당자 필터 =====
 function filterMR(mr){
   activeMR=mr;
@@ -809,7 +801,7 @@ function filterMR(mr){
   });
   renderCalendar();
 }
- 
+
 // ===== 달력 렌더링 =====
 function renderCalendar(){
   autoCheckPastEvents();
@@ -819,12 +811,12 @@ function renderCalendar(){
   var isNow=(curYear===TODAY.y&&curMonth===TODAY.m);
   document.getElementById('cal-label').textContent=curYear+'년 '+curMonth+'월';
   document.getElementById('now-badge').style.display=isNow?'inline-block':'none';
- 
+
   var grid=document.getElementById('cal-grid');
   while(grid.children.length>7)grid.removeChild(grid.lastChild);
- 
+
   for(var i=0;i<firstDow;i++){var e=document.createElement('div');e.className='ec';grid.appendChild(e);}
- 
+
   for(var d=1;d<=daysInMonth;d++){
     var cell=document.createElement('div');cell.className='dc';
     cell.style.cursor='pointer';
@@ -833,7 +825,7 @@ function renderCalendar(){
     var allEvs=dayEvs.filter(function(e){return e.time==='all';});
     var amEvs=dayEvs.filter(function(e){return e.time==='am';});
     var pmEvs=dayEvs.filter(function(e){return e.time==='pm';});
- 
+
     // 날짜 헤더
     var top=document.createElement('div');top.className='dc-top';
     var dow=(firstDow+d-1)%7;
@@ -858,13 +850,13 @@ function renderCalendar(){
       dn.appendChild(hlbl);
     }
     top.appendChild(dn);cell.appendChild(top);
- 
+
     // 종일만 있는 경우: 하나의 큰 영역
     if(allEvs.length>0 && amEvs.length===0 && pmEvs.length===0){
       var az=document.createElement('div');az.className='dc-all';
       var lbl=document.createElement('div');lbl.className='zone-lbl';lbl.textContent='종일';
       az.appendChild(lbl);
- 
+
       allEvs.forEach(function(ev){az.appendChild(buildChip(ev,true));});
       cell.appendChild(az);
     } else {
@@ -892,7 +884,7 @@ function renderCalendar(){
   var rem=(7-total%7)%7;
   for(var j=0;j<rem;j++){var e2=document.createElement('div');e2.className='ec';grid.appendChild(e2);}
 }
- 
+
 function buildChip(ev, isAll){
   var m=MR[ev.mr];
   var chip=document.createElement('div');
@@ -907,11 +899,11 @@ function buildChip(ev, isAll){
   chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
   return chip;
 }
- 
+
 // ===== 월/연 이동 =====
 function changeMonth(d){curMonth+=d;if(curMonth>12){curMonth=1;curYear++;}if(curMonth<1){curMonth=12;curYear--;}renderCalendar();}
 function changeYear(d){curYear+=d;renderCalendar();}
- 
+
 // ===== 일정 추가 모달 =====
 function openAdd(day, zone){
   editingId=null; addDay=day; addZone=zone;
@@ -984,7 +976,7 @@ function deleteEv(){
   closeAdd(); renderCalendar();
 }
 function closeAdd(){document.getElementById('add-ov').classList.remove('ov-open');}
- 
+
 // ===== 거래처 상세 모달 =====
 function openDetail(id){
   var key=getKey();
@@ -1035,7 +1027,7 @@ function openEditFromDetail(){
   if(ev) openEditModal(ev);
 }
 function closeDetail(){document.getElementById('detail-ov').classList.remove('ov-open');}
- 
+
 // ===== 거래처 현황판 =====
 function listFilter(mr, reg){
   listMR=mr; listReg=reg;
@@ -1103,7 +1095,7 @@ function renderList(){
       :'width:11px;height:11px;border-radius:50%;border:1.5px solid #CCC;display:inline-block;cursor:pointer';
     return '<span style="'+style+'" data-idx="'+didx+'" data-field="'+field+'" onclick="showDotPopup(this)"></span>';
   }
- 
+
   var rows='';
   data.forEach(function(c){
     var m=MR[c.mr];
@@ -1137,7 +1129,7 @@ function renderList(){
       +'<td style="text-align:center">'+dot(c.dh_mb,idx,'dh_mb')+'</td>'
       +'</tr>';
   });
- 
+
   document.getElementById('list-body').innerHTML=
     '<div class="list-sec" style="display:flex;align-items:center;gap:8px">'
     +'<span style="font-weight:700">경인1 거래처 현황판 ('+data.length+'곳)</span>'
@@ -1165,17 +1157,17 @@ function renderList(){
     +'<th class="sort-th" data-sort="dh_mb" style="width:48px;text-align:center;cursor:pointer">모비케어 ↕</th>'
     +'</tr></thead><tbody>'+rows+'</tbody></table>';
 }
- 
+
 // ===== 모달 외부 클릭 닫기 =====
 document.getElementById('add-ov').addEventListener('click',function(e){if(e.target===this)closeAdd();});
 document.getElementById('detail-ov').addEventListener('click',function(e){if(e.target===this)closeDetail();});
- 
+
 // vf-btn 이벤트 위임
 document.addEventListener('click', function(e){
   var btn = e.target.closest('.vf-btn');
   if(btn) setVisitFilter(btn.dataset.vf);
 });
- 
+
 // ===== 초기화 =====
 // 샘플 요청 이벤트
 var _reqKey=TODAY.y+'-'+TODAY.m;
@@ -1185,7 +1177,7 @@ switchView('cal');
 renderCalendar();
 renderRequests();
 updateEduStats();
- 
+
 // ===== 담당자 선택 → 거래처 자동 로드 =====
 function loadClinicsByMR(mr) {
   var dl = document.getElementById('clinic-list');
@@ -1205,7 +1197,7 @@ function loadClinicsByMR(mr) {
     ? '▼ ' + filtered.length + '개 거래처 중 선택'
     : '해당 담당자 웰체크 거래처 없음';
 }
- 
+
 // 거래처 선택 → 일만사/환자수 자동 채우기
 function onClinicSelect() {
   var name = document.getElementById('inp-clinic').value.trim();
@@ -1257,17 +1249,17 @@ function onClinicSelect() {
     }
   }
 }
- 
+
 // ===== 심화교육 현황 계산 =====
 function updateEduStats(){
   if(!window.CLINICS||!CLINICS.length) return;
   var total = CLINICS.filter(function(c){ return c.ilmansa==='참여'; }).length;
   var done  = CLINICS.filter(function(c){ return c.ilmansa==='참여' && c.edu==='이수완료'; }).length;
   var notyet= CLINICS.filter(function(c){ return c.ilmansa==='참여' && c.edu==='미이수'; }).length;
- 
+
   var et=document.getElementById('edu-total');
   var en=document.getElementById('edu-notyet');
- 
+
   if(et) et.textContent=total+'곳';
   var ed=document.getElementById('edu-done');
   if(ed) ed.textContent=done+'곳';
@@ -1281,13 +1273,13 @@ function updateEduStats(){
   if(dp) dp.textContent=dP+'곳';
   if(du) du.textContent=dU+'곳';
   if(en) en.textContent=notyet+'곳';
- 
+
 }
- 
+
 // ===== 초기화 =====
 updateEduStats();
- 
- 
+
+
 function closeDHPopup(){ var p=document.getElementById('dh-popup'); if(p) p.remove(); }
 function closeEduPopup(){ var p=document.getElementById('edu-popup'); if(p) p.remove(); }
 // DH기기 팝업
@@ -1338,7 +1330,7 @@ function showDHPopup(el){
     });
   },100);
 }
- 
+
 // 심화교육 팝업
 function showEduPopup(el){
   var idx=parseInt(el.dataset.idx);
@@ -1384,7 +1376,7 @@ function updateEdu(name,val){
   var c=CLINICS.find(function(x){return x.name===name;});
   if(c){c.edu=val;renderList();updateEduStats();}
 }
- 
+
 function closeEduList(){ var p=document.getElementById('edu-list-popup'); if(p) p.remove(); }
 function showEduList(type, event) {
   if(event) event.stopPropagation();
@@ -1422,7 +1414,7 @@ function showEduList(type, event) {
     if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener('click',handler); }
   });
 }
- 
+
 function closeNotePopup(){ var p=document.getElementById('note-popup'); if(p) p.remove(); }
 function showNotePopup(el){
   var idx=parseInt(el.dataset.idx);
@@ -1454,7 +1446,7 @@ function showNotePopup(el){
     });
   },100);
 }
- 
+
 function showDotPopup(el){
   var existing=document.getElementById('dot-popup');
   if(existing) existing.remove();
@@ -1499,14 +1491,14 @@ function showDotPopup(el){
   },100);
 }
 function setEvType(btn,type){document.getElementById('inp-type').value=type;document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('type-active');});btn.classList.add('type-active');}
- 
+
 function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=document.getElementById('add-mr-badge');if(b&&MR[mr]){b.textContent=MR[mr].name+' MR';b.style.background=MR[mr].bg;b.style.color=MR[mr].t;b.style.display='inline-flex';}}
- 
+
 function setQuickFilter(v){
   listQuick = listQuick===v ? 'all' : v;
   renderList();
 }
- 
+
 function openAddClinic(){
   document.getElementById('ca-name').value='';
   document.getElementById('ca-patients').value='0';
@@ -1538,7 +1530,7 @@ function saveAddClinic(){
   renderList();
   alert(name+' 등록 완료!');
 }
- 
+
 // 지난 날짜 자동 체크
 function autoCheckPastEvents(){
   var key=curYear+'-'+curMonth;
@@ -1549,7 +1541,7 @@ function autoCheckPastEvents(){
     else if(curYear===TODAY.y&&curMonth===TODAY.m&&ev.day<TODAY.d) ev.checked=true;
   });
 }
- 
+
 var currentReqId = null;
 function openRequestPopup(id){
   var key=curYear+'-'+curMonth;
@@ -1582,11 +1574,11 @@ function rejectRequest(){
   renderCalendar();
   alert('요청이 거절되었습니다.');
 }
- 
+
 var REQUESTS = [
   {id:1, mr:'gang', label:'부평_인하의원', time:'am', day:29, memo:'원장님 방문 요청', status:'pending'}
 ];
- 
+
 function renderRequests(){
   var pnl=document.getElementById('req-pnl');
   var list=document.getElementById('req-list');
@@ -1613,7 +1605,7 @@ function renderRequests(){
       +'</div></div>';
   }).join('');
 }
- 
+
 function approveReq(id){
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
@@ -1625,16 +1617,16 @@ function approveReq(id){
   renderCalendar();
   alert('✅ '+r.label+' 일정이 승낙되었습니다!');
 }
- 
+
 function rejectReq(id){
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(r){ r.status='rejected'; renderRequests(); alert('❌ 요청이 거절되었습니다.'); }
 }
- 
- 
- 
- 
- 
+
+
+
+
+
 function showClinicDetail(idx, event){
   if(event) event.stopPropagation();
   var existing=document.getElementById('clinic-detail-popup');
@@ -1664,7 +1656,7 @@ function showClinicDetail(idx, event){
   },100);
 }
 </script>
- 
+
 <!-- 수기 거래처 추가 모달 -->
 <div class="ov" id="clinic-add-ov" style="display:none">
   <div class="modal modal-sm">
@@ -1721,7 +1713,7 @@ function showClinicDetail(idx, event){
     </div>
   </div>
 </div>
- 
+
 <!-- 요청 승낙 팝업 -->
 <div class="ov" id="req-ov" style="display:none">
   <div class="modal modal-sm">
@@ -1736,95 +1728,5 @@ function showClinicDetail(idx, event){
     </div>
   </div>
 </div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-</script>
- 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-const supabaseUrl = 'https://siowpduskesqevilkdbz.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpb3dwZHVza2VzcWV2aWxrZGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTk0NjMsImV4cCI6MjA5NTczNTQ2M30.uJrhAvAu6LBjn6Ua2kE7io-iwL8rNRXenG7m3oKTT4k';
-
-const diaryDB = window.supabase.createClient(
-  supabaseUrl,
-  supabaseKey
-);
-
-let selectedDate = null;
-
-/* 날짜 선택 */
-function selectDate(date) {
-  selectedDate = date;
-  console.log("선택된 날짜:", selectedDate);
-}
-
-/* 저장 */
-async function saveMemo() {
-  console.log("saveMemo 실행됨");
-
-  const memo = document.getElementById('visitMemo').value;
-
-  const { error } = await diaryDB
-    .from('diary')
-    .insert([
-      {
-        date: selectedDate,
-        content: memo
-      }
-    ]);
-
-  if (error) {
-    alert(JSON.stringify(error));
-  } else {
-    alert('저장 완료');
-    loadMemo();
-  }
-}
-
-/* 불러오기 */
-async function loadMemo() {
-
-  const { data, error } = await diaryDB
-    .from('diary')
-    .select('*');
-
-  if (error) {
-    console.log(error);
-    return;
-  }
-
-  const map = {};
-
-  data.forEach(item => {
-    if (!map[item.date]) {
-      map[item.date] = [];
-    }
-    map[item.date].push(item.content);
-  });
-
-  console.log(map);
-
-  renderCalendar(map);
-}
-
-/* 달력 표시 */
-function renderCalendar(map) {
-
-  Object.keys(map).forEach(date => {
-    const cell = document.querySelector(`[data-date="${date}"]`);
-
-    if (!cell) return;
-
-    cell.innerHTML = map[date]
-      .map(text => `<div class="memo-item">${text}</div>`)
-      .join('');
-  });
-}
-
-/* 새로고침 시 로드 */
-window.onload = loadMemo;
-
-</script>
 </body>
 </html>
