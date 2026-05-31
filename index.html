@@ -1728,10 +1728,23 @@ function showClinicDetail(idx, event){
     </div>
   </div>
 </div>
-  async function saveMemo() {
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const supabaseUrl = "https://siowpduskesqevilkdbz.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpb3dwZHVza2VzcWV2aWxrZGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTk0NjMsImV4cCI6MjA5NTczNTQ2M30.uJrhAvAu6LBjn6Ua2kE7io-iwL8rNRXenG7m3oKTT4k";
+
+const supabaseClient = window.supabase.createClient(
+  supabaseUrl,
+  supabaseKey
+);
+
+async function saveMemo() {
+
   const memo = document.getElementById("visitMemo").value;
 
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from("diary")
     .insert([
       {
@@ -1741,21 +1754,30 @@ function showClinicDetail(idx, event){
     ]);
 
   if (error) {
+    console.log(error);
     alert(error.message);
   } else {
     alert("저장 완료");
+    loadMemo();
   }
 }
 
-  <button onclick="saveMemo()">저장</button>
-  
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+async function loadMemo() {
 
-<script>
-const supabaseUrl = "https://YOUR_PROJECT.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpb3dwZHVza2VzcWV2aWxrZGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTk0NjMsImV4cCI6MjA5NTczNTQ2M30.uJrhAvAu6LBjn6Ua2kE7io-iwL8rNRXenG7m3oKTT4k";
+  const { data, error } = await supabaseClient
+    .from("diary")
+    .select("*");
 
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+  if (error) {
+    console.log(error);
+    return;
+  }
+
+  console.log("불러온 데이터:", data);
+}
+
+window.onload = loadMemo;
+
 </script>
 </body>
 </html>
