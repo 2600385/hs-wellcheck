@@ -1746,7 +1746,7 @@ async function saveMemo() {
     document.getElementById('visitMemo').value;
 
   const { error } =
-    await supabase
+    await sb
       .from('diary')
       .insert([
         {
@@ -1780,7 +1780,7 @@ async function saveMemo() {
 
   const memo = document.getElementById('visitMemo').value;
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from('diary')
     .insert([
       {
@@ -1802,7 +1802,7 @@ async function saveMemo() {
 async function loadMemo() {
 
   const { data, error } =
-    await supabase
+    await sb
       .from('diary')
       .select('*')
       .order('id', { ascending:false })
