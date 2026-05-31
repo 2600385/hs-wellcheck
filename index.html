@@ -1778,20 +1778,51 @@ async function saveMemo() {
 
 async function loadMemo() {
 
-  const { data, error } =
-    await diaryDB
-      .from('diary')
-      .select('*')
-      .order('id', { ascending:false })
-      .limit(1);
+  const { data, error } = await diaryDB
+    .from('diary')
+    .select('*');
 
-  if(!error && data.length > 0){
-    document.getElementById('visitMemo').value =
-      data[0].content;
+  if (error) {
+    console.log(error);
+    return;
   }
-}
 
-loadMemo();
+  const map = {};
+
+  data.forEach(item => {
+    if (!map[item.date]) {
+      map[item.date] = [];
+    }
+    map[item.date].push(item.content);
+  });
+
+  console.log(map);
+
+  renderCalendar(map);
+}
+function renderCalendar(map) {
+  console.log(map);
+
+  Object.keys(map).forEach(date => {
+    const cell = document.querySelector(`[data-date="${date}"]`);
+
+    if (!cell) return;
+
+    cell.innerHTML = map[date]
+      .map(text => `<div class="memo-item">${text}</div>`)
+      .join('');
+  });
+}
+  let selectedDate = null;
+
+function selectDate(date) {
+  selectedDate = date;
+  console.log("선택된 날짜:", selectedDate);
+}
+  <div data-date="2026-05-09" onclick="selectDate('2026-05-09')"></div>
+  
+window.onload = loadMemo;
+  
 </script>
 </body>
 </html>
