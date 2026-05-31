@@ -1739,30 +1739,7 @@ function showClinicDetail(idx, event){
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 </script>
-  <script>
-async function saveMemo() {
-
-  const memo =
-    document.getElementById('visitMemo').value;
-
-  const { error } =
-    await supabase
-      .from('diary')
-      .insert([
-        {
-          date: new Date().toISOString(),
-          content: memo
-        }
-      ]);
-
-  if(error){
-    alert('저장 실패');
-    console.error(error);
-  }else{
-    alert('저장 완료');
-  }
-}
-</script>
+ 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
