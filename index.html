@@ -1778,22 +1778,22 @@ const supabase = window.supabase.createClient(
 
 async function saveMemo() {
 
-  const memo =
-    document.getElementById('visitMemo').value;
+  const memo = document.getElementById('visitMemo').value;
 
-  const { error } =
-    await supabase
-      .from('diary')
-      .insert([
-        {
-          date: new Date().toISOString().split('T')[0],
-          content: memo
-        }
-      ]);
+  const { data, error } = await supabase
+    .from('diary')
+    .insert([
+      {
+        date: new Date().toISOString().split('T')[0],
+        content: memo
+      }
+    ]);
 
-  if(error){
-    console.error(error);
-    alert('저장 실패');
+  console.log('DATA:', data);
+  console.log('ERROR:', error);
+
+  if (error) {
+    alert(error.message);
   } else {
     alert('저장 완료');
   }
