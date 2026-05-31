@@ -1728,68 +1728,86 @@ function showClinicDetail(idx, event){
     </div>
   </div>
 </div>
- <input id="visitMemo">
-
+  
+<input id="visitMemo" type="text" placeholder="메모를 입력하세요">
 <button onclick="saveMemo()">저장</button>
 
 <div id="list"></div>
+
+<script type="module">
   
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
-<script>
-const supabaseUrl = "https://siowpduskesqevilkdbz.supabase.co";
-const supabaseKey = "YOUR_KEY";
 
-const supabaseClient = window.supabase.createClient(
-  supabaseUrl,
-  supabaseKey
-);
+  const firebaseConfig = {
+    apiKey: "AIzaSyAkLed3kZePtDO8aR_KuwLic9rEW9ErBWg",
+    authDomain: "hs-wall.firebaseapp.com",
+    projectId: "hs-wall",
+    storageBucket: "hs-wall.firebasestorage.app",
+    messagingSenderId: "155107657356",
+    appId: "1:155107657356:web:b49f26c3bff5a4a7ea5da9",
+    measurementId: "G-C1SPSECMGV"
+  };
 
-async function saveMemo() {
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-  const memo = document.getElementById("visitMemo").value;
+  async function saveMemo() {
+    const memoInput = document.getElementById("visitMemo");
+    const memo = memoInput.value;
 
-  const { error } = await supabaseClient
-    .from("diary")
-    .insert([
-      {
+    if (!memo.trim()) {
+      alert("내용을 입력해주세요.");
+      return;
+    }
+
+    try {
+    
+      await addDoc(collection(db, "diary"), {
         date: new Date().toISOString().split("T")[0],
-        content: memo
-      }
-    ]);
+        content: memo,
+        createdAt: new Date() 
+      });
 
-  if (error) {
-    console.log(error);
-    alert(error.message);
-  } else {
-    alert("저장 완료");
-    loadMemo();
-  }
-}
-
-async function loadMemo() {
-
-  const { data, error } = await supabaseClient
-    .from("diary")
-    .select("*")
-    .order("id", { ascending: false });
-
-  if (error) {
-    console.log(error);
-    return;
+      alert("저장 완료");
+      memoInput.value = ""; 
+      loadMemo(); 
+    } catch (error) {
+      console.error("저장 중 오류 발생:", error);
+      alert("저장 실패: " + error.message);
+    }
   }
 
-  const container = document.getElementById("list");
+  async function loadMemo() {
+    try {
+      const container = document.getElementById("list");
+      
+      const q = query(collection(db, "diary"), orderBy("createdAt", "desc"));
+      const querySnapshot = await getDocs(q);
 
-  container.innerHTML = data.map(item => `
-    <div>
-      <div>${item.date}</div>
-      <div>${item.content}</div>
-    </div>
-  `).join('');
-}
+      const items = [];
+      querySnapshot.forEach((doc) => {
+        items.push(doc.data());
+      });
 
-window.onload = loadMemo;
+      container.innerHTML = items.map(item => `
+        <div style="margin-bottom: 10px; padding: 5px; border-bottom: 1px solid #ccc;">
+          <div style="font-size: 12px; color: gray;">${item.date}</div>
+          <div>${item.content}</div>
+        </div>
+      `).join('');
+
+    } catch (error) {
+      console.error("데이터 로드 중 오류 발생:", error);
+    }
+  }
+
+  window.saveMemo = saveMemo;
+  window.loadMemo = loadMemo;
+
+  window.onload = loadMemo;
 </script>
+
 </body>
 </html>
