@@ -451,7 +451,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
  
                   <div class="pnl">
         <div class="pnl-title">📝 거래처 방문 후 특이사항</div>
-        <textarea class="memo-area" placeholder="방문 후 특이사항을 기록하세요.
+        <textarea id="visitMemo" class="memo-area"
+placeholder="방문 후 특이사항을 기록하세요."></textarea>
+
+<button onclick="saveMemo()">
+저장
+</button>
 예) 5.14 성모누리의원 6/11 반드시 방문 요청함(환자내원예정)
 예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></textarea>
       </div>
@@ -1731,5 +1736,91 @@ function showClinicDetail(idx, event){
     </div>
   </div>
 </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const supabaseUrl = '여기에 Project URL';
+const supabaseKey = '여기에 anon key';
+
+const supabase = window.supabase.createClient(
+  supabaseUrl,
+  supabaseKey
+);
+</script>
+  <script>
+async function saveMemo() {
+
+  const memo =
+    document.getElementById('visitMemo').value;
+
+  const { error } =
+    await supabase
+      .from('diary')
+      .insert([
+        {
+          date: new Date().toISOString(),
+          content: memo
+        }
+      ]);
+
+  if(error){
+    alert('저장 실패');
+    console.error(error);
+  }else{
+    alert('저장 완료');
+  }
+}
+</script>
 </body>
 </html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const supabaseUrl = 'https://siowpduskesqevilkdbz.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpb3dwZHVza2VzcWV2aWxrZGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTk0NjMsImV4cCI6MjA5NTczNTQ2M30.uJrhAvAu6LBjn6Ua2kE7io-iwL8rNRXenG7m3oKTT4k';
+
+const supabase = window.supabase.createClient(
+  supabaseUrl,
+  supabaseKey
+);
+
+async function saveMemo() {
+
+  const memo =
+    document.getElementById('visitMemo').value;
+
+  const { error } =
+    await supabase
+      .from('diary')
+      .insert([
+        {
+          date: new Date().toISOString().split('T')[0],
+          content: memo
+        }
+      ]);
+
+  if(error){
+    console.error(error);
+    alert('저장 실패');
+  } else {
+    alert('저장 완료');
+  }
+}
+
+async function loadMemo() {
+
+  const { data, error } =
+    await supabase
+      .from('diary')
+      .select('*')
+      .order('id', { ascending:false })
+      .limit(1);
+
+  if(!error && data.length > 0){
+    document.getElementById('visitMemo').value =
+      data[0].content;
+  }
+}
+
+loadMemo();
+</script>
