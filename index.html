@@ -1742,9 +1742,13 @@ const supabaseClient = window.supabase.createClient(
 
 async function saveMemo() {
 
+  console.log("SAVE 클릭됨");
+
   const memo = document.getElementById("visitMemo").value;
 
-  const { error } = await supabaseClient
+  console.log("SAVE START");
+
+  const { data, error } = await supabaseClient
     .from("diary")
     .insert([
       {
@@ -1753,13 +1757,10 @@ async function saveMemo() {
       }
     ]);
 
-  if (error) {
-    console.log(error);
-    alert(error.message);
-  } else {
-    alert("저장 완료");
-    loadMemo();
-  }
+  console.log("DATA:", data);
+  console.log("ERROR:", error);
+
+  alert("저장 시도 완료");
 }
 
 async function loadMemo() {
