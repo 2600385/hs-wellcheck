@@ -1887,23 +1887,35 @@ function openAddClinic(){
 function closeAddClinic(){
   document.getElementById('clinic-add-ov').style.display='none';
 }
-function saveAddClinic(){
-  var name=document.getElementById('ca-name').value.trim();
-  if(!name){ alert('거래처명을 입력해주세요.'); return; }
-  var mr=document.getElementById('ca-mr').value;
-  var region=document.getElementById('ca-region').value;
-  var ilmansa=document.getElementById('ca-ilmansa').value;
-  var welcheck=document.getElementById('ca-welcheck').value==='true';
-  var patients=parseInt(document.getElementById('ca-patients').value)||0;
-  var memo=document.getElementById('ca-memo').value;
-  var newClinic={
-    mr:mr, name:name, ilmansa:ilmansa, welcheck:welcheck,
-    patients:patients, ilCnt:0, nonCnt:0, lastVisit:'-',
-    edu:'해당없음', device:'미확인', dues:'해당없음',
-    region:region, visited:false, dh:'미도입',
-    dh_op:'미도입', dh_cp:'미도입', dh_sp:'미도입', dh_mb:'미도입',
-    note:memo
-  };
+// 기존의 saveAddClinic 함수를 찾아서 아래 내용으로 덮어쓰거나 수정하세요.
+async function saveAddClinic() {
+    // 1. 화면의 입력값들을 가져옵니다.
+    const data = {
+        name: document.getElementById('ca-name').value,      // 거래처명
+        manager: document.getElementById('ca-manager').value, // 담당자
+        ilmansa: document.getElementById('ca-ilmansa').value, // 일만사 여부
+        welcheck: document.getElementById('ca-welcheck').value, // 웰체크 여부
+        patients: document.getElementById('ca-patients').value, // 웰체크 가입자 수
+        memo: document.getElementById('ca-memo').value        // 메모
+    };
+
+    // 2. 구글 웹 앱 URL (배포 시 생성된 URL을 여기에 넣으세요)
+    const url = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
+    // 3. 구글로 데이터 전송
+    try {
+        await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        alert("데이터가 저장되었습니다.");
+        closeAddClinic(); // 저장 후 팝업 닫기
+    } catch (error) {
+        alert("저장에 실패했습니다: " + error);
+    }
+}
   CLINICS.push(newClinic);
   db.collection('clinics').add(newClinic);
   closeAddClinic();
