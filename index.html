@@ -1751,31 +1751,38 @@ const diaryDB = window.supabase.createClient(
   supabaseKey
 );
 
+let selectedDate = null;
+
+/* 날짜 선택 */
+function selectDate(date) {
+  selectedDate = date;
+  console.log("선택된 날짜:", selectedDate);
+}
+
+/* 저장 */
 async function saveMemo() {
- console.log("saveMemo 실행됨");
-  
+  console.log("saveMemo 실행됨");
+
   const memo = document.getElementById('visitMemo').value;
 
-  const { data, error } = await diaryDB
+  const { error } = await diaryDB
     .from('diary')
     .insert([
       {
-        date: new Date().toISOString().split('T')[0],
+        date: selectedDate || new Date().toISOString().split('T')[0],
         content: memo
       }
-    ])
-    .select();
-
-  console.log('DATA:', data);
-  console.log('ERROR:', error);
+    ]);
 
   if (error) {
     alert(JSON.stringify(error));
   } else {
     alert('저장 완료');
+    loadMemo();
   }
 }
 
+/* 불러오기 */
 async function loadMemo() {
 
   const { data, error } = await diaryDB
@@ -1800,8 +1807,9 @@ async function loadMemo() {
 
   renderCalendar(map);
 }
+
+/* 달력 표시 */
 function renderCalendar(map) {
-  console.log(map);
 
   Object.keys(map).forEach(date => {
     const cell = document.querySelector(`[data-date="${date}"]`);
@@ -1813,16 +1821,10 @@ function renderCalendar(map) {
       .join('');
   });
 }
-  let selectedDate = null;
 
-function selectDate(date) {
-  selectedDate = date;
-  console.log("선택된 날짜:", selectedDate);
-}
-cell.innerHTML = `<div data-date="2026-05-09"></div>`
-  
+/* 새로고침 시 로드 */
 window.onload = loadMemo;
-  
+
 </script>
 </body>
 </html>
