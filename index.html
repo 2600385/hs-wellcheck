@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -7,707 +8,1057 @@
 <style>
 /* ===== RESET & ROOT ===== */
 *{box-sizing:border-box;margin:0;padding:0}
-:root{\n  --dw:#F47920;--dw-l:#FFF4EC;--dw-m:#FA9A4B;\n  --bg:#F8F7F5;--bg2:#F2F0EC;--bg3:#E8E4DE;\n  --white:#FFFFFF;\n  --bd:#E4E0DA;--bd2:#CEC9C2;\n  --t1:#2D2926;--t2:#7A736A;--t3:#B0A89E;\n  --r:8px;--rl:12px;\n  /* 담당자 파스텔 5색 */\n  --gang-bg:#DCE9FC;--gang-t:#2B5FA0;\n  --kim-bg:#D8F0E4;--kim-t:#1E6B42;\n  --jung-bg:#FCE3D2;--jung-t:#9A4020;\n  --jo-bg:#EDE0F8;--jo-t:#6B35B0;\n  --choi-bg:#FDF0B8;--choi-t:#8A6800;\n}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background-color:var(--bg);color:var(--t1);font-size:14px;-webkit-font-smoothing:antialiased}
-button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
-ul{list-style:none}
+:root{
+  --dw:#F47920;--dw-l:#FFF4EC;--dw-m:#FA9A4B;
+  --bg:#F8F7F5;--bg2:#F2F0EC;--bg3:#E8E4DE;
+  --white:#FFFFFF;
+  --bd:#E4E0DA;--bd2:#CEC9C2;
+  --t1:#2D2926;--t2:#7A736A;--t3:#B0A89E;
+  --r:8px;--rl:12px;
+  /* 담당자 파스텔 5색 */
+  --gang-bg:#DCE9FC;--gang-t:#2B5FA0;
+  --kim-bg:#D8F0E4;--kim-t:#1E6B42;
+  --jung-bg:#FCE3D2;--jung-t:#9A4020;
+  --jo-bg:#EDE0F8;--jo-t:#6B35B0;
+  --choi-bg:#FDF0B8;--choi-t:#8A6800;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);height:100vh;overflow:hidden;display:flex}
 
-/* ===== APP LAYOUT ===== */
-.app-container{display:flex;flex-direction:column;height:100vh;max-width:1400px;margin:0 auto;background-color:var(--white);box-shadow:0 0 20px rgba(0,0,0,0.05)}
+/* ===== SIDEBAR ===== */
+.sb{width:220px;min-width:220px;background:var(--white);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden}
 
-/* ===== HEADER ===== */
-.header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--bd);background-color:var(--white)}
-.header-left{display:flex;align-items:center;gap:12px}
-.logo-icon{width:32px;height:32px;background-color:var(--dw);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--white);font-weight:bold;font-size:18px}
-.logo-title{font-size:18px;font-weight:700;color:var(--t1);letter-spacing:-0.5px}
-.logo-sub{font-size:13px;color:var(--t2);background-color:var(--bg2);padding:2px 8px;border-radius:4px;font-weight:500}
+/* 로고 */
+.sb-logo{display:flex;align-items:center;gap:9px;padding:14px 14px 10px;border-bottom:1px solid var(--bd)}
+.sb-logo svg{flex-shrink:0;border-radius:8px}
+.sb-logo-text{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
+.sb-logo-sub{font-size:10px;color:var(--t3)}
 
-.nav-tabs{display:flex;background-color:var(--bg2);padding:4px;border-radius:var(--r);gap:2px}
-.tab-btn{border:none;background:none;padding:8px 16px;border-radius:6px;font-weight:6px;font-weight:6px;font-weight:500;color:var(--t2);cursor:pointer;transition:all 0.15s ease}
-.tab-btn:hover{color:var(--t1)}
-.tab-btn.active{background-color:var(--white);color:var(--dw);font-weight:6px;font-weight:6px;font-weight:6px;font-weight:700;box-shadow:0 2px 4px rgba(0,0,0,0.04)}
+/* 사무소명 */
+.sb-office{padding:10px 14px 2px}
+.sb-office-name{font-size:17px;font-weight:800;color:var(--dw);letter-spacing:-.4px}
+.sb-office-sub{font-size:10px;color:var(--t3);margin-top:2px}
 
-/* ===== MAIN AREA ===== */
-.main-content{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.view-panel{display:none;flex-direction:column;flex:1;overflow:hidden}
-.view-panel.active{display:flex}
+/* 사이드바 스크롤 */
+.sb-scroll{flex:1;overflow-y:auto;padding:8px 0 16px}
+.sb-scroll::-webkit-scrollbar{width:3px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 
-/* ===== SUB HEADER (TOOLBAR) ===== */
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background-color:var(--bg);border-bottom:1px solid var(--bd)}
-.toolbar-left{display:flex;align-items:center;gap:16px}
-.toolbar-right{display:flex;align-items:center;gap:8px}
+/* 큰 카테고리 버튼 */
+.cat-btn{display:flex;align-items:center;gap:8px;padding:9px 12px 9px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;border-left:3px solid transparent;margin:1px 0;color:var(--t2)}
+.cat-btn:hover{background:var(--bg2);color:var(--t1)}
+.cat-btn .cat-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#cat-cal{color:var(--t1)}
+#cat-cal .cat-icon{background:#EAF1FB}
+#cat-cal.cat-active{background:#E2EDF8;border-left-color:#4A7EC7;color:#163D70}
+#cat-list .cat-icon{background:#F5F0E8}
+#cat-list.cat-active{background:var(--bg2);border-left-color:var(--dw);color:var(--t1)}
 
-/* MR Filters */
-.mr-filters{display:flex;align-items:center;gap:6px;background-color:var(--bg3);padding:3px;border-radius:var(--r)}
-.mr-btn{border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s ease}
-.mb-all{background-color:var(--t2);color:var(--white)}
-.mb-all.mb-dim{background:none;color:var(--t2)}
-.mb-gang{background-color:var(--gang-bg);color:var(--gang-t)}
-.mb-kim{background-color:var(--kim-bg);color:var(--kim-t)}
-.mb-jung{background-color:var(--jung-bg);color:var(--jung-t)}
-.mb-jo{background-color:var(--jo-bg);color:var(--jo-t)}
-.mb-choi{background-color:var(--choi-bg);color:var(--choi-t)}
-.mr-btn.mb-dim{background-color:transparent;color:var(--t2);opacity:0.5}
-.mr-btn.mb-dim:hover{opacity:0.8}
+/* 구분선 */
+.sb-div{height:0.5px;background:var(--bd);margin:6px 14px}
 
-/* Month Selector */
-.month-select{display:flex;align-items:center;gap:12px;background-color:var(--white);padding:4px 12px;border-radius:var(--r);border:1px solid var(--bd);box-shadow:0 1px 2px rgba(0,0,0,0.02)}
-.m-arrow{border:none;background:none;font-size:16px;color:var(--t2);cursor:pointer;padding:2px 6px;border-radius:4px;display:flex;align-items:center;justify-content:center}
-.m-arrow:hover{background-color:var(--bg2);color:var(--t1)}
-.m-label{font-size:15px;font-weight:700;color:var(--t1);min-width:75px;text-align:center;letter-spacing:-0.2px}
+/* 하위 메뉴 */
+.sub-menu{padding:0}
+/* 담당자 원형 배지 */
+.mr-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:9px;font-weight:700;flex-shrink:0;border:1.5px solid}
+.sub-item{display:flex;align-items:center;gap:7px;padding:6px 14px 6px 32px;font-size:11px;color:var(--t2);cursor:pointer;transition:.12s;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
+.sub-item:hover{background:var(--bg2);color:var(--t1)}
+.sub-item.sub-active{background:var(--bg2);color:var(--t1);font-weight:600}
+.sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
-/* Standard Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;padding:8px 14px;border-radius:var(--r);font-weight:500;font-size:13px;cursor:pointer;transition:all 0.15s ease;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
-.btn-primary{background-color:var(--dw);color:var(--white)}
-.btn-primary:hover{background-color:var(--dw-m)}
-.btn-secondary{background-color:var(--white);border:1px solid var(--bd);color:var(--t1)}
-.btn-secondary:hover{background-color:var(--bg)}
-.btn-danger{background-color:#FEEBEE;color:#C62828}
-.btn-danger:hover{background-color:#FFCDD2}
+/* 아코디언 */
+.acc-hd{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 24px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;transition:.12s;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
+.acc-hd:hover{background:var(--bg2);color:var(--t1)}
+.acc-hd .cv{font-size:11px;margin-left:auto;transition:transform .18s;color:var(--t3)}
+.acc-hd.open .cv{transform:rotate(180deg)}
+.acc-body{display:none}.acc-body.open{display:block}
 
-/* ===== VIEW 1: CALENDAR ===== */
-.cal-container{flex:1;display:flex;flex-direction:column;padding:16px 24px 24px;overflow-y:auto}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(110px,1fr);gap:1px;background-color:var(--bd);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;flex:1}
-/* Header Days */
-.cal-dh{background-color:var(--bg2);color:var(--t2);font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:500;text-align:center;padding:8px 0;font-size:12px;letter-spacing:0.5px}
-.cal-dh:nth-child(1){color:#C62828} /* Sun */
-.cal-dh:nth-child(7){color:#1565C0} /* Sat */
-/* Day Cell */
-.dc{background-color:var(--white);padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:background 0.1s}
-.dc:hover{background-color:var(--dw-l)}
-.dc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
-.day-num{font-size:13px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:700;color:var(--t1)}
-.dc:nth-child(7n+2) .day-num{color:#C62828} /* Sun (accounting for offset headers) */
-.dc:nth-child(7n) .day-num{color:#1565C0} /* Sat */
-/* Empty Cell */
-.ec{background-color:#FBFBFA;cursor:default}
-/* Zones am/pm */
-.dc-am, .dc-pm{display:flex;flex-direction:column;gap:2px;min-height:34px;border-radius:4px;padding:2px}
-.dc-am{background-color:rgba(244,121,32,0.01);margin-bottom:2px}
-.dc-pm{background-color:rgba(43,95,160,0.01)}
-/* Event Badge */
-.ev{display:flex;align-items:center;padding:3px 6px;border-radius:4px;font-size:11px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:500;cursor:pointer;transition:transform 0.1s, box-shadow 0.1s;box-shadow:0 1px 2px rgba(0,0,0,0.05);position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ev:hover{transform:translateY(-1px);box-shadow:0 3px 6px rgba(0,0,0,0.08);filter:brightness(0.98)}
-.ev-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+/* 전국 사업부 */
+.sb-nat{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 8px 14px;cursor:pointer;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0;transition:.12s}
+.sb-nat:hover{background:var(--bg2)}
+.sb-nat-left{display:flex;align-items:center;gap:6px}
+.sb-nat-title{font-size:11px;font-weight:700;color:var(--t2)}
+.sb-nat-lock{font-size:9px;color:#e53e3e;font-weight:600;display:flex;align-items:center;gap:3px}
+.sb-nat-cv{font-size:11px;color:var(--t3);transition:transform .18s}
+.sb-nat.open .sb-nat-cv{transform:rotate(180deg)}
+.biz-g{margin:0 6px 1px}
+.biz-hd{display:flex;align-items:center;gap:5px;padding:5px 8px;font-size:10px;font-weight:600;color:var(--t2);cursor:pointer;border-radius:var(--r);transition:.12s;user-select:none}
+.biz-hd:hover{background:var(--bg2)}
+.biz-hd .bcv{font-size:10px;margin-left:auto;transition:transform .18s}
+.biz-hd.open .bcv{transform:rotate(180deg)}
+.biz-body{display:none;padding:3px 0 4px 14px;flex-wrap:wrap;gap:3px}
+.biz-body.open{display:flex}
+.biz-tag{font-size:10px;padding:2px 6px;border-radius:999px;background:var(--bg2);color:var(--t2);cursor:pointer;border:0.5px solid transparent;transition:.12s}
+.biz-tag:hover{border-color:var(--bd2)}
+.biz-tag.cur{background:var(--dw-l);color:var(--dw);border-color:var(--dw-m);font-weight:700}
 
-/* ===== VIEW 2: CLINIC LIST ===== */
-.list-container{flex:1;display:flex;flex-direction:column;padding:0 24px 24px;overflow:hidden}
-.list-toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:16px}
-.search-box{display:flex;align-items:center;background-color:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:0 12px;width:280px}
-.search-input{border:none;background:none;padding:8px 0;width:100%;font-size:13px;outline:none;color:var(--t1)}
-.search-input::placeholder{color:var(--t3)}
-.list-filters{display:flex;align-items:center;gap:8px}
-.select-filter{border:1px solid var(--bd);background-color:var(--white);padding:7px 12px;border-radius:var(--r);font-size:13px;color:var(--t1);cursor:pointer;outline:none}
-.select-filter:focus{border-color:var(--dw)}
+/* ===== MAIN ===== */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
 
-.table-wrapper{flex:1;overflow:auto;border:1px solid var(--bd);border-radius:var(--r);background-color:var(--white);box-shadow:0 2px 8px rgba(0,0,0,0.02)}
-table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
-th{background-color:var(--bg2);color:var(--t2);font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:500;padding:12px 14px;border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5}
-td{padding:12px 14px;border-bottom:1px solid var(--bd);color:var(--t1);vertical-align:middle;white-space:nowrap}
-tr:last-child td{border-bottom:none}
-tr:hover td{background-color:var(--dw-l)}
+/* 뷰 패널 */
+.view-panel{display:none;position:absolute;inset:0;flex-direction:column;overflow:hidden}
+.view-panel.v-active{display:flex}
 
-/* Badges inside table */
-.badge{display:inline-flex;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:500}
-.b-mr-gang{background-color:var(--gang-bg);color:var(--gang-t)}
-.b-mr-kim{background-color:var(--kim-bg);color:var(--kim-t)}
-.b-mr-jung{background-color:var(--jung-bg);color:var(--jung-t)}
-.b-mr-jo{background-color:var(--jo-bg);color:var(--jo-t)}
-.b-mr-choi{background-color:var(--choi-bg);color:var(--choi-t)}
-.b-wc-y{background-color:#E8F5E9;color:#2E7D32}
-.b-wc-n{background-color:#F5F5F5;color:#616161}
-.b-ims-y{background-color:#E3F2FD;color:#1565C0}
-.b-ims-n{background-color:#FFF3E0;color:#EF6C00}
+/* ===== 캘린더 뷰 ===== */
+/* 헤더 */
+.cal-head{background:var(--white);border-bottom:1.5px solid var(--bd);padding:13px 20px 11px;display:flex;align-items:center;justify-content:space-between}
+.cal-head-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.6px}
+.cal-head-right{font-size:11px;color:var(--t3)}
 
-/* ===== MODAL OVERLAYS ===== */
-.ov{position:fixed;top:0;left:0;width:100vw;height:100vh;background-color:rgba(45,41,38,0.4);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
-.ov.ov-open{opacity:1;pointer-events:auto}
-.modal{background-color:var(--white);border-radius:var(--rl);box-shadow:0 20px 40px rgba(0,0,0,0.15);width:100%;max-width:48px;max-width:480px;display:flex;flex-direction:column;overflow:hidden;transform:scale(0.95);transition:transform 0.2s ease}
-.ov.ov-open .modal{transform:scale(1)}
-.modal-sm{max-width:380px}
-.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);background-color:var(--bg)}
-.modal-title{font-size:15px;font-weight:700;color:var(--t1)}
-.modal-x{border:none;background:none;font-size:16px;color:var(--t2);cursor:pointer;padding:4px}
+/* 탑바 */
+.cal-topbar{background:var(--white);border-bottom:1px solid var(--bd);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mr-lbl{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.6px;text-transform:uppercase}
+.mr-btn{padding:4px 11px;font-size:11px;font-weight:600;border-radius:999px;cursor:pointer;border:1px solid var(--bd2);background:var(--white);color:var(--t1);transition:.15s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.mr-circle{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1.5px solid;display:inline-block}
+#mb-all{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-gang{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-kim{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-jung{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-jo{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+#mb-choi{background:var(--white);color:var(--t2);border-color:var(--bd2)}
+.mr-btn.mb-dim{opacity:1}
+.mr-btn.mb-on{opacity:1;border-color:var(--t2);color:var(--t1);font-weight:700;box-shadow:none}
+.topbar-sep{width:0.5px;height:16px;background:var(--bd2);flex-shrink:0}
+.spl{font-size:10px;padding:3px 8px;border-radius:999px;font-weight:600}
+.spl-g{background:#E4F5EE;color:#145C38}
+.spl-y{background:#FEF8E6;color:#7A5C00}
+.spl-r{background:#FEEEEE;color:#B01A1A}
+
+/* 캘린더 컨텐츠 */
+.cal-content{flex:1;overflow-y:auto;padding:12px 14px;display:flex;gap:14px;align-items:flex-start}
+.cal-content::-webkit-scrollbar{width:4px}
+.cal-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+/* 네비 */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.nav-btns{display:flex;gap:3px}
+.nav-btn{width:28px;height:28px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:15px;font-family:inherit;transition:.12s}
+.nav-btn:hover{background:var(--bg2)}
+.cal-ym{font-size:15px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:7px}
+.now-badge{font-size:9px;background:var(--dw-l);color:var(--dw);padding:2px 7px;border-radius:999px;font-weight:700;border:1px solid var(--dw-m)}
+
+/* 범례 */
+.leg-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:5px 10px;background:var(--white);border:0.5px solid var(--bd);border-radius:var(--r);flex-wrap:wrap}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2)}
+
+/* 달력 */
+.cal-grid-wrap{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:12px;min-width:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-dh{padding:8px 5px;font-size:11px;font-weight:700;color:var(--t2);text-align:center;background:var(--bg3);border-bottom:1px solid var(--bd2)}
+
+/* 날짜 셀 */
+.dc{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s;overflow:hidden}
+.dc:nth-child(7n){border-right:none}
+.dc:hover{background:var(--dw-l)}
+.dc-top{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none}
+.day-num{font-size:13px;font-weight:700;color:var(--t1);line-height:1}
+.today-circle{background:var(--dw);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.add-btn{display:none}
+
+/* 오전/오후/종일 영역 */
+.dc-am{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.dc-all{flex:1;padding:0 4px 3px;overflow:hidden;display:flex;flex-direction:column}
+.zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
+
+/* 이벤트 칩 */
+.ev{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;display:flex;align-items:center;gap:3px;cursor:pointer;position:relative;z-index:1;transition:.1s}
+.ev:hover{filter:brightness(.93)}
+.ev input[type=checkbox]{
+  width:10px;height:10px;cursor:pointer;flex-shrink:0;margin:0;
+  appearance:none;-webkit-appearance:none;
+  border:1.5px solid rgba(255,255,255,0.7);border-radius:2px;
+  background:transparent;position:relative;
+}
+.ev input[type=checkbox]:checked{
+  background:white;border-color:white;
+}
+.ev input[type=checkbox]:checked::after{
+  content:'✓';position:absolute;top:-2px;left:0px;
+  font-size:9px;color:#333;font-weight:700;line-height:1;
+}
+.ev-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-weight:600}
+.ev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.6)}
+.ev-allday{font-size:11px;padding:4px 6px;font-weight:700;border-radius:5px}
+
+/* 빈칸 */
+.ec{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
+.ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
+.ec:nth-child(7n){border-right:none}
+
+/* 하단 패널 */
+.bot-panels{display:flex;flex-direction:column;gap:12px;width:260px;flex-shrink:0;position:sticky;top:0}
+.pnl{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);padding:12px}
+.pnl-title{font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.risk-item{display:flex;gap:6px;padding:5px 0;border-bottom:0.5px solid var(--bd);font-size:11px}
+.risk-item:last-child{border-bottom:none;padding-bottom:0}
+.ri-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.ri-name{font-weight:600;color:var(--t1)}
+.ri-sub{color:var(--t2);font-size:10px;margin-top:1px}
+.memo-area{width:100%;min-height:108px;font-size:12px;padding:8px 10px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--bg2);color:var(--t1);resize:vertical;font-family:inherit;line-height:1.6}
+.memo-area:focus{outline:none;border-color:var(--dw);background:var(--white)}
+
+/* ===== 거래처 현황판 뷰 ===== */
+.list-head{background:var(--white);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
+.list-head-title{font-size:15px;font-weight:700;color:var(--t1)}
+.fp-row{display:flex;gap:4px;flex-wrap:wrap}
+.fpill{padding:3px 9px;font-size:11px;border-radius:999px;border:1px solid var(--bd2);background:var(--white);color:var(--t2);cursor:pointer;font-family:inherit;font-weight:500;transition:.12s}
+.fpill:hover{background:var(--bg2)}
+.fpill.fp-on{font-weight:700;border-width:1.5px;background:var(--bg2)}
+.list-content{flex:1;overflow-y:auto}
+.list-content::-webkit-scrollbar{width:4px}
+.list-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.list-sec{font-size:11px;font-weight:700;color:var(--t2);padding:8px 14px 6px;background:var(--bg2);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:6px}
+.list-sec::after{content:'';flex:1;height:0.5px;background:var(--bd2);margin-left:6px}
+.gtbl{width:100%;border-collapse:collapse;font-size:11px}
+.gtbl th{padding:7px 12px;font-size:10px;font-weight:700;color:var(--t3);text-align:left;background:var(--bg2);border-bottom:0.5px solid var(--bd);white-space:nowrap;position:sticky;top:0}
+.gtbl td{padding:8px 12px;border-bottom:0.5px solid var(--bd);color:var(--t1);vertical-align:middle;white-space:nowrap}
+.gtbl tbody tr:hover td{background:var(--dw-l);cursor:pointer}
+.mr-chip{display:inline-flex;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.edu-bdg{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
+.edu-ok{background:#E4F5EE;color:#145C38}
+.edu-warn{background:#FEF8E6;color:#7A5C00}
+.edu-danger{background:#FEEEEE;color:#B01A1A}
+.edu-none{background:var(--bg2);color:var(--t3)}
+.dv-bdg{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;background:var(--bg2);color:var(--t2)}
+.dv-yes{background:#E6F1FB;color:#1048A0}
+.gm-wrap{display:flex;align-items:center;gap:5px}
+.gm-wrap2{display:flex;align-items:center;gap:5px}
+.gm-bar{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;min-width:50px}
+.gm-fill{height:100%;border-radius:3px}
+.gm-num{font-size:10px;color:var(--t2);white-space:nowrap}
+.rp{display:inline-block;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;background:var(--bg2);color:var(--t2)}
+.cnt-yes{color:#145C38;font-weight:600;font-size:10px}
+.cnt-no{color:var(--t3);font-size:10px}
+
+/* ===== 모달 ===== */
+.ov{display:none;position:fixed;inset:0;background:rgba(45,41,38,.4);z-index:200;align-items:center;justify-content:center}
+.ov.ov-open{display:flex}
+.modal{background:var(--white);border-radius:var(--rl);border:0.5px solid var(--bd);padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.modal-sm{width:340px}
+.modal-lg{width:400px;max-height:80vh;overflow-y:auto}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.modal-title{font-size:14px;font-weight:700;color:var(--t1)}
+.modal-x{cursor:pointer;color:var(--t3);font-size:20px;background:none;border:none;font-family:inherit;line-height:1}
 .modal-x:hover{color:var(--t1)}
-.modal-body{padding:20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;max-height:75vh}
-
-/* Forms inside modal */
-.fld{display:flex;flex-direction:column;gap:6px}
-.fld label{font-size:12px;font-weight:6px;font-weight:6px;font-weight:6px;font-weight:500;color:var(--t2);letter-spacing:0.2px}
-.fld input, .fld select, .fld textarea{width:100%;border:1px solid var(--bd);border-radius:var(--r);padding:8px 12px;font-size:13px;outline:none;background-color:var(--white)}
-.fld input:focus, .fld select:focus, .fld textarea:focus{border-color:var(--dw);box-shadow:0 0 0 3px var(--dw-l)}
-.fld textarea{height:80px;resize:none}
-.fld-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-
-.modal-btns{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid var(--bd);background-color:var(--bg)}
-
-/* Detail View Custom */
-.det-row{display:flex;padding:6px 0;border-bottom:1px solid var(--bg2)}
-.det-row:last-child{border-bottom:none}
-.det-lbl{width:80px;font-size:12px;color:var(--t2);font-weight:500}
-.det-val{flex:1;color:var(--t1);font-weight:500}
+.fld{margin-bottom:10px}
+.fld label{display:block;font-size:10px;font-weight:700;color:var(--t2);margin-bottom:3px;letter-spacing:.2px}
+.fld input,.fld select,.fld textarea{width:100%;padding:7px 10px;font-size:12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);font-family:inherit;transition:.12s}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--dw);background:var(--white)}
+.fld textarea{min-height:70px;resize:vertical;line-height:1.5}
+.fld-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modal-btns{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
+.btn{padding:7px 16px;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;font-family:inherit;border:0.5px solid var(--bd2);transition:.12s}
+.btn-cancel{background:var(--white);color:var(--t2)}.btn-cancel:hover{background:var(--bg2)}
+.btn-save{background:var(--dw);color:white;border-color:var(--dw)}.btn-save:hover{background:#d96810}
+.btn-del{background:var(--white);color:#B01A1A;border-color:#F7C1C1}.btn-del:hover{background:#FEEEEE}
+/* 상세 모달 */
+.dm-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-top:4px}
+.dm-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.dm-field{background:var(--bg2);border-radius:var(--r);padding:8px 10px}
+.dm-field-lbl{font-size:9px;font-weight:700;color:var(--t3);letter-spacing:.4px;text-transform:uppercase;margin-bottom:3px}
+.dm-field-val{font-size:12px;font-weight:600;color:var(--t1)}
+.gauge-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:5px 0 3px}
+.gauge-fill2{height:100%;border-radius:4px}
+.hist-item{display:flex;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--bd);font-size:11px}
+.hist-item:last-child{border-bottom:none}
+.hist-date{color:var(--t3);font-size:10px;min-width:40px;flex-shrink:0}
 </style>
 </head>
 <body>
 
-<div class="app-container">
-  <header class="header">
-    <div class="header-left">
-      <div class="logo-icon">W</div>
-      <div class="logo-title">웰체크 거래처 관리장</div>
-      <div class="logo-sub">경인1사무소</div>
-    </div>
-    <div class="header-right">
-      <div class="nav-tabs">
-        <button class="tab-btn active" id="tb-cal" onclick="switchView('cal')">📅 방문 달력</button>
-        <button class="tab-btn" id="tb-list" onclick="switchView('list')">🏥 거래처 현황</button>
-      </div>
-    </div>
-  </header>
-
-  <div class="toolbar" id="cal-sub">
-    <div class="toolbar-left">
-      <div class="month-select">
-        <button class="m-arrow" onclick="changeMonth(-1)">◀</button>
-        <div class="m-label" id="cal-label">2026년 5월</div>
-        <button class="m-arrow" onclick="changeMonth(1)">▶</button>
-      </div>
-      <div class="mr-filters">
-        <button class="mr-btn mb-all" id="mb-all" onclick="filterMR('all')">전체</button>
-        <button class="mr-btn mb-gang mb-dim" id="mb-gang" onclick="filterMR('gang')">강성훈</button>
-        <button class="mr-btn mb-kim mb-dim" id="mb-kim" onclick="filterMR('kim')">김서준</button>
-        <button class="mr-btn mb-jung mb-dim" id="mb-jung" onclick="filterMR('jung')">정민우</button>
-        <button class="mr-btn mb-jo mb-dim" id="mb-jo" onclick="filterMR('jo')">조현우</button>
-        <button class="mr-btn mb-choi mb-dim" id="mb-choi" onclick="filterMR('choi')">최재혁</button>
-      </div>
-    </div>
-    <div class="toolbar-right">
-      <button class="btn btn-primary" onclick="openAddModal('')">➕ 새 일정 추가</button>
+<aside class="sb">
+  <div class="sb-logo">
+    <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="14" fill="#F47920"/>
+      <text x="50" y="70" text-anchor="middle" font-family="serif" font-size="62" font-weight="900" fill="white">龍</text>
+    </svg>
+    <div>
+      <div class="sb-logo-text">웰체크 거래처 관리장</div>
+      <div class="sb-logo-sub">Daewoong</div>
     </div>
   </div>
 
-  <div class="toolbar" id="list-sub" style="display:none">
-    <div class="toolbar-left">
-      <div class="search-box">
-        <input type="text" class="search-input" id="searchClinic" placeholder="의원명, 담당자, 지역 검색..." oninput="renderClinics()">
-      </div>
-      <div class="list-filters">
-        <select class="select-filter" id="flt-mr" onchange="filterClinicList()">
-          <option value="all">담당 MR: 전체</option>
-          <option value="gang">강성훈</option>
-          <option value="kim">김서준</option>
-          <option value="jung">정민우</option>
-          <option value="jo">조현우</option>
-          <option value="choi">최재혁</option>
-        </select>
-        <select class="select-filter" id="flt-region" onchange="filterClinicList()">
-          <option value="all">지역: 전체</option>
-          <option value="부평">부평</option>
-          <option value="계양">계양</option>
-          <option value="김포">김포</option>
-          <option value="일산">일산</option>
-          <option value="파주">파주</option>
-        </select>
-      </div>
-    </div>
-    <div class="toolbar-right">
-      <button class="btn btn-primary" onclick="openAddClinic()">🏥 새 거래처 등록</button>
-    </div>
+  <div class="sb-office">
+    <div class="sb-office-name">경인1사무소</div>
+    <div class="sb-office-sub">웰체크 공유 시스템</div>
   </div>
 
-  <main class="main-content">
-    
-    <div class="view-panel active" id="view-cal">
-      <div class="cal-container">
-        <div class="cal-grid" id="cal-grid">
-          <div class="cal-dh">일요일</div><div class="cal-dh">월요일</div><div class="cal-dh">화요일</div>
-          <div class="cal-dh">수요일</div><div class="cal-dh">목요일</div><div class="cal-dh">금요일</div>
-          <div class="cal-dh">토요일</div>
+  <div class="sb-scroll">
+    <div class="cat-btn" id="cat-cal" onclick="switchView('cal')">
+      <div class="cat-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563a8" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+      </div>
+      교육간호사 캘린더
+    </div>
+
+    <div class="sb-div"></div>
+
+    <div class="cat-btn" id="cat-list" onclick="switchView('list')">
+      <div class="cat-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A5C3A" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="#7A5C3A"/><circle cx="3" cy="12" r="1.5" fill="#7A5C3A"/><circle cx="3" cy="18" r="1.5" fill="#7A5C3A"/></svg>
+      </div>
+      거래처 현황판
+    </div>
+
+    <div id="list-sub" style="display:none">
+      <div class="sub-item sub-active" id="sub-all" onclick="setSubNav(this);listFilter('all','all')" style="padding-left:14px;font-weight:700;color:var(--t1)">경인1 전체 현황</div>
+      <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">담당자별 현황 <span class="cv">▾</span></div>
+      <div class="acc-body open">
+        <div class="sub-item" onclick="setSubNav(this);listFilter('gang','all')"><span class="sub-dot" style="background:var(--gang-bg);border:1.5px solid var(--gang-t)"></span>강태경</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('kim','all')"><span class="sub-dot" style="background:var(--kim-bg);border:1.5px solid var(--kim-t)"></span>김태정</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('jung','all')"><span class="sub-dot" style="background:var(--jung-bg);border:1.5px solid var(--jung-t)"></span>정영수</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('jo','all')"><span class="sub-dot" style="background:var(--jo-bg);border:1.5px solid var(--jo-t)"></span>조예린</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('choi','all')"><span class="sub-dot" style="background:var(--choi-bg);border:1.5px solid var(--choi-t)"></span>최주호</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('kyung','all')"><span class="sub-dot" style="background:#F8F8F8;border:1.5px solid #888888"></span>김경식</div>
+      </div>
+      <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">지역별 현황 <span class="cv">▾</span></div>
+      <div class="acc-body open">
+        <div class="sub-item" onclick="setSubNav(this);listFilter('all','부평')"><span class="sub-dot" style="background:#E8F0FF;border:1.5px solid #5B7FD4;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>부평구</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('all','계양')"><span class="sub-dot" style="background:#E8FFF0;border:1.5px solid #3A9E6A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>계양구</div>
+        <div class="sub-item" onclick="setSubNav(this);listFilter('all','김포')"><span class="sub-dot" style="background:#FFF4E8;border:1.5px solid #D4884A;font-size:9px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%">📍</span>김포시</div>
+      </div>
+    </div>
+
+    <div class="sb-div"></div>
+
+    <div class="sb-nat" onclick="toggleNat(this)">
+      <div class="sb-nat-left">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <div>
+          <div class="sb-nat-title">전국 사업부 현황</div>
+          <div class="sb-nat-lock">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            소장·팀장·사업부장 권한
+          </div>
+        </div>
+      </div>
+      <span class="sb-nat-cv">▾</span>
+    </div>
+    <div id="nat-body" style="display:none">
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 서울3 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">남부1</span><span class="biz-tag">남부2</span><span class="biz-tag">남부3</span><span class="biz-tag">동부1</span><span class="biz-tag">동부2</span><span class="biz-tag">북부1</span><span class="biz-tag">북부2</span><span class="biz-tag">북부3</span><span class="biz-tag">서부1</span><span class="biz-tag">서부2</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 서울4 <span class="bcv">▾</span></div><div class="biz-body open"><span class="biz-tag">강원</span><span class="biz-tag">경기1</span><span class="biz-tag">경기2</span><span class="biz-tag">경기3</span><span class="biz-tag cur">경인1</span><span class="biz-tag">경인2</span><span class="biz-tag">경인3</span><span class="biz-tag">경인4</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 지방3 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">경남1</span><span class="biz-tag">경남2</span><span class="biz-tag">대구1</span><span class="biz-tag">대구2</span><span class="biz-tag">대구3</span><span class="biz-tag">부산1</span><span class="biz-tag">부산2</span><span class="biz-tag">부산3</span><span class="biz-tag">울산</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 지방4 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">광주1</span><span class="biz-tag">광주2</span><span class="biz-tag">대전1</span><span class="biz-tag">대전2</span><span class="biz-tag">전주1</span><span class="biz-tag">전주2</span><span class="biz-tag">청주1</span><span class="biz-tag">청주2</span></div></div>
+      <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 폴라리스 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">폴라리스1</span><span class="biz-tag">폴라리스2</span></div></div>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+
+<div id="view-cal" class="view-panel v-active">
+  <div class="cal-head">
+    <div class="cal-head-title">교육간호사 캘린더</div>
+    <div class="cal-head-right">경인1사무소 · 부평 / 계양 / 김포</div>
+  </div>
+  <div class="cal-topbar">
+    <span class="mr-lbl">담당자</span>
+    <button class="mr-btn mb-on" id="mb-all" onclick="filterMR('all')">전체</button>
+    <button class="mr-btn mb-dim" id="mb-gang" onclick="filterMR('gang')"><span style="width:10px;height:10px;border-radius:50%;background:var(--gang-bg);border:1.5px solid var(--gang-t);flex-shrink:0;display:inline-block"></span>강태경</button>
+    <button class="mr-btn mb-dim" id="mb-kim" onclick="filterMR('kim')"><span style="width:10px;height:10px;border-radius:50%;background:var(--kim-bg);border:1.5px solid var(--kim-t);flex-shrink:0;display:inline-block"></span>김태정</button>
+    <button class="mr-btn mb-dim" id="mb-jung" onclick="filterMR('jung')"><span style="width:10px;height:10px;border-radius:50%;background:var(--jung-bg);border:1.5px solid var(--jung-t);flex-shrink:0;display:inline-block"></span>정영수</button>
+    <button class="mr-btn mb-dim" id="mb-jo" onclick="filterMR('jo')"><span style="width:10px;height:10px;border-radius:50%;background:var(--jo-bg);border:1.5px solid var(--jo-t);flex-shrink:0;display:inline-block"></span>조예린</button>
+    <button class="mr-btn mb-dim" id="mb-choi" onclick="filterMR('choi')"><span style="width:10px;height:10px;border-radius:50%;background:var(--choi-bg);border:1.5px solid var(--choi-t);flex-shrink:0;display:inline-block"></span>최주호</button>
+    <button class="mr-btn mb-dim" id="mb-kyung" onclick="filterMR('kyung')"><span class="mr-circle" style="background:#F8F8F8;border-color:#888888"></span>김경식</button>
+  </div>
+  <div class="cal-content">
+    <div style="flex:1;min-width:0">
+    <div class="cal-nav">
+      <div class="nav-btns">
+        <button class="nav-btn" onclick="changeYear(-1)" title="이전 연도">«</button>
+        <button class="nav-btn" onclick="changeMonth(-1)" title="이전 달">‹</button>
+      </div>
+      <div class="cal-ym">
+        <span id="cal-label">2026년 5월</span>
+        <span class="now-badge" id="now-badge">현재</span>
+      </div>
+      <div class="nav-btns">
+        <button class="nav-btn" onclick="changeMonth(1)" title="다음 달">›</button>
+        <button class="nav-btn" onclick="changeYear(1)" title="다음 연도">»</button>
+      </div>
+    </div>
+    <div class="leg-row">
+      <div class="leg-i"><span style="width:9px;height:9px;border-radius:50%;background:#22c55e;display:inline-block;border:1px solid rgba(0,0,0,.1)"></span>40명↑ 활성</div>
+      <div class="leg-i"><span style="width:9px;height:9px;border-radius:50%;background:#f59e0b;display:inline-block;border:1px solid rgba(0,0,0,.1)"></span>20~39명</div>
+      <div class="leg-i"><span style="width:9px;height:9px;border-radius:50%;background:#ef4444;display:inline-block;border:1px solid rgba(0,0,0,.1)"></span>20명↓</div>
+      <div style="width:0.5px;height:12px;background:var(--bd2)"></div>
+      <div class="leg-i" style="font-size:9px;color:var(--t3)">날짜 클릭 = 일정 추가</div>
+    </div>
+    <div class="cal-grid-wrap">
+      <div class="cal-grid" id="cal-grid">
+        <div class="cal-dh">일</div><div class="cal-dh">월</div><div class="cal-dh">화</div>
+        <div class="cal-dh">수</div><div class="cal-dh">목</div><div class="cal-dh">금</div><div class="cal-dh">토</div>
+      </div>
+    </div>
+    </div><div class="bot-panels">
+      <div class="pnl">
+        <div class="pnl-title">⚠️ <span style="color:#B01A1A">위험 거래처 모니터링</span></div>
+        <div id="risk-list">
           </div>
       </div>
-    </div>
-
-    <div class="view-panel" id="view-list">
-      <div class="list-container">
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>의원명</th>
-                <th>담당 MR</th>
-                <th>지역</th>
-                <th>원장명</th>
-                <th>연락처</th>
-                <th>가입자(활성/전체)</th>
-                <th>진료과목</th>
-                <th>일만사</th>
-                <th>웰체크</th>
-                <th>메모</th>
-                <th>관리</th>
-              </tr>
-            </thead>
-            <tbody id="clinic-tbody">
-              </tbody>
-          </table>
-        </div>
+      <div class="pnl">
+        <div class="pnl-title">📝 전체 공유 메모장</div>
+        <textarea class="memo-area" id="shared-memo" placeholder="사무소원들과 실시간 공유할 내용을 입력하세요 (포커스 아웃 시 자동저장)"></textarea>
       </div>
-    </div>
-
-  </main>
-</div>
-
-<div class="ov" id="add-ov">
-  <div class="modal">
-    <div class="modal-head">
-      <span class="modal-title">📅 새 방문 일정 등록</span>
-      <button class="modal-x" onclick="closeAddModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="fld-row">
-        <div class="fld"><label>방문 날짜</label><input type="date" id="add-date"></div>
-        <div class="fld"><label>방문 시간대</label>
-          <select id="add-timezone"><option value="오전">오전 (AM)</option><option value="오후">오후 (PM)</option></select>
-        </div>
-      </div>
-      <div class="fld-row">
-        <div class="fld"><label>담당 MR</label>
-          <select id="add-mr">
-            <option value="gang">강성훈</option><option value="kim">김서준</option>
-            <option value="jung">정민우</option><option value="jo">조현우</option>
-            <option value="choi">최재혁</option>
-          </select>
-        </div>
-        <div class="fld"><label>의원 선택</label>
-          <select id="add-clinic">
-            </select>
-        </div>
-      </div>
-      <div class="fld"><label>일정 요약 (미입력 시 의원명 표시)</label><input type="text" id="add-title" placeholder="예: 웰체크 기기 점검 및 브리핑"></div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn btn-secondary" onclick="closeAddModal()">취소</button>
-      <button class="btn btn-primary" onclick="saveAddEvent()">등록</button>
     </div>
   </div>
 </div>
 
-<div class="ov" id="detail-ov">
-  <div class="modal modal-sm">
-    <div class="modal-head">
-      <span class="modal-title">📋 일정 상세 조회</span>
-      <button class="modal-x" onclick="closeDetailModal()">✕</button>
+<div id="view-list" class="view-panel">
+  <div class="list-head">
+    <div class="list-head-title" id="list-title">경인1 전체 현황 (0개 처)</div>
+    <div class="fp-row">
+      <button class="fpill fp-on" id="fp-all" onclick="filterFp('all')">전체</button>
+      <button class="fpill" id="fp-ok" onclick="filterFp('ok')">🟢 교육 완료</button>
+      <button class="fpill" id="fp-warn" onclick="filterFp('warn')">🟡 교육 예정/진행</button>
+      <button class="fpill" id="fp-danger" onclick="filterFp('danger')">🔴 미요청 30일↑</button>
+      <button class="fpill" id="fp-none" onclick="filterFp('none')">⚪ 미가입</button>
+      <button class="btn btn-save" style="padding:4px 10px;font-size:11px;margin-left:8px" onclick="openAddClinic()">+ 새 거래처 등록</button>
     </div>
-    <div class="modal-body">
-      <div class="det-row"><div class="det-lbl">일정 명</div><div class="det-val" id="dm-title">-</div></div>
-      <div class="det-row"><div class="det-lbl">의원 명</div><div class="det-val" id="dm-clinic">-</div></div>
-      <div class="det-row"><div class="det-lbl">방문 일자</div><div class="det-val" id="dm-date">-</div></div>
-      <div class="det-row"><div class="det-lbl">시간 대</div><div class="det-val" id="dm-timezone">-</div></div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn btn-danger btn-del" style="margin-right:auto">삭제</button>
-      <button class="btn btn-secondary" onclick="closeDetailModal()">닫기</button>
-    </div>
+  </div>
+  <div class="list-content">
+    <table class="gtbl">
+      <thead>
+        <tr>
+          <th>의원명</th>
+          <th>지역</th>
+          <th>담당 MR</th>
+          <th>교육 구분</th>
+          <th>최근 방문일</th>
+          <th>상태 원인 / 특이사항</th>
+          <th>일만사</th>
+          <th>웰체크</th>
+          <th>가입자 수</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody id="list-tbody">
+        </tbody>
+    </table>
   </div>
 </div>
 
-<div class="ov" id="clinic-ov">
-  <div class="modal">
+</div><div class="ov" id="clinic-ov">
+  <div class="modal modal-lg">
     <div class="modal-head">
-      <span class="modal-title">🏥 새 거래처 의원 등록</span>
+      <span class="modal-title" id="clinic-modal-title">✨ 새 거래처 등록</span>
       <button class="modal-x" onclick="closeAddClinic()">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="fld-row">
-        <div class="fld"><label>의원명</label><input type="text" id="ca-name" placeholder="의원명 입력"></div>
-        <div class="fld"><label>담당 MR</label>
-          <select id="ca-mr">
-            <option value="gang">강성훈</option><option value="kim">김서준</option>
-            <option value="jung">정민우</option><option value="jo">조현우</option>
-            <option value="choi">최재혁</option>
-          </select>
-        </div>
+    <input type="hidden" id="ca-id">
+    <div class="fld"><label>의원명 *</label>
+      <input type="text" id="ca-name" placeholder="의원명을 정확히 입력하세요">
+    </div>
+    <div class="fld-2">
+      <div class="fld"><label>지역구 분 *</label>
+        <select id="ca-region">
+          <option value="부평">부평구</option>
+          <option value="계양">계양구</option>
+          <option value="김포">김포시</option>
+        </select>
       </div>
-      <div class="fld-row">
-        <div class="fld"><label>지역</label>
-          <select id="ca-region">
-            <option value="부평">부평</option><option value="계양">계양</option>
-            <option value="김포">김포</option><option value="일산">일산</option>
-            <option value="파주">파주</option>
-          </select>
-        </div>
-        <div class="fld"><label>원장명</label><input type="text" id="ca-manager" placeholder="원장 이름"></div>
+      <div class="fld"><label>담당 MR *</label>
+        <select id="ca-mr">
+          <option value="gang">강태경</option>
+          <option value="kim">김태정</option>
+          <option value="jung">정영수</option>
+          <option value="jo">조예린</option>
+          <option value="choi">최주호</option>
+          <option value="kyung">김경식</option>
+        </select>
       </div>
-      <div class="fld-row">
-        <div class="fld"><label>연락처</label><input type="text" id="ca-tel" placeholder="010-0000-0000"></div>
-        <div class="fld"><label>진료과목</label><input type="text" id="ca-type" placeholder="내과, 이비인후과 등"></div>
+    </div>
+    <div class="fld-2">
+      <div class="fld"><label>일만사</label>
+        <select id="ca-ilmansa">
+          <option value="미참여">미참여</option>
+          <option value="참여">참여</option>
+        </select>
       </div>
-      <div class="fld-row">
-        <div class="fld"><label>일만사 여부</label>
-          <select id="ca-ilmansa"><option value="미참여">미참여</option><option value="참여">참여</option></select>
-        </div>
-        <div class="fld"><label>웰체크 도입상태</label>
-          <select id="ca-welcheck"><option value="false">미가입</option><option value="true">가입</option></select>
-        </div>
+      <div class="fld"><label>웰체크</label>
+        <select id="ca-welcheck">
+          <option value="false">미가입</option>
+          <option value="true">가입</option>
+        </select>
       </div>
-      <div class="fld-row">
-        <div class="fld"><label>활성 가입자 수</label><input type="number" id="ca-active" value="0" min="0"></div>
-        <div class="fld"><label>전체 가입자 수</label><input type="number" id="ca-total" value="0" min="0"></div>
-      </div>
-      <div class="fld"><label>특이사항 및 메모</label><textarea id="ca-memo" placeholder="원장님 성향이나 특이사항"></textarea></div>
+    </div>
+    <div class="fld"><label>웰체크 가입자 수</label>
+      <input type="number" id="ca-patients" placeholder="0" min="0" value="0">
+    </div>
+    <div class="fld"><label>메모</label>
+      <textarea id="ca-memo" placeholder="특이사항 등"></textarea>
     </div>
     <div class="modal-btns">
-      <button class="btn btn-secondary" onclick="closeAddClinic()">취소</button>
-      <button class="btn btn-primary" onclick="saveAddClinic()">등록</button>
+      <button class="btn btn-cancel" onclick="closeAddClinic()">취소</button>
+      <button class="btn btn-save" onclick="saveAddClinic()">등록</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="event-ov">
+  <div class="modal modal-sm">
+    <div class="modal-head">
+      <span class="modal-title" id="event-modal-title">📅 일정 추가</span>
+      <button class="modal-x" onclick="closeEventModal()">✕</button>
+    </div>
+    <input type="hidden" id="ev-id">
+    <input type="hidden" id="ev-date">
+    <div class="fld"><label>일정 대상 거래처 *</label>
+      <select id="ev-clinic-id">
+        </select>
+    </div>
+    <div class="fld"><label>시간대 구분 *</label>
+      <select id="ev-zone">
+        <option value="am">오전 방문 (AM)</option>
+        <option value="pm">오후 방문 (PM)</option>
+        <option value="all">종일 지원 / 특이일정 (ALL)</option>
+      </select>
+    </div>
+    <div class="fld"><label>방문 목적 / 내용</label>
+      <input type="text" id="ev-desc" placeholder="예: 초기 웰체크 연동 교육">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-del" id="btn-ev-del" style="display:none" onclick="deleteEvent()">삭제</button>
+      <button class="btn btn-cancel" onclick="closeEventModal()">취소</button>
+      <button class="btn btn-save" onclick="saveEvent()">저장</button>
     </div>
   </div>
 </div>
 
 <script type="module">
-  // Firebase 웹 앱 라이브러리 추가
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { 
+  getFirestore, collection, addDoc, doc, setDoc, deleteDoc, onSnapshot, getDocs 
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-  // 제공된 고유 API Key 바인딩 완료
-  const firebaseConfig = {
-    apiKey: "AIzaSyAkLed3kZePtDO8aR_KuwLic9rEW9ErBWg",
-    authDomain: "hs-wall.firebaseapp.com",
-    projectId: "hs-wall",
-    storageBucket: "hs-wall.firebasestorage.app",
-    messagingSenderId: "155107657356",
-    appId: "1:155107657356:web:b49f26c3bff5a4a7ea5da9",
-    measurementId: "G-C1SPSECMGV"
-  };
+// 2. 구글 파이어베이스 접속 키값 설정
+const firebaseConfig = {
+  apiKey: "AIzaSyAs7iR-YOUR_KEY_HERE",
+  authDomain: "hs-wallcheck.firebaseapp.com",
+  projectId: "hs-wallcheck",
+  storageBucket: "hs-wallcheck.appspot.com",
+  messagingSenderId: "38927492122",
+  appId: "1:38927492122:web:a1b2c3d4e5f6"
+};
 
-  // 파이어베이스 데이터베이스 초기화
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+// 파이어베이스 시동
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-  // 상태 관리 전역 변수
-  let currentYear = 2026;
-  let currentMonth = 5; 
-  let currentFilterMR = "all";
-  let activeView = "cal";
-  let listFilterMR = "all";
-  let listFilterRegion = "all";
+// 전역 로컬 변수
+let clinics = [];
+let events = [];
+let currentYear = 2026;
+let currentMonth = 5; // 5 = 5월
+let filterMRSelected = 'all';
 
-  // 기본 더미 데이터 백업구조 (DB가 비어있을 때 사용됨)
-  let defaultClinics = [
-    { name: "부평내과", mr: "gang", region: "부평", manager: "김원장", tel: "032-111-2222", activePatients: 45, totalPatients: 120, type: "내과", ilmansa: "참여", welcheck: "true", memo: "친절함" },
-    { name: "계양가정의학과", mr: "kim", region: "계양", manager: "이원장", tel: "032-333-4444", activePatients: 25, totalPatients: 80, type: "가정의학과", ilmansa: "미참여", welcheck: "true", memo: "오전 방문 요망" },
-    { name: "김포소아과", mr: "jung", region: "김포", manager: "최원장", tel: "031-555-6666", activePatients: 12, totalPatients: 50, type: "소아과", ilmansa: "참여", welcheck: "false", memo: "보수적임" }
-  ];
+let listFilterMR = 'all';
+let listFilterRegion = 'all';
+let listFilterFp = 'all';
 
-  let clinics = [];
-  let events = [];
+// MR 데이터 정의 mapping
+const mrMap = {
+  gang: { name: '강태경', bg: 'var(--gang-bg)', t: 'var(--gang-t)' },
+  kim: { name: '김태정', bg: 'var(--kim-bg)', t: 'var(--kim-t)' },
+  jung: { name: '정영수', bg: 'var(--jung-bg)', t: 'var(--jung-t)' },
+  jo: { name: '조예린', bg: 'var(--jo-bg)', t: 'var(--jo-t)' },
+  choi: { name: '최주호', bg: 'var(--choi-bg)', t: 'var(--choi-t)' },
+  kyung: { name: '김경식', bg: '#F8F8F8', t: '#888888' }
+};
 
-  // 1. 파이어베이스 연동 데이터 불러오기 함수
-  async function loadDataFromFirebase() {
-    try {
-      // 1-1. 거래처 목록 가져오기
-      const clinicSnapshot = await getDocs(collection(db, "clinics"));
-      clinics = [];
-      clinicSnapshot.forEach((doc) => {
-        clinics.push({ id: doc.id, ...doc.data() });
-      });
+// 초기 더미데이터 세팅용 (DB가 아예 비어있을때만 주입됨)
+const defaultClinics = [
+  { name: "부평내과의원", region: "부평", mr: "gang", ilmansa: "참여", welcheck: true, patients: 45, memo: "원장님 매우 적극적이심. 초기 세팅 완료." },
+  { name: "계양가정의학과", region: "계양", mr: "kim", ilmansa: "미참여", welcheck: true, patients: 22, memo: "간호사 교체 예정으로 재교육 요청 가능성 있음." },
+  { name: "김포소아청소년과", region: "김포", mr: "jung", ilmansa: "참여", welcheck: false, patients: 0, memo: "미가입 상태. 웰체크 브로셔 전달 완료." }
+];
 
-      // 만약 파이어베이스 DB를 처음 만들어서 아무 데이터도 없다면 초기 세팅용 더미 주입
-      if (clinics.length === 0) {
-        for (const item of defaultClinics) {
-          await addDoc(collection(db, "clinics"), item);
-        }
-        const retrySnapshot = await getDocs(collection(db, "clinics"));
-        retrySnapshot.forEach((doc) => { clinics.push({ id: doc.id, ...doc.data() }); });
-      }
-
-      // 1-2. 달력 일정 가져오기
-      const eventSnapshot = await getDocs(collection(db, "events"));
-      events = [];
-      eventSnapshot.forEach((doc) => {
-        events.push({ id: doc.id, ...doc.data() });
-      });
-
-      // 1-3. UI 갱신 유도
-      updateClinicDropdown();
-      if (activeView === "cal") renderCalendar();
-      else renderClinics();
-
-    } catch (e) {
-      console.error("데이터 동기화 실패:", e);
-    }
-  }
-
-  // 2. 새 거래처 저장하기 (Firebase)
-  async function saveAddClinic() {
-    const name = document.getElementById("ca-name").value;
-    const mr = document.getElementById("ca-mr").value;
-    const region = document.getElementById("ca-region").value;
-    const manager = document.getElementById("ca-manager").value;
-    const tel = document.getElementById("ca-tel").value;
-    const type = document.getElementById("ca-type").value;
-    const ilmansa = document.getElementById("ca-ilmansa").value;
-    const welcheck = document.getElementById("ca-welcheck").value;
-    const activePatients = parseInt(document.getElementById("ca-active").value) || 0;
-    const totalPatients = parseInt(document.getElementById("ca-total").value) || 0;
-    const memo = document.getElementById("ca-memo").value;
-
-    if (!name) { alert("의원명은 필수 항목입니다."); return; }
-
-    const newClinic = { name, mr, region, manager, tel, type, ilmansa, welcheck, activePatients, totalPatients, memo };
-
-    try {
-      await addDoc(collection(db, "clinics"), newClinic);
-      alert("신규 거래처 의원이 안전하게 저장되었습니다.");
-      closeAddClinic();
-      await loadDataFromFirebase();
-    } catch (err) {
-      alert("거래처 저장 오류: " + err.message);
-    }
-  }
-
-  // 3. 새 일정(방문 예약) 저장하기 (Firebase)
-  async function saveAddEvent() {
-    const date = document.getElementById("add-date").value;
-    const timeZone = document.getElementById("add-timezone").value;
-    const mr = document.getElementById("add-mr").value;
-    const clinicName = document.getElementById("add-clinic").value;
-    const titleInput = document.getElementById("add-title").value;
-
-    if (!date || !clinicName) { alert("날짜와 방문 의원을 선택하세요."); return; }
-
-    const title = titleInput ? titleInput : `${clinicName} 방문`;
-    const newEvent = { date, timeZone, mr, clinicName, title };
-
-    try {
-      await addDoc(collection(db, "events"), newEvent);
-      alert("방문 일정이 데이터베이스에 등록되었습니다.");
-      closeAddModal();
-      await loadDataFromFirebase();
-    } catch (err) {
-      alert("일정 저장 오류: " + err.message);
-    }
-  }
-
-  // 4. 거래처 삭제하기 (Firebase)
-  async function deleteClinic(id) {
-    if (!confirm("이 거래처를 삭제하면 복구할 수 없습니다. 삭제하시겠습니까?")) return;
-    try {
-      await deleteDoc(doc(db, "clinics", id));
-      await loadDataFromFirebase();
-    } catch (err) {
-      alert("삭제 실패: " + err.message);
-    }
-  }
-
-  // 5. 일정 삭제하기 (Firebase)
-  async function deleteEvent(id) {
-    if (!confirm("해당 일정을 취소/삭제하시겠습니까?")) return;
-    try {
-      await deleteDoc(doc(db, "events", id));
-      closeDetailModal();
-      await loadDataFromFirebase();
-    } catch (err) {
-      alert("일정 삭제 실패: " + err.message);
-    }
-  }
-
-  // ===== CALENDAR RENDER ENGINE =====
-  function renderCalendar() {
-    const label = document.getElementById("cal-label");
-    if(label) label.innerText = `${currentYear}년 ${currentMonth}월`;
-
-    const grid = document.getElementById("cal-grid");
-    if(!grid) return;
-
-    const headers = grid.querySelectorAll('.cal-dh');
-    grid.innerHTML = '';
-    headers.forEach(h => grid.appendChild(h));
-
-    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
-    const lastDate = new Date(currentYear, currentMonth, 0).getDate();
-
-    // 빈 공간
-    for (let i = 0; i < firstDay; i++) {
-      const div = document.createElement('div');
-      div.className = 'ec';
-      grid.appendChild(div);
-    }
-
-    // 일짜 맵핑
-    for (let d = 1; d <= lastDate; d++) {
-      const dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      
-      const dc = document.createElement('div');
-      dc.className = 'dc';
-      dc.onclick = () => openAddModal(dateStr);
-
-      const dcTop = document.createElement('div');
-      dcTop.className = 'dc-top';
-      dcTop.innerHTML = `<span class="day-num">${d}</span>`;
-      dc.appendChild(dcTop);
-
-      const amZone = document.createElement('div'); amZone.className = 'dc-am';
-      const pmZone = document.createElement('div'); pmZone.className = 'dc-pm';
-      dc.appendChild(amZone);
-      dc.appendChild(pmZone);
-
-      const dayEvents = events.filter(e => e.date === dateStr);
-      dayEvents.forEach(e => {
-        if (currentFilterMR !== "all" && e.mr !== currentFilterMR) return;
-
-        const ev = document.createElement('div');
-        ev.className = 'ev';
-        ev.style.backgroundColor = getMRColor(e.mr);
-        ev.innerHTML = `<span class="ev-txt">[${getMRName(e.mr)}] ${e.title}</span>`;
-        ev.onclick = (event) => { event.stopPropagation(); openDetailModal(e); };
-
-        if (e.timeZone === "오후") pmZone.appendChild(ev);
-        else amZone.appendChild(ev);
-      });
-
-      grid.appendChild(dc);
-    }
-  }
-
-  // ===== CLINIC LIST RENDER ENGINE =====
-  function renderClinics() {
-    const tbody = document.getElementById("clinic-tbody");
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    const searchKeyword = document.getElementById("searchClinic")?.value.toLowerCase() || "";
-
-    const filtered = clinics.filter(c => {
-      if (listFilterMR !== "all" && c.mr !== listFilterMR) return false;
-      if (listFilterRegion !== "all" && c.region !== listFilterRegion) return false;
-      
-      if (searchKeyword) {
-        const nameMatch = c.name.toLowerCase().includes(searchKeyword);
-        const managerMatch = c.manager.toLowerCase().includes(searchKeyword);
-        const regionMatch = c.region.toLowerCase().includes(searchKeyword);
-        return nameMatch || managerMatch || regionMatch;
-      }
-      return true;
+// 3. 실시간 구글 클라우드 DB 감시 기동
+window.addEventListener('DOMContentLoaded', () => {
+  // 3-1. 거래처 감시
+  onSnapshot(collection(db, "clinics"), (snapshot) => {
+    clinics = [];
+    snapshot.forEach((doc) => {
+      clinics.push({ id: doc.id, ...doc.data() });
     });
-
-    if(filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:40px 0;">등록된 조건에 맞는 거래처가 존재하지 않습니다.</td></tr>`;
-      return;
-    }
-
-    filtered.forEach(c => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td style="font-weight:700;">${c.name}</td>
-        <td><span class="badge b-mr-${c.mr}">${getMRName(c.mr)}</span></td>
-        <td>${c.region}</td>
-        <td>${c.manager}</td>
-        <td>${c.tel || '-'}</td>
-        <td style="font-weight:600;"><span style="color:var(--dw);">${c.activePatients}</span> / ${c.totalPatients}</td>
-        <td>${c.type || '-'}</td>
-        <td><span class="badge ${c.ilmansa==='참여'?'b-ims-y':'b-ims-n'}">${c.ilmansa}</span></td>
-        <td><span class="badge ${c.welcheck==='true'?'b-wc-y':'b-wc-n'}">${c.welcheck==='true'?'가입':'미가입'}</span></td>
-        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${c.memo || ''}">${c.memo || '-'}</td>
-        <td><button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" id="del-c-${c.id}">삭제</button></td>
-      `;
-      tbody.appendChild(tr);
-
-      document.getElementById(`del-c-${c.id}`).onclick = () => deleteClinic(c.id);
-    });
-  }
-
-  function updateClinicDropdown() {
-    const select = document.getElementById("add-clinic");
-    if(!select) return;
-    select.innerHTML = clinics.map(c => `<option value="${c.name}">${c.name} (${getMRName(c.mr)})</option>`).join('');
-  }
-
-  // ===== UI INTERACTIONS =====
-  function switchView(view) {
-    activeView = view;
-    document.getElementById("tb-cal").classList.toggle("active", view==='cal');
-    document.getElementById("tb-list").classList.toggle("active", view==='list');
-    document.getElementById("view-cal").classList.toggle("active", view==='cal');
-    document.getElementById("view-list").classList.toggle("active", view==='list');
-    document.getElementById("cal-sub").style.display = view === 'cal' ? 'flex' : 'none';
-    document.getElementById("list-sub").style.display = view === 'list' ? 'flex' : 'none';
-
-    if (view === "cal") renderCalendar();
-    else renderClinics();
-  }
-
-  function changeMonth(val) {
-    currentMonth += val;
-    if(currentMonth > 12) { currentMonth = 1; currentYear++; }
-    if(currentMonth < 1) { currentMonth = 12; currentYear--; }
-    renderCalendar();
-  }
-
-  function filterMR(mr) {
-    currentFilterMR = mr;
-    document.querySelectorAll(".mr-btn").forEach(b => b.classList.add("mb-dim"));
-    document.getElementById(`mb-${mr}`).classList.remove("mb-dim");
-    renderCalendar();
-  }
-
-  function filterClinicList() {
-    listFilterMR = document.getElementById("flt-mr").value;
-    listFilterRegion = document.getElementById("flt-region").value;
-    renderClinics();
-  }
-
-  // Modal Control Window Mapping
-  function openAddModal(dateStr) {
-    if(dateStr) document.getElementById("add-date").value = dateStr;
-    document.getElementById("add-ov").classList.add("ov-open");
-  }
-  function closeAddModal() { document.getElementById("add-ov").classList.remove("ov-open"); }
-  
-  function openDetailModal(e) {
-    document.getElementById("dm-title").innerText = e.title;
-    document.getElementById("dm-clinic").innerText = e.clinicName;
-    document.getElementById("dm-date").innerText = e.date;
-    document.getElementById("dm-timezone").innerText = e.timeZone;
     
-    const delBtn = document.querySelector(".btn-del");
-    delBtn.onclick = () => deleteEvent(e.id);
-    document.getElementById("detail-ov").classList.add("ov-open");
+    // 최초 구글서버 텅 비었을때만 기본 예시 데이터 자동주입
+    if (clinics.length === 0) {
+      defaultClinics.forEach(async (c) => {
+        await addDoc(collection(db, "clinics"), c);
+      });
+    }
+    
+    updateClinicSelectOptions();
+    renderCalendar();
+    renderList();
+    renderRiskMonitoring();
+  });
+
+  // 3-2. 일정 스케줄 감시
+  onSnapshot(collection(db, "events"), (snapshot) => {
+    events = [];
+    snapshot.forEach((doc) => {
+      events.push({ id: doc.id, ...doc.data() });
+    });
+    renderCalendar();
+  });
+
+  // 3-3. 공유 메모장 감시
+  onSnapshot(doc(db, "shared", "memo"), (docSnap) => {
+    if (docSnap.exists()) {
+      document.getElementById('shared-memo').value = docSnap.data().text || '';
+    }
+  });
+
+  // 메모장 변경 시 저장 이벤트 바인딩
+  document.getElementById('shared-memo').addEventListener('blur', async (e) => {
+    await setDoc(doc(db, "shared", "memo"), { text: e.target.value });
+  });
+
+  // 초기 날짜 및 달력 세팅
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth() + 1;
+  updateCalendarLabel();
+});
+
+
+// =====================================
+// 기능 함수 셋업 (기존 UI 내부 로직 완벽 연동)
+// =====================================
+
+// 메인 탭 화면 전환
+window.switchView = function(view) {
+  document.getElementById('view-cal').classList.remove('v-active');
+  document.getElementById('view-list').classList.remove('v-active');
+  document.getElementById('cat-cal').classList.remove('cat-active');
+  document.getElementById('cat-list').classList.remove('cat-active');
+  document.getElementById('list-sub').style.display = 'none';
+
+  if (view === 'cal') {
+    document.getElementById('view-cal').classList.add('v-active');
+    document.getElementById('cat-cal').classList.add('cat-active');
+  } else {
+    document.getElementById('view-list').classList.add('v-active');
+    document.getElementById('cat-list').classList.add('cat-active');
+    document.getElementById('list-sub').style.display = 'block';
   }
-  function closeDetailModal() { document.getElementById("detail-ov").classList.remove("ov-open"); }
+};
 
-  function openAddClinic() { document.getElementById("clinic-ov").classList.add("ov-open"); }
-  function closeAddClinic() { document.getElementById("clinic-ov").classList.remove("ov-open"); }
+window.toggleAcc = function(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+};
 
-  // 헬퍼 매핑 명칭식
-  function getMRName(mr) {
-    const names = { gang: "강성훈", kim: "김서준", jung: "정민우", jo: "조현우", choi: "최재혁" };
-    return names[mr] || mr;
+window.toggleNat = function(el) {
+  el.classList.toggle('open');
+  document.getElementById('nat-body').style.display = el.classList.contains('open') ? 'block' : 'none';
+};
+
+window.toggleBiz = function(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+};
+
+window.setSubNav = function(el) {
+  document.querySelectorAll('.sub-item').forEach(i => i.classList.remove('sub-active'));
+  el.classList.add('sub-active');
+};
+
+// 캘린더 MR 상단 필터링
+window.filterMR = function(mr) {
+  filterMRSelected = mr;
+  document.querySelectorAll('.cal-topbar .mr-btn').forEach(b => {
+    b.classList.remove('mb-on');
+    b.classList.add('mb-dim');
+  });
+  document.getElementById('mb-' + mr).classList.add('mb-on');
+  renderCalendar();
+};
+
+// 캘린더 연월 네비게이션
+window.changeYear = function(val) { currentYear += val; updateCalendarLabel(); renderCalendar(); };
+window.changeMonth = function(val) {
+  currentMonth += val;
+  if (currentMonth > 12) { currentYear++; currentMonth = 1; }
+  if (currentMonth < 1) { currentYear--; currentMonth = 12; }
+  updateCalendarLabel();
+  renderCalendar();
+};
+
+function updateCalendarLabel() {
+  document.getElementById('cal-label').innerText = `${currentYear}년 ${currentMonth}월`;
+  const now = new Date();
+  if (now.getFullYear() === currentYear && (now.getMonth() + 1) === currentMonth) {
+    document.getElementById('now-badge').style.display = 'inline-block';
+  } else {
+    document.getElementById('now-badge').style.display = 'none';
   }
-  function getMRColor(mr) {
-    if(mr==='gang') return '#DCE9FC';
-    if(mr==='kim') return '#D8F0E4';
-    if(mr==='jung') return '#FCE3D2';
-    if(mr==='jo') return '#EDE0F8';
-    if(mr==='choi') return '#FDF0B8';
-    return '#E8E4DE';
+}
+
+// 모달 내부 의원 셀렉트 박스 동적 주입
+function updateClinicSelectOptions() {
+  const select = document.getElementById('ev-clinic-id');
+  if(!select) return;
+  select.innerHTML = '';
+  // 가입된 의원만 바인딩
+  const joined = clinics.filter(c => c.welcheck === true || c.welcheck === "true");
+  if(joined.length === 0) {
+    select.innerHTML = '<option value="">(가입된 거래처 없음)</option>';
+    return;
+  }
+  joined.forEach(c => {
+    const mrName = mrMap[c.mr] ? mrMap[c.mr].name : c.mr;
+    select.innerHTML += `<option value="${c.id}">${c.name} [${mrName}]</option>`;
+  });
+}
+
+// 캘린더 렌더링 엔진
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  if(!grid) return;
+  
+  // 헤더 제외한 날짜칸 초기화 제거
+  document.querySelectorAll('.dc, .ec').forEach(el => el.remove());
+
+  const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+  const lastDate = new Date(currentYear, currentMonth, 0).getDate();
+
+  // 1일 앞의 빈칸 채우기
+  for (let i = 0; i < firstDay; i++) {
+    const ec = document.createElement('div');
+    ec.className = 'ec';
+    grid.appendChild(ec);
   }
 
-  // HTML 태그 클릭 이벤트 감지를 위해 전역 윈도우 객체 연결 처리
-  window.switchView = switchView;
-  window.changeMonth = changeMonth;
-  window.filterMR = filterMR;
-  window.filterClinicList = filterClinicList;
-  window.renderClinics = renderClinics;
-  window.openAddModal = openAddModal;
-  window.closeAddModal = closeAddModal;
-  window.openDetailModal = openDetailModal;
-  window.closeDetailModal = closeDetailModal;
-  window.openAddClinic = openAddClinic;
-  window.closeAddClinic = closeAddClinic;
-  window.saveAddClinic = saveAddClinic;
-  window.saveAddEvent = saveAddEvent;
+  const now = new Date();
+  const isThisMonth = (now.getFullYear() === currentYear && (now.getMonth() + 1) === currentMonth);
 
-  // 진입 시 자동 초기 동기화 셋업
-  window.onload = () => { loadDataFromFirebase(); };
+  // 날짜 생성
+  for (let d = 1; d <= lastDate; d++) {
+    const dc = document.createElement('div');
+    dc.className = 'dc';
+    
+    // 날짜 클릭 시 일정추가 팝업 바인딩
+    const dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    dc.onclick = (e) => {
+      if(e.target.classList.contains('dc') || e.target.classList.contains('dc-top') || e.target.classList.contains('day-num') || e.target.classList.contains('zone-lbl')) {
+        openEventModal(dateStr);
+      }
+    };
+
+    // 상단 날짜 숫자 표기 레이어
+    const dcTop = document.createElement('div');
+    dcTop.className = 'dc-top';
+    if(isThisMonth && now.getDate() === d) {
+      dcTop.innerHTML = `<span class="day-num today-circle">${d}</span>`;
+    } else {
+      dcTop.innerHTML = `<span class="day-num">${d}</span>`;
+    }
+    dc.appendChild(dcTop);
+
+    // 종일/특이일정 구역
+    const dcAll = document.createElement('div');
+    dcAll.className = 'dc-all';
+    dc.appendChild(dcAll);
+
+    // 오전 구역
+    const dcAm = document.createElement('div');
+    dcAm.className = 'dc-am';
+    dcAm.innerHTML = '<span class="zone-lbl">AM</span>';
+    dc.appendChild(dcAm);
+
+    // 구분선
+    const sep = document.createElement('div');
+    sep.className = 'dc-sep';
+    dc.appendChild(sep);
+
+    // 오후 구역
+    const dcPm = document.createElement('div');
+    dcPm.className = 'dc-pm';
+    dcPm.innerHTML = '<span class="zone-lbl">PM</span>';
+    dc.appendChild(dcPm);
+
+    // 해당 날짜의 일정 필터링 및 주입
+    const dayEvents = events.filter(e => e.date === dateStr);
+    dayEvents.forEach(evData => {
+      const targetClinic = clinics.find(c => c.id === evData.clinicId);
+      if (!targetClinic) return;
+
+      // 상단 담당 MR 필터 걸려있을 시 스킵
+      if (filterMRSelected !== 'all' && targetClinic.mr !== filterMRSelected) return;
+
+      const mrInfo = mrMap[targetClinic.mr] || { name: '기타', bg: '#f3f4f6', t: '#1f2937' };
+
+      // 이벤트 칩 만들기
+      const chip = document.createElement('div');
+      chip.className = 'ev';
+      if(evData.zone === 'all') chip.classList.add('ev-allday');
+      chip.style.backgroundColor = mrInfo.bg;
+      chip.style.color = mrInfo.t;
+      chip.onclick = (e) => {
+        e.stopPropagation();
+        openEventModal(evData.date, evData);
+      };
+
+      // 체크박스 처리 (가입 완료 여부 시각화 연동용)
+      let doneChecked = (evData.completed === true || evData.completed === "true") ? 'checked' : '';
+      chip.innerHTML = `
+        <input type="checkbox" ${doneChecked} onclick="toggleEventComplete(event, '${evData.id}')">
+        <span class="ev-txt" title="${targetClinic.name}: ${evData.desc || ''}"><b>${targetClinic.name}</b> ${evData.desc || ''}</span>
+      `;
+
+      if(evData.zone === 'am') dcAm.appendChild(chip);
+      else if(evData.zone === 'pm') dcPm.appendChild(chip);
+      else dcAll.appendChild(chip);
+    });
+
+    grid.appendChild(dc);
+  }
+}
+
+// 캘린더 내부 체크박스 클릭 시 구글 파이어베이스 즉시 업데이트
+window.toggleEventComplete = async function(e, id) {
+  e.stopPropagation();
+  const evRef = doc(db, "events", id);
+  await setDoc(evRef, { completed: e.target.checked }, { merge: true });
+};
+
+
+// 일정 모달 제어
+window.openEventModal = function(dateStr, evObj = null) {
+  document.getElementById('event-ov').classList.add('ov-open');
+  document.getElementById('ev-date').value = dateStr;
+  
+  if (evObj) {
+    document.getElementById('event-modal-title').innerText = "📅 일정 수정/삭제";
+    document.getElementById('ev-id').value = evObj.id;
+    document.getElementById('ev-clinic-id').value = evObj.clinicId;
+    document.getElementById('ev-zone').value = evObj.zone;
+    document.getElementById('ev-desc').value = evObj.desc || '';
+    document.getElementById('btn-ev-del').style.display = 'inline-block';
+  } else {
+    document.getElementById('event-modal-title').innerText = "📅 일정 추가 (" + dateStr + ")";
+    document.getElementById('ev-id').value = '';
+    document.getElementById('ev-desc').value = '';
+    document.getElementById('btn-ev-del').style.display = 'none';
+  }
+};
+
+window.closeEventModal = function() {
+  document.getElementById('event-ov').classList.remove('ov-open');
+};
+
+// 일정 구글 파이어베이스 저장
+window.saveEvent = async function() {
+  const id = document.getElementById('ev-id').value;
+  const clinicId = document.getElementById('ev-clinic-id').value;
+  const zone = document.getElementById('ev-zone').value;
+  const desc = document.getElementById('ev-desc').value;
+  const date = document.getElementById('ev-date').value;
+
+  if(!clinicId) { alert('대상 거래처를 먼저 선택해주세요!'); return; }
+
+  const evData = { clinicId, zone, desc, date };
+
+  if(id) {
+    await setDoc(doc(db, "events", id), evData, { merge: true });
+  } else {
+    evData.completed = false;
+    await addDoc(collection(db, "events"), evData);
+  }
+  closeEventModal();
+};
+
+// 일정 구글 파이어베이스 삭제
+window.deleteEvent = async function() {
+  const id = document.getElementById('ev-id').value;
+  if(id && confirm('이 일정을 삭제하시겠습니까?')) {
+    await deleteDoc(doc(db, "events", id));
+    closeEventModal();
+  }
+};
+
+
+// =====================================
+// 거래처 현황판 리스트 관리 비즈니스 로직
+// =====================================
+
+window.listFilter = function(mr, region) {
+  listFilterMR = mr;
+  listFilterRegion = region;
+  renderList();
+};
+
+window.filterFp = function(status) {
+  listFilterFp = status;
+  document.querySelectorAll('.fp-row .fpill').forEach(b => b.classList.remove('fp-on'));
+  document.getElementById('fp-' + status).classList.add('fp-on');
+  renderList();
+};
+
+// 거래처 현황판 렌더링 엔지
+function renderList() {
+  const tbody = document.getElementById('list-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+
+  // 필터링 적용
+  let result = clinics.filter(c => {
+    if (listFilterMR !== 'all' && c.mr !== listFilterMR) return false;
+    if (listFilterRegion !== 'all' && c.region !== listFilterRegion) return false;
+    
+    // 상태값 매핑 판정
+    const isJoined = (c.welcheck === true || c.welcheck === "true");
+    const pCount = parseInt(c.patients || 0);
+    let status = 'none';
+    if (isJoined) {
+      if (pCount >= 40) status = 'ok';
+      else if (pCount > 0 && pCount < 40) status = 'warn';
+      else status = 'danger';
+    }
+
+    if (listFilterFp !== 'all' && status !== listFilterFp) return false;
+    return true;
+  });
+
+  document.getElementById('list-title').innerText = `경인1 거래처 현황판 (${result.length}개 처)`;
+
+  if(result.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:30px;">해당 조건의 거래처 데이터가 없습니다.</td></tr>';
+    return;
+  }
+
+  result.forEach(c => {
+    const mrInfo = mrMap[c.mr] || { name: c.mr, bg: '#f3f4f6', t: '#1f2937' };
+    const pCount = parseInt(c.patients || 0);
+    const isJoined = (c.welcheck === true || c.welcheck === "true");
+
+    // 교육 구분 상태 가공
+    let eduBadge = '<span class="edu-bdg edu-none">⚪ 미가입</span>';
+    if (isJoined) {
+      if(pCount >= 40) eduBadge = '<span class="edu-bdg edu-ok">🟢 교육 완료</span>';
+      else if(pCount > 0) eduBadge = '<span class="edu-bdg edu-warn">🟡 교육 진행</span>';
+      else eduBadge = '<span class="edu-bdg edu-danger">🔴 미요청 장기</span>';
+    }
+
+    // 게이지 그리기 계산
+    let pct = Math.min(100, Math.round((pCount / 40) * 100));
+    let barColor = pCount >= 40 ? '#145C38' : (pCount > 0 ? '#7A5C00' : '#B01A1A');
+
+    // 최근 방문일 판정 (이벤트 collection 연동 자동추적)
+    const cEvents = events.filter(e => e.clinicId === c.id && (e.completed === true || e.completed === "true")).sort((a,b)=>b.date.localeCompare(a.date));
+    const lastVisit = cEvents.length > 0 ? cEvents[0].date : '-';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:700" onclick="openAddClinic('${c.id}')">📂 ${c.name}</td>
+      <td>${c.region}구</td>
+      <td><span class="mr-chip" style="background:${mrInfo.bg};color:${mrInfo.t}">${mrInfo.name}</span></td>
+      <td>${eduBadge}</td>
+      <td>${lastVisit}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${c.memo||''}">${c.memo || '-'}</td>
+      <td><span class="rp">${c.ilmansa || '미참여'}</span></td>
+      <td>${isJoined ? '<span class="cnt-yes">가입</span>' : '<span class="cnt-no">미가입</span>'}</td>
+      <td>
+        <div class="gm-wrap">
+          <div class="gm-bar"><div class="gm-fill" style="width:${pct}%;background:${barColor}"></div></div>
+          <span class="gm-num"><b>${pCount}</b>명</span>
+        </div>
+      </td>
+      <td><button class="btn btn-del" style="padding:2px 7px;font-size:10px;" onclick="event.stopPropagation();deleteClinic('${c.id}')">삭제</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// 위험 거래처 동적 모니터링 현황 렌더링
+function renderRiskMonitoring() {
+  const box = document.getElementById('risk-list');
+  if(!box) return;
+  box.innerHTML = '';
+
+  // 가입자수 20명 미만의 가입된 의원 추출
+  const risks = clinics.filter(c => (c.welcheck === true || c.welcheck === "true") && parseInt(c.patients || 0) < 20);
+
+  if(risks.length === 0) {
+    box.innerHTML = '<div style="font-size:11px;color:var(--t3);text-align:center;padding:10px 0;">🟢 현재 위험 거래처가 없습니다.</div>';
+    return;
+  }
+
+  risks.forEach(c => {
+    const pCount = parseInt(c.patients || 0);
+    const item = document.createElement('div');
+    item.className = 'risk-item';
+    item.innerHTML = `
+      <span class="ri-dot" style="background:${pCount > 0 ? '#f59e0b' : '#ef4444'}"></span>
+      <div>
+        <div class="ri-name">${c.name} (${pCount}명)</div>
+        <div class="ri-sub">${mrMap[c.mr]?.name || c.mr} · 활성화 교육 필요</div>
+      </div>
+    `;
+    box.appendChild(item);
+  });
+}
+
+// 거래처 등록 모달 제어
+window.openAddClinic = function(id = null) {
+  document.getElementById('clinic-ov').classList.add('ov-open');
+  if (id) {
+    const c = clinics.find(item => item.id === id);
+    document.getElementById('clinic-modal-title').innerText = "✨ 거래처 상세 정보 및 수정";
+    document.getElementById('ca-id').value = c.id;
+    document.getElementById('ca-name').value = c.name;
+    document.getElementById('ca-region').value = c.region;
+    document.getElementById('ca-mr').value = c.mr;
+    document.getElementById('ca-ilmansa').value = c.ilmansa || '미참여';
+    document.getElementById('ca-welcheck').value = String(c.welcheck);
+    document.getElementById('ca-patients').value = c.patients || 0;
+    document.getElementById('ca-memo').value = c.memo || '';
+  } else {
+    document.getElementById('clinic-modal-title').innerText = "✨ 새 거래처 등록";
+    document.getElementById('ca-id').value = '';
+    document.getElementById('ca-name').value = '';
+    document.getElementById('ca-patients').value = 0;
+    document.getElementById('ca-memo').value = '';
+  }
+};
+
+window.closeAddClinic = function() {
+  document.getElementById('clinic-ov').classList.remove('ov-open');
+};
+
+// 거래처 데이터 구글 파이어베이스 저장
+window.saveAddClinic = async function() {
+  const id = document.getElementById('ca-id').value;
+  const name = document.getElementById('ca-name').value.trim();
+  const region = document.getElementById('ca-region').value;
+  const mr = document.getElementById('ca-mr').value;
+  const ilmansa = document.getElementById('ca-ilmansa').value;
+  const welcheck = document.getElementById('ca-welcheck').value === "true";
+  const patients = parseInt(document.getElementById('ca-patients').value || 0);
+  const memo = document.getElementById('ca-memo').value;
+
+  if(!name) { alert('의원명을 입력해주세요!'); return; }
+
+  const cData = { name, region, mr, ilmansa, welcheck, patients, memo };
+
+  if(id) {
+    await setDoc(doc(db, "clinics", id), cData, { merge: true });
+  } else {
+    await addDoc(collection(db, "clinics"), cData);
+  }
+  closeAddClinic();
+};
+
+// 거래처 구글 파이어베이스 삭제
+window.deleteClinic = async function(id) {
+  if (confirm('이 거래처를 삭제하시겠습니까?\n삭제 시 해당 의원의 달력 일정도 모두 노출되지 않습니다.')) {
+    await deleteDoc(doc(db, "clinics", id));
+  }
+};
 </script>
+
 </body>
 </html>
