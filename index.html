@@ -265,9 +265,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hist-item:last-child{border-bottom:none}
 .hist-date{color:var(--t3);font-size:10px;min-width:40px;flex-shrink:0}
 </style>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-<script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
   const firebaseConfig = {
     apiKey: "AIzaSyAkLed3kZePtDO8aR_KuwLic9rEW9ErBWg",
     authDomain: "hs-wall.firebaseapp.com",
@@ -277,8 +283,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     appId: "1:155107657356:web:b49f26c3bff5a4a7ea5da9",
     measurementId: "G-C1SPSECMGV"
   };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
 </script>
 </head>
 <body>
