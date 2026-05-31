@@ -285,8 +285,335 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   };
 
   // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
+ const app = initializeApp(firebaseConfig);
+ const db = getFirestore(app);
+
+  // 상태 관리 전역 변수
+  let currentYear = 2026;
+  let currentMonth = 5; 
+  let currentFilterMR = "all";
+  let activeView = "cal";
+  let listFilterMR = "all";
+  let listFilterRegion = "all";
+
+  // 기본 더미 데이터 백업구조 (DB가 비어있을 때 사용됨)
+  let defaultClinics = [
+    { name: "부평내과", mr: "gang", region: "부평", manager: "김원장", tel: "032-111-2222", activePatients: 45, totalPatients: 120, type: "내과", ilmansa: "참여", welcheck: "true", memo: "친절함" },
+    { name: "계양가정의학과", mr: "kim", region: "계양", manager: "이원장", tel: "032-333-4444", activePatients: 25, totalPatients: 80, type: "가정의학과", ilmansa: "미참여", welcheck: "true", memo: "오전 방문 요망" },
+    { name: "김포소아과", mr: "jung", region: "김포", manager: "최원장", tel: "031-555-6666", activePatients: 12, totalPatients: 50, type: "소아과", ilmansa: "참여", welcheck: "false", memo: "보수적임" }
+  ];
+
+  let clinics = [];
+  let events = [];
+
+  // 1. 파이어베이스 연동 데이터 불러오기 함수
+  async function loadDataFromFirebase() {
+    try {
+      // 1-1. 거래처 목록 가져오기
+      const clinicSnapshot = await getDocs(collection(db, "clinics"));
+      clinics = [];
+      clinicSnapshot.forEach((doc) => {
+        clinics.push({ id: doc.id, ...doc.data() });
+      });
+
+      // 만약 파이어베이스 DB를 처음 만들어서 아무 데이터도 없다면 초기 세팅용 더미 주입
+      if (clinics.length === 0) {
+        for (const item of defaultClinics) {
+          await addDoc(collection(db, "clinics"), item);
+        }
+        const retrySnapshot = await getDocs(collection(db, "clinics"));
+        retrySnapshot.forEach((doc) => { clinics.push({ id: doc.id, ...doc.data() }); });
+      }
+
+      // 1-2. 달력 일정 가져오기
+      const eventSnapshot = await getDocs(collection(db, "events"));
+      events = [];
+      eventSnapshot.forEach((doc) => {
+        events.push({ id: doc.id, ...doc.data() });
+      });
+
+      // 1-3. UI 갱신 유도
+      updateClinicDropdown();
+      if (activeView === "cal") renderCalendar();
+      else renderClinics();
+
+    } catch (e) {
+      console.error("데이터 동기화 실패:", e);
+    }
+  }
+
+  // 2. 새 거래처 저장하기 (Firebase)
+  async function saveAddClinic() {
+    const name = document.getElementById("ca-name").value;
+    const mr = document.getElementById("ca-mr").value;
+    const region = document.getElementById("ca-region").value;
+    const manager = document.getElementById("ca-manager").value;
+    const tel = document.getElementById("ca-tel").value;
+    const type = document.getElementById("ca-type").value;
+    const ilmansa = document.getElementById("ca-ilmansa").value;
+    const welcheck = document.getElementById("ca-welcheck").value;
+    const activePatients = parseInt(document.getElementById("ca-active").value) || 0;
+    const totalPatients = parseInt(document.getElementById("ca-total").value) || 0;
+    const memo = document.getElementById("ca-memo").value;
+
+    if (!name) { alert("의원명은 필수 항목입니다."); return; }
+
+    const newClinic = { name, mr, region, manager, tel, type, ilmansa, welcheck, activePatients, totalPatients, memo };
+
+    try {
+      await addDoc(collection(db, "clinics"), newClinic);
+      alert("신규 거래처 의원이 안전하게 저장되었습니다.");
+      closeAddClinic();
+      await loadDataFromFirebase();
+    } catch (err) {
+      alert("거래처 저장 오류: " + err.message);
+    }
+  }
+
+  // 3. 새 일정(방문 예약) 저장하기 (Firebase)
+  async function saveAddEvent() {
+    const date = document.getElementById("add-date").value;
+    const timeZone = document.getElementById("add-timezone").value;
+    const mr = document.getElementById("add-mr").value;
+    const clinicName = document.getElementById("add-clinic").value;
+    const titleInput = document.getElementById("add-title").value;
+
+    if (!date || !clinicName) { alert("날짜와 방문 의원을 선택하세요."); return; }
+
+    const title = titleInput ? titleInput : `${clinicName} 방문`;
+    const newEvent = { date, timeZone, mr, clinicName, title };
+
+    try {
+      await addDoc(collection(db, "events"), newEvent);
+      alert("방문 일정이 데이터베이스에 등록되었습니다.");
+      closeAddModal();
+      await loadDataFromFirebase();
+    } catch (err) {
+      alert("일정 저장 오류: " + err.message);
+    }
+  }
+
+  // 4. 거래처 삭제하기 (Firebase)
+  async function deleteClinic(id) {
+    if (!confirm("이 거래처를 삭제하면 복구할 수 없습니다. 삭제하시겠습니까?")) return;
+    try {
+      await deleteDoc(doc(db, "clinics", id));
+      await loadDataFromFirebase();
+    } catch (err) {
+      alert("삭제 실패: " + err.message);
+    }
+  }
+
+  // 5. 일정 삭제하기 (Firebase)
+  async function deleteEvent(id) {
+    if (!confirm("해당 일정을 취소/삭제하시겠습니까?")) return;
+    try {
+      await deleteDoc(doc(db, "events", id));
+      closeDetailModal();
+      await loadDataFromFirebase();
+    } catch (err) {
+      alert("일정 삭제 실패: " + err.message);
+    }
+  }
+
+  // ===== CALENDAR RENDER ENGINE =====
+  function renderCalendar() {
+    const label = document.getElementById("cal-label");
+    if(label) label.innerText = `${currentYear}년 ${currentMonth}월`;
+
+    const grid = document.getElementById("cal-grid");
+    if(!grid) return;
+
+    const headers = grid.querySelectorAll('.cal-dh');
+    grid.innerHTML = '';
+    headers.forEach(h => grid.appendChild(h));
+
+    const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay();
+    const lastDate = new Date(currentYear, currentMonth, 0).getDate();
+
+    // 빈 공간
+    for (let i = 0; i < firstDay; i++) {
+      const div = document.createElement('div');
+      div.className = 'ec';
+      grid.appendChild(div);
+    }
+
+    // 일짜 맵핑
+    for (let d = 1; d <= lastDate; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      
+      const dc = document.createElement('div');
+      dc.className = 'dc';
+      dc.onclick = () => openAddModal(dateStr);
+
+      const dcTop = document.createElement('div');
+      dcTop.className = 'dc-top';
+      dcTop.innerHTML = `<span class="day-num">${d}</span>`;
+      dc.appendChild(dcTop);
+
+      const amZone = document.createElement('div'); amZone.className = 'dc-am';
+      const pmZone = document.createElement('div'); pmZone.className = 'dc-pm';
+      dc.appendChild(amZone);
+      dc.appendChild(pmZone);
+
+      const dayEvents = events.filter(e => e.date === dateStr);
+      dayEvents.forEach(e => {
+        if (currentFilterMR !== "all" && e.mr !== currentFilterMR) return;
+
+        const ev = document.createElement('div');
+        ev.className = 'ev';
+        ev.style.backgroundColor = getMRColor(e.mr);
+        ev.innerHTML = `<span class="ev-txt">[${getMRName(e.mr)}] ${e.title}</span>`;
+        ev.onclick = (event) => { event.stopPropagation(); openDetailModal(e); };
+
+        if (e.timeZone === "오후") pmZone.appendChild(ev);
+        else amZone.appendChild(ev);
+      });
+
+      grid.appendChild(dc);
+    }
+  }
+
+  // ===== CLINIC LIST RENDER ENGINE =====
+  function renderClinics() {
+    const tbody = document.getElementById("clinic-tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const searchKeyword = document.getElementById("searchClinic")?.value.toLowerCase() || "";
+
+    const filtered = clinics.filter(c => {
+      if (listFilterMR !== "all" && c.mr !== listFilterMR) return false;
+      if (listFilterRegion !== "all" && c.region !== listFilterRegion) return false;
+      
+      if (searchKeyword) {
+        const nameMatch = c.name.toLowerCase().includes(searchKeyword);
+        const managerMatch = c.manager.toLowerCase().includes(searchKeyword);
+        const regionMatch = c.region.toLowerCase().includes(searchKeyword);
+        return nameMatch || managerMatch || regionMatch;
+      }
+      return true;
+    });
+
+    if(filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:40px 0;">등록된 조건에 맞는 거래처가 존재하지 않습니다.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach(c => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:700;">${c.name}</td>
+        <td><span class="badge b-mr-${c.mr}">${getMRName(c.mr)}</span></td>
+        <td>${c.region}</td>
+        <td>${c.manager}</td>
+        <td>${c.tel || '-'}</td>
+        <td style="font-weight:600;"><span style="color:var(--dw);">${c.activePatients}</span> / ${c.totalPatients}</td>
+        <td>${c.type || '-'}</td>
+        <td><span class="badge ${c.ilmansa==='참여'?'b-ims-y':'b-ims-n'}">${c.ilmansa}</span></td>
+        <td><span class="badge ${c.welcheck==='true'?'b-wc-y':'b-wc-n'}">${c.welcheck==='true'?'가입':'미가입'}</span></td>
+        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${c.memo || ''}">${c.memo || '-'}</td>
+        <td><button class="btn btn-danger" style="padding:4px 8px; font-size:11px;" id="del-c-${c.id}">삭제</button></td>
+      `;
+      tbody.appendChild(tr);
+
+      document.getElementById(`del-c-${c.id}`).onclick = () => deleteClinic(c.id);
+    });
+  }
+
+  function updateClinicDropdown() {
+    const select = document.getElementById("add-clinic");
+    if(!select) return;
+    select.innerHTML = clinics.map(c => `<option value="${c.name}">${c.name} (${getMRName(c.mr)})</option>`).join('');
+  }
+
+  // ===== UI INTERACTIONS =====
+  function switchView(view) {
+    activeView = view;
+    document.getElementById("tb-cal").classList.toggle("active", view==='cal');
+    document.getElementById("tb-list").classList.toggle("active", view==='list');
+    document.getElementById("view-cal").classList.toggle("active", view==='cal');
+    document.getElementById("view-list").classList.toggle("active", view==='list');
+    document.getElementById("cal-sub").style.display = view === 'cal' ? 'flex' : 'none';
+    document.getElementById("list-sub").style.display = view === 'list' ? 'flex' : 'none';
+
+    if (view === "cal") renderCalendar();
+    else renderClinics();
+  }
+
+  function changeMonth(val) {
+    currentMonth += val;
+    if(currentMonth > 12) { currentMonth = 1; currentYear++; }
+    if(currentMonth < 1) { currentMonth = 12; currentYear--; }
+    renderCalendar();
+  }
+
+  function filterMR(mr) {
+    currentFilterMR = mr;
+    document.querySelectorAll(".mr-btn").forEach(b => b.classList.add("mb-dim"));
+    document.getElementById(`mb-${mr}`).classList.remove("mb-dim");
+    renderCalendar();
+  }
+
+  function filterClinicList() {
+    listFilterMR = document.getElementById("flt-mr").value;
+    listFilterRegion = document.getElementById("flt-region").value;
+    renderClinics();
+  }
+
+  // Modal Control Window Mapping
+  function openAddModal(dateStr) {
+    if(dateStr) document.getElementById("add-date").value = dateStr;
+    document.getElementById("add-ov").classList.add("ov-open");
+  }
+  function closeAddModal() { document.getElementById("add-ov").classList.remove("ov-open"); }
+  
+  function openDetailModal(e) {
+    document.getElementById("dm-title").innerText = e.title;
+    document.getElementById("dm-clinic").innerText = e.clinicName;
+    document.getElementById("dm-date").innerText = e.date;
+    document.getElementById("dm-timezone").innerText = e.timeZone;
+    
+    const delBtn = document.querySelector(".btn-del");
+    delBtn.onclick = () => deleteEvent(e.id);
+    document.getElementById("detail-ov").classList.add("ov-open");
+  }
+  function closeDetailModal() { document.getElementById("detail-ov").classList.remove("ov-open"); }
+
+  function openAddClinic() { document.getElementById("clinic-ov").classList.add("ov-open"); }
+  function closeAddClinic() { document.getElementById("clinic-ov").classList.remove("ov-open"); }
+
+  // 헬퍼 매핑 명칭식
+  function getMRName(mr) {
+    const names = { gang: "강성훈", kim: "김서준", jung: "정민우", jo: "조현우", choi: "최재혁" };
+    return names[mr] || mr;
+  }
+  function getMRColor(mr) {
+    if(mr==='gang') return '#DCE9FC';
+    if(mr==='kim') return '#D8F0E4';
+    if(mr==='jung') return '#FCE3D2';
+    if(mr==='jo') return '#EDE0F8';
+    if(mr==='choi') return '#FDF0B8';
+    return '#E8E4DE';
+  }
+
+  // HTML 태그 클릭 이벤트 감지를 위해 전역 윈도우 객체 연결 처리
+  window.switchView = switchView;
+  window.changeMonth = changeMonth;
+  window.filterMR = filterMR;
+  window.filterClinicList = filterClinicList;
+  window.renderClinics = renderClinics;
+  window.openAddModal = openAddModal;
+  window.closeAddModal = closeAddModal;
+  window.openDetailModal = openDetailModal;
+  window.closeDetailModal = closeDetailModal;
+  window.openAddClinic = openAddClinic;
+  window.closeAddClinic = closeAddClinic;
+  window.saveAddClinic = saveAddClinic;
+  window.saveAddEvent = saveAddEvent;
+
+  // 진입 시 자동 초기 동기화 셋업
+  window.onload = () => { loadDataFromFirebase(); };
 </script>
 </head>
 <body>
