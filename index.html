@@ -1746,7 +1746,7 @@ function showClinicDetail(idx, event){
 const supabaseUrl = 'https://siowpduskesqevilkdbz.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpb3dwZHVza2VzcWV2aWxrZGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNTk0NjMsImV4cCI6MjA5NTczNTQ2M30.uJrhAvAu6LBjn6Ua2kE7io-iwL8rNRXenG7m3oKTT4k';
 
-const supabase = window.supabase.createClient(
+const diaryDB = window.supabase.createClient(
   supabaseUrl,
   supabaseKey
 );
@@ -1755,7 +1755,7 @@ async function saveMemo() {
 
   const memo = document.getElementById('visitMemo').value;
 
-  const { data, error } = await supabase
+  const { data, error } = await diaryDB
     .from('diary')
     .insert([
       {
@@ -1777,7 +1777,7 @@ async function saveMemo() {
 async function loadMemo() {
 
   const { data, error } =
-    await supabase
+    await diaryDB
       .from('diary')
       .select('*')
       .order('id', { ascending:false })
