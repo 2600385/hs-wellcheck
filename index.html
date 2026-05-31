@@ -1747,12 +1747,9 @@ const supabaseClient = window.supabase.createClient(
 
 async function saveMemo() {
 
-  console.log("1. 버튼 실행됨");
-
   const memo = document.getElementById("visitMemo").value;
-  console.log("2. memo:", memo);
 
-  const { data, error } = await supabaseClient
+  const { error } = await supabaseClient
     .from("diary")
     .insert([
       {
@@ -1761,27 +1758,26 @@ async function saveMemo() {
       }
     ]);
 
-  console.log("3. data:", data);
-  console.log("4. error:", error);
-
-  alert("끝");
+  if (error) {
+    console.log(error);
+    alert(error.message);
+  } else {
+    alert("저장 완료");
+    loadMemo();
+  }
 }
+  
 async function loadMemo() {
 
   const { data, error } = await supabaseClient
     .from("diary")
-    .select("*");
+    .select("*")
+    .order("id", { ascending: false });
 
   if (error) {
     console.log(error);
     return;
   }
-
-  console.log("불러온 데이터:", data);
-
-  renderList(data);
-}
-function renderList(data) {
 
   const container = document.getElementById("list");
 
