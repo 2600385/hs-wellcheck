@@ -1769,7 +1769,7 @@ async function saveMemo() {
     .from('diary')
     .insert([
       {
-        date: selectedDate || new Date().toISOString().split('T')[0],
+        date: selectedDate,
         content: memo
       }
     ]);
