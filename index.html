@@ -1746,7 +1746,7 @@ async function saveMemo() {
     document.getElementById('visitMemo').value;
 
   const { error } =
-    await sb
+    await supabase
       .from('diary')
       .insert([
         {
@@ -1763,9 +1763,7 @@ async function saveMemo() {
   }
 }
 </script>
-</body>
-</html>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 const supabaseUrl = 'https://siowpduskesqevilkdbz.supabase.co';
@@ -1780,7 +1778,7 @@ async function saveMemo() {
 
   const memo = document.getElementById('visitMemo').value;
 
-  const { data, error } = await sb
+  const { data, error } = await supabase
     .from('diary')
     .insert([
       {
@@ -1802,7 +1800,7 @@ async function saveMemo() {
 async function loadMemo() {
 
   const { data, error } =
-    await sb
+    await supabase
       .from('diary')
       .select('*')
       .order('id', { ascending:false })
@@ -1816,3 +1814,5 @@ async function loadMemo() {
 
 loadMemo();
 </script>
+</body>
+</html>
