@@ -215,6 +215,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fpill:hover{background:var(--bg2)}
 .fpill.fp-on{font-weight:700;border-width:1.5px;background:var(--bg2)}
 .list-content{flex:1;overflow-y:auto}
+.claim-empty{padding:28px;text-align:center;color:var(--t3);font-size:12px;border:1px dashed var(--bd2);border-radius:var(--rl);background:var(--bg2)}
+/* ===== 청구현황판 (원본 전략판 UI 그대로) ===== */
+.sub{color:#80766d;font-weight:700}
+.sectionTitle{font-size:22px;font-weight:950;margin:28px 0 14px}
+.card{background:#fff;border:1px solid #e9ddd2;border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(80,50,20,.05)}
+.chartBox{height:500px}
+.claimLegend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px;color:#6f655c;font-weight:800}
+.claimLegend span{background:#fff;border:1px solid #e9ddd2;border-radius:999px;padding:6px 10px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:5px}
+.pill{display:inline-flex;align-items:center;padding:4px 9px;border-radius:99px;font-size:11px;font-weight:900;margin-left:5px}
+.p-red{background:#F8EDED;color:#9B4A4A}
+.p-green{background:#E8F4ED;color:#3E7356}
+.p-blue{background:#EAF0F7;color:#3F6388}
+.p-gray{background:#eee;color:#777}
+.claimTableWrap table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #e9ddd2;border-radius:16px;overflow:hidden}
+.claimTableWrap th,.claimTableWrap td{padding:10px 12px;border-bottom:1px solid #eee4dc;font-size:13px;text-align:left;white-space:nowrap}
+.claimTableWrap th{background:#f6eee6;color:#6f655c;font-size:12px;font-weight:950}
+.claimTableWrap tr:hover td{background:#fff8f1}
+.claimTableWrap th{text-align:left}
+.claimTableWrap tr{cursor:pointer}
+.claimTableWrap .sectionHead th{font-size:13px;color:#6f655c}
+.companyCols{background:#FCF8F4!important}
+.metricCols{background:#FAFBFC!important}
+.metricSep{border-left:2px solid #D8DEE8!important}
+.companySep{border-left:2px solid #E5D9CA!important}
+.topRow td:first-child{border-left:5px solid #8CC6A3}
+.midRow td:first-child{border-left:5px solid #D8C16D}
+.lowRow td:first-child{border-left:5px solid #D99A9A}
 .list-content::-webkit-scrollbar{width:4px}
 .list-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 .list-sec{font-size:11px;font-weight:700;color:var(--t2);padding:8px 14px 6px;background:var(--bg2);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:6px}
@@ -322,6 +350,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="acc-body open" id="sb-mr-list"></div>
       <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">지역별 현황 <span onclick="event.stopPropagation();openRegModal()" title="지역 추가/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
       <div class="acc-body open" id="sb-reg-list"></div>
+    </div>
+
+    <!-- 청구현황판 -->
+    <div class="cat-btn" id="cat-claim" onclick="switchView('claim')">
+      <div class="cat-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A6800" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.5 1.3-2.5 3-2.5s3 1 3 2.5-1.3 2-3 2.5-3 1-3 2.5 1.3 2.5 3 2.5 3-1 3-2.5"/></svg>
+      </div>
+      청구현황판
     </div>
 
     <div class="sb-div"></div>
@@ -459,6 +495,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div><!-- /view-list -->
 
+<!-- VIEW 3: 청구현황판 -->
+<div id="view-claim" class="view-panel">
+  <div class="list-head">
+    <div class="list-head-title">웰체크 일만사 청구현황 비교</div>
+  </div>
+  <div class="list-content" style="padding:16px">
+    <div class="sub" style="margin-bottom:8px">사무소 청구전환율 기준으로 정렬하고, 누적 환자당 청구 지표를 함께 비교</div>
+    <div class="claimLegend">
+      <span><i class="dot" style="background:#8CC6A3"></i>환자당 청구 상위30%</span>
+      <span><i class="dot" style="background:#D8C16D"></i>중위40%</span>
+      <span><i class="dot" style="background:#D99A9A"></i>하위30%</span>
+    </div>
+    <div class="card chartBox"><canvas id="claimScatter"></canvas></div>
+    <div class="sectionTitle">웰체크 일만사 청구현황 비교표</div>
+    <div id="claimTable"></div>
+  </div>
+</div><!-- /view-claim -->
+
 </div><!-- /main -->
 
 <!-- ===== 일정 추가/수정 모달 ===== -->
@@ -576,6 +630,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // ===== Supabase 연결 =====
 var SUPA_URL='https://cmwmadacnlygdbrhxviy.supabase.co';
@@ -988,11 +1043,14 @@ function timeLabel(t){return t==='am'?'오전':t==='pm'?'오후':'종일';}
 function switchView(v){
   document.getElementById('view-cal').classList.toggle('v-active', v==='cal');
   document.getElementById('view-list').classList.toggle('v-active', v==='list');
+  document.getElementById('view-claim').classList.toggle('v-active', v==='claim');
   document.getElementById('cat-cal').classList.toggle('cat-active', v==='cal');
   document.getElementById('cat-list').classList.toggle('cat-active', v==='list');
+  document.getElementById('cat-claim').classList.toggle('cat-active', v==='claim');
   var sub = document.getElementById('list-sub');
   sub.style.display = v==='list' ? 'block' : 'none';
   if(v==='list') renderList();
+  if(v==='claim') renderClaimView();
 }
 
 // ===== 사이드바 =====
@@ -1436,6 +1494,100 @@ document.addEventListener('click', function(e){
   var th = e.target.closest('.sort-th');
   if(th) setSort(th.dataset.sort);
 });
+
+// ===== 청구현황판 (Supabase office_claims/clinic_claims 테이블에서 로드, 원본 전략판 UI 재현) =====
+var OFFICE_CLAIMS = [];
+var CLINIC_CLAIMS = [];
+var claimChart = null;
+function money(v){ return (v||0).toLocaleString('ko-KR')+'원'; }
+function loadOfficeClaims(){
+  return db.from('office_claims').select('*').order('month').then(function(res){
+    if(res.error){ console.error(res.error); OFFICE_CLAIMS=[]; return; }
+    OFFICE_CLAIMS=res.data;
+  });
+}
+function loadClinicClaims(){
+  return db.from('clinic_claims').select('*').order('month').then(function(res){
+    if(res.error){ console.error(res.error); CLINIC_CLAIMS=[]; return; }
+    CLINIC_CLAIMS=res.data;
+  });
+}
+function renderClaimView(){
+  Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
+    renderClaimScatter();
+    renderClaimTable();
+  });
+}
+// 사무소별 가장 최근 월 스냅샷 (office_claims는 월별로 쌓이므로 최신 월만 뽑아 비교)
+function latestOfficeRows(){
+  var byOffice={};
+  OFFICE_CLAIMS.forEach(function(r){
+    if(!byOffice[r.office]||r.month>byOffice[r.office].month) byOffice[r.office]=r;
+  });
+  return Object.keys(byOffice).map(function(k){
+    var r=byOffice[k];
+    var achievement=r.target?Math.round((r.active_count/r.target)*100):0;
+    var claimPerPatient=r.cum_patient?Math.round(r.cum_claim/r.cum_patient):0;
+    return {office:r.office, business:r.business||'', target:r.target||0,
+      achievement:achievement, patientSum:r.cum_patient||0, claimPerPatient:claimPerPatient,
+      companyBucket:r.company_bucket||'', effBucket:r.eff_bucket||'', bucketInsight:r.bucket_insight||''};
+  });
+}
+function bucketKey(o){
+  var b=o.effBucket||'';
+  if(b.indexOf('상위')>=0) return 'top';
+  if(b.indexOf('중위')>=0) return 'mid';
+  return 'low';
+}
+function bucketClassByKey(k){ return k==='top'?'topRow':k==='mid'?'midRow':'lowRow'; }
+function bucketPillByBucket(b){
+  var key=(b||'').indexOf('상위')>=0?'p-green':(b||'').indexOf('중위')>=0?'p-blue':'p-red';
+  return '<span class="pill '+key+'">'+(b||'-')+'</span>';
+}
+function claimInsight(o){ return o.bucketInsight||'-'; }
+function renderClaimScatter(){
+  var ctx=document.getElementById('claimScatter');
+  if(!ctx||!window.Chart) return;
+  if(claimChart){ claimChart.destroy(); claimChart=null; }
+  var rows=latestOfficeRows().sort(function(a,b){return b.achievement-a.achievement;});
+  if(!rows.length) return;
+  var colors={top:'#8CC6A3',mid:'#D8C16D',low:'#D99A9A'};
+  var points=rows.map(function(o){ return {x:o.patientSum,y:o.claimPerPatient,office:o.office,bucket:o.effBucket,business:o.business,key:bucketKey(o),rate:o.achievement}; });
+  var labelPlugin={id:'officeLabels',afterDatasetsDraw:function(chart){
+    var c=chart.ctx; c.save();
+    c.font='700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+    c.fillStyle='#2d2926'; c.textBaseline='middle';
+    var meta=chart.getDatasetMeta(0);
+    meta.data.forEach(function(pt,i){
+      var raw=chart.data.datasets[0].data[i]; if(!raw) return;
+      var x=pt.x+7, y=pt.y-8;
+      if(y<14) y=pt.y+10;
+      if(x>chart.chartArea.right-42) x=pt.x-42;
+      c.fillText(raw.office, x, y);
+    });
+    c.restore();
+  }};
+  claimChart=new Chart(ctx,{
+    type:'scatter',
+    data:{datasets:[{label:'사무소',data:points,backgroundColor:points.map(function(p){return colors[p.key]||'#999';}),borderColor:points.map(function(p){return colors[p.key]||'#999';}),pointRadius:6,pointHoverRadius:9}]},
+    plugins:[labelPlugin],
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.raw.office+' · 청구전환율 '+c.raw.rate+'% · 활성환자 '+c.raw.x.toLocaleString()+'명 · 환자당 '+c.raw.y.toLocaleString()+'원 · '+c.raw.bucket;}}}},
+      scales:{x:{title:{display:true,text:'활성환자수'}},y:{title:{display:true,text:'환자당 누적청구금액'},ticks:{callback:function(v){return v.toLocaleString();}}}}
+    }
+  });
+}
+function renderClaimTable(){
+  var sorted=latestOfficeRows().sort(function(a,b){return b.achievement-a.achievement;});
+  var el=document.getElementById('claimTable');
+  if(!sorted.length){ el.innerHTML='<div class="claim-empty">아직 청구 데이터가 없습니다. 엑셀 업데이트 후 반영됩니다.</div>'; return; }
+  el.innerHTML='<div class="claimTableWrap"><table><thead><tr class="sectionHead"><th colspan="7" class="companyCols">회사 평가 기준</th><th colspan="2" class="metricCols metricSep">누적 분석 지표</th><th class="companySep">비교 결과</th></tr>'
+    +'<tr><th class="companyCols">순위</th><th class="companyCols">사업부</th><th class="companyCols">사무소</th><th class="companyCols">목표</th><th class="companyCols">청구전환율</th><th class="companyCols">청구현황 기준</th><th class="companyCols">활성환자</th><th class="metricCols metricSep">환자당청구</th><th class="metricCols">환자당 구간</th><th class="companySep">해석</th></tr></thead><tbody>'
+    +sorted.map(function(o,i){
+      var key=bucketKey(o);
+      return '<tr class="'+bucketClassByKey(key)+'"><td class="companyCols">'+(i+1)+'</td><td class="companyCols">'+(o.business||'-')+'</td><td class="companyCols"><b>'+o.office+'</b></td><td class="companyCols">'+(o.target||'-')+'</td><td class="companyCols"><b>'+o.achievement+'%</b></td><td class="companyCols">'+bucketPillByBucket(o.companyBucket||o.effBucket)+'</td><td class="companyCols">'+o.patientSum.toLocaleString()+'</td><td class="metricCols metricSep">'+money(o.claimPerPatient)+'</td><td class="metricCols">'+bucketPillByBucket(o.effBucket)+'</td><td class="companySep">'+claimInsight(o)+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
 
 // ===== 초기화 =====
 switchView('cal');
