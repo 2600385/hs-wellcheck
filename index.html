@@ -416,15 +416,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="pnl">
         <div class="pnl-title">💰 <span style="color:#8A6800">의협회비 납부 현황</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
-          <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center">
+          <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('all',event)">
             <div style="font-size:15px;font-weight:700;color:var(--t1)" id="dues-total">—</div>
             <div style="font-size:9px;color:var(--t2)">총 대상</div>
           </div>
-          <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center">
+          <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('paid',event)">
             <div style="font-size:15px;font-weight:700;color:#145C38" id="dues-paid">—</div>
             <div style="font-size:9px;color:#145C38">납부</div>
           </div>
-          <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center">
+          <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('unpaid',event)">
             <div style="font-size:15px;font-weight:700;color:#B01A1A" id="dues-unpaid">—</div>
             <div style="font-size:9px;color:#B01A1A">미납</div>
           </div>
@@ -815,12 +815,12 @@ function rowToEv(r){
     time:r.time_slot, exactTime:r.exact_time||'', evType:r.ev_type, region:r.region, patients:r.patients,
     memo:r.memo||'', checked:r.checked, status:r.status};
 }
-// "14:30" -> "2:30p", "09:00" -> "9a", "14:00" -> "2p"
+// "14:30" -> "2p30", "09:00" -> "9a", "14:00" -> "2p"
 function compactTime(t){
   if(!t) return '';
   var parts=t.split(':'); var h=parseInt(parts[0],10); var m=parseInt(parts[1],10)||0;
   var ap=h>=12?'p':'a'; var h12=h%12; if(h12===0) h12=12;
-  return h12+(m?':'+(m<10?'0'+m:m):'')+ap;
+  return h12+ap+(m?(m<10?'0'+m:m):'');
 }
 // 06:00~21:00, 30분 단위 옵션 목록 생성
 function timeOptionsHTML(selected){
@@ -1683,6 +1683,44 @@ function showEduList(type, event) {
   document.body.appendChild(popup);
   document.addEventListener('click',function handler(e){
     var p=document.getElementById('edu-list-popup');
+    if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener('click',handler); }
+  });
+}
+
+function closeDuesList(){ var p=document.getElementById('dues-list-popup'); if(p) p.remove(); }
+function showDuesList(type, event) {
+  if(event) event.stopPropagation();
+  var existing=document.getElementById('dues-list-popup');
+  if(existing){ existing.remove(); return; }
+  var filtered=CLINICS.filter(function(c){ return c.ilmansa==='참여'; });
+  if(type==='paid') filtered=CLINICS.filter(function(c){ return c.dues==='납부'; });
+  if(type==='unpaid') filtered=CLINICS.filter(function(c){ return c.dues==='비납부'; });
+  var titleHtml=type==='paid'
+    ?'<span style="color:#145C38">✅ 납부 거래처</span>'
+    :type==='unpaid'
+    ?'<span style="color:#B01A1A">❗ 미납 거래처</span>'
+    :'의협회비 대상 전체';
+  var popup=document.createElement('div');
+  popup.id='dues-list-popup';
+  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--white);border:0.5px solid var(--bd2);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);width:320px;max-height:420px;display:flex;flex-direction:column';
+  var rows=filtered.map(function(c){
+    var m=getMR(c.mr);
+    var dc=getRegionStyle(c.region).color;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--bd);font-size:11px">'
+      +'<span style="width:6px;height:6px;border-radius:50%;background:'+dc+';flex-shrink:0"></span>'
+      +'<span style="color:var(--t2);width:30px;flex-shrink:0">'+c.region+'</span>'
+      +'<span style="background:'+(m.bg||'#eee')+';color:'+(m.t||'#666')+';padding:1px 6px;border-radius:999px;font-size:10px;flex-shrink:0">'+(m.name||c.mr)+'</span>'
+      +'<span style="font-weight:600;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</span>'
+      +'</div>';
+  }).join('');
+  popup.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<span style="font-size:13px;font-weight:700">'+titleHtml+' ('+filtered.length+'곳)</span>'
+    +'<button onclick="closeDuesList()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t2);font-family:inherit;line-height:1">✕</button>'
+    +'</div>'
+    +'<div style="overflow-y:auto;flex:1">'+(rows||'<div style="color:var(--t3);font-size:12px;padding:16px 0;text-align:center">해당 거래처 없음</div>')+'</div>';
+  document.body.appendChild(popup);
+  document.addEventListener('click',function handler(e){
+    var p=document.getElementById('dues-list-popup');
     if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener('click',handler); }
   });
 }
