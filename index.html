@@ -484,6 +484,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <option value="pm">오후</option>
         </select>
       </div>
+      <div class="dm-field">
+        <div class="dm-field-lbl">정확한 시간(선택)</div>
+        <select id="inp-time-exact" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
+      </div>
     </div>
     <div class="fld">
       <label>거래처명</label>
@@ -808,8 +812,32 @@ var MEMO_STORE = {}; // 거래처명 → 메모 저장소 (clinic_memos 테이�
 
 function rowToEv(r){
   return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, label:r.label,
-    time:r.time_slot, evType:r.ev_type, region:r.region, patients:r.patients,
+    time:r.time_slot, exactTime:r.exact_time||'', evType:r.ev_type, region:r.region, patients:r.patients,
     memo:r.memo||'', checked:r.checked, status:r.status};
+}
+// "14:30" -> "2:30p", "09:00" -> "9a", "14:00" -> "2p"
+function compactTime(t){
+  if(!t) return '';
+  var parts=t.split(':'); var h=parseInt(parts[0],10); var m=parseInt(parts[1],10)||0;
+  var ap=h>=12?'p':'a'; var h12=h%12; if(h12===0) h12=12;
+  return h12+(m?':'+(m<10?'0'+m:m):'')+ap;
+}
+// 06:00~21:00, 30분 단위 옵션 목록 생성
+function timeOptionsHTML(selected){
+  var html='<option value="">시간 미지정</option>';
+  for(var mins=6*60; mins<=21*60; mins+=30){
+    var hh=Math.floor(mins/60), mm=mins%60;
+    var val=(hh<10?'0'+hh:hh)+':'+(mm<10?'0'+mm:mm);
+    html+='<option value="'+val+'"'+(val===selected?' selected':'')+'>'+compactTime(val)+'</option>';
+  }
+  return html;
+}
+// 시간 지정 이벤트를 늦은 시간부터 먼저 정렬, 시간 미지정은 맨 뒤로
+function byExactTimeDesc(a,b){
+  if(!a.exactTime&&!b.exactTime) return 0;
+  if(!a.exactTime) return 1;
+  if(!b.exactTime) return -1;
+  return b.exactTime.localeCompare(a.exactTime);
 }
 function loadSchedules(){
   return db.from('schedules').select('*').neq('status','rejected').order('id').then(function(res){
@@ -1019,8 +1047,8 @@ function renderCalendar(){
     (function(day){ cell.onclick=function(e){ openAdd(day,'all'); }; })(d);
     var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||e.mr===activeMR);});
     var allEvs=dayEvs.filter(function(e){return e.time==='all';});
-    var amEvs=dayEvs.filter(function(e){return e.time==='am';});
-    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';});
+    var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeDesc);
+    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeDesc);
 
     // 날짜 헤더
     var top=document.createElement('div');top.className='dc-top';
@@ -1058,8 +1086,7 @@ function renderCalendar(){
     } else {
       // 오전 영역
       var am=document.createElement('div');am.className='dc-am';
-      am.appendChild(top);
-      var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.className='zone-lbl';amlbl.textContent='오전';
+      var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.textContent='오전';
       am.appendChild(amlbl);
   
       appendEvsWithMore(am,amEvs,false,2,d,'am');
@@ -1100,13 +1127,14 @@ function openDayList(day, zone, evsList){
   document.getElementById('daylist-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 · '+ZONE_LABEL[zone]+' ('+evsList.length+'건)';
   var body=document.getElementById('daylist-body');
   body.innerHTML='';
-  evsList.forEach(function(ev){
+  evsList.slice().sort(byExactTimeDesc).forEach(function(ev){
     var m=getMR(ev.mr);
     var row=document.createElement('div');
     row.className='dl-row';
     row.style.background=m.bg;row.style.color=m.t;
     var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
-    var txt=document.createElement('span');txt.style.cssText='flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';txt.textContent=ev.label;
+    var txt=document.createElement('span');txt.style.cssText='flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    txt.textContent=(ev.exactTime?compactTime(ev.exactTime)+' ':'')+ev.label;
     row.appendChild(dot);row.appendChild(txt);
     row.onclick=function(){closeDayList();openDetail(ev.id);};
     body.appendChild(row);
@@ -1128,7 +1156,8 @@ function buildChip(ev, isAll){
       if(res.error) console.error(res.error);
     });
   };
-  var txt=document.createElement('span');txt.className='ev-txt';txt.textContent=ev.label;
+  var txt=document.createElement('span');txt.className='ev-txt';
+  txt.textContent=(ev.exactTime?compactTime(ev.exactTime)+' ':'')+ev.label;
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
   chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
   chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
@@ -1146,6 +1175,7 @@ function openAdd(day, zone){
   document.getElementById('inp-clinic').value='';
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
   document.getElementById('inp-time').value=zone;
+  document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML('');
   document.getElementById('inp-patients').value='';
   document.getElementById('inp-ilmansa').value='참여';
   document.getElementById('inp-device').value='미도입';
@@ -1162,6 +1192,7 @@ function openEditModal(ev){
   loadClinicsByMR(ev.mr);
   document.getElementById('inp-clinic').value=ev.label;
   document.getElementById('inp-time').value=ev.time;
+  document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML(ev.exactTime||'');
   document.getElementById('inp-patients').value=ev.patients;
   document.getElementById('inp-ilmansa').value=ev.ilmansa;
   document.getElementById('inp-device').value=ev.device;
@@ -1186,6 +1217,7 @@ function saveEv(){
     })(),
     patients:parseInt(document.getElementById('inp-patients').value)||0,
     time_slot:document.getElementById('inp-time').value,
+    exact_time:document.getElementById('inp-time-exact').value||null,
     ev_type:document.getElementById('inp-type').value||'visit',
     memo:document.getElementById('inp-memo').value
   };
@@ -1225,7 +1257,7 @@ function openDetail(id){
   document.getElementById('dm-name').textContent=ev.label;
   var badge=document.getElementById('dm-badge');
   badge.textContent=m.name+' MR'; badge.style.background=m.bg; badge.style.color=m.t;
-  document.getElementById('dm-time').textContent=timeLabel(ev.time);
+  document.getElementById('dm-time').textContent=timeLabel(ev.time)+(ev.exactTime?' · '+compactTime(ev.exactTime):'');
   document.getElementById('dm-checked').textContent=ev.checked?'✅ 방문 완료':'⬜ 방문 예정';
   // 마지막 방문일: 같은 거래처의 체크된 이벤트 중 가장 최근
   var allEvs2=[];
@@ -1873,13 +1905,17 @@ function openRequestPopup(id){
     +'<div><b>거래처:</b> '+ev.label+'</div>'
     +'<div><b>날짜:</b> '+curYear+'년 '+curMonth+'월 '+ev.day+'일</div>'
     +'<div><b>시간대:</b> '+(ev.time==='all'?'종일':ev.time==='am'?'오전':'오후')+'</div>'
+    +'<div style="margin-top:6px"><b>정확한 시간(선택):</b> <select id="req-exact-time" style="padding:3px 6px;font-size:13px;font-weight:600;border:1px solid var(--bd2);border-radius:4px;background:var(--white);color:var(--t1)">'+timeOptionsHTML(ev.exactTime||'')+'</select></div>'
     +'</div>'
     +'<div style="margin-top:10px;font-size:11px;color:var(--t2)">이 방문 일정을 승낙하시겠어요?</div>';
   document.getElementById('req-ov').style.display='flex';
 }
 function approveRequest(){
   if(!currentReqId) return;
-  db.from('schedules').update({status:'approved'}).eq('id',currentReqId).then(function(res){
+  var exactTimeEl=document.getElementById('req-exact-time');
+  var upd={status:'approved'};
+  if(exactTimeEl) upd.exact_time=exactTimeEl.value||null;
+  db.from('schedules').update(upd).eq('id',currentReqId).then(function(res){
     if(res.error){alert('승낙 처리 실패: '+res.error.message);return;}
     document.getElementById('req-ov').style.display='none';
     loadSchedules();
