@@ -1385,7 +1385,7 @@ function renderList(){
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
       +'<td><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
-      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경"><span data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></span></td>'
+      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
       // DH 구역
       +'<td style="text-align:center;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
       +'<td style="text-align:center">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
