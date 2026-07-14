@@ -1376,7 +1376,7 @@ function renderList(){
       +'<td><span style="display:inline-flex;align-items:center;justify-content:space-between;gap:4px;width:100%">'
       +'<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</span>'
       +'<span style="display:inline-flex;gap:4px;flex-shrink:0">'
-      +'<span data-idx="'+idx+'" onclick="event.stopPropagation();showNotePopup(this)" style="cursor:pointer;font-size:11px;color:'+(c.note&&c.note.trim()?'#333':'#DCDCDC')+'">📋</span>'
+      +(c.note&&c.note.trim()?'<span data-idx="'+idx+'" onclick="event.stopPropagation();showNotePopup(this)" title="메모 있음" style="cursor:pointer;font-size:11px;color:#333">📋</span>':'')
       +'<span onclick="event.stopPropagation();openEditClinic('+idx+')" title="거래처 정보 수정" style="cursor:pointer;font-size:11px">✏️</span>'
       +'</span></span></td>'
       // 일만사&웰체크 구역 (클릭하여 변경)
