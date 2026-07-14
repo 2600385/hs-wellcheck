@@ -1385,7 +1385,7 @@ function renderList(){
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
       +'<td><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
-      +'<td style="text-align:center"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
+      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경"><span data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></span></td>'
       // DH 구역
       +'<td style="text-align:center;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
       +'<td style="text-align:center">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
@@ -1639,6 +1639,39 @@ function showEduPopup(el){
     document.getElementById('edu-done-btn').onclick=function(){ if(c){c.edu='이수완료';saveClinicField(c,{edu:'이수완료'});renderList();updateEduStats();} div.remove(); };
     document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';saveClinicField(c,{edu:'미이수'});renderList();updateEduStats();} div.remove(); };
   }
+  setTimeout(function(){
+    document.addEventListener('click',function handler(e){
+      if(!div.contains(e.target)&&!el.contains(e.target)){div.remove();document.removeEventListener('click',handler);}
+    });
+  },100);
+}
+function closeDuesPopup(){ var p=document.getElementById('dues-popup'); if(p) p.remove(); }
+function showDuesPopup(el){
+  var idx=parseInt(el.dataset.idx);
+  var c=CLINICS[idx];
+  var current=el.dataset.dues||'해당없음';
+  var clinicName=c?c.name:'';
+  var existing=document.getElementById('dues-popup');
+  if(existing) existing.remove();
+  var div=document.createElement('div');
+  div.id='dues-popup';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid #ccc;border-radius:10px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:240px';
+  var rect=el.getBoundingClientRect();
+  div.style.top=(rect.bottom+6)+'px';
+  div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
+  div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">의협회비 납부 현황</div>'
+    +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
+    +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+    +'현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b>'
+    +'</div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button id="dues-paid-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">납부</button>'
+    +'<button id="dues-unpaid-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">비납부</button>'
+    +'<button onclick="closeDuesPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+    +'</div>';
+  document.body.appendChild(div);
+  document.getElementById('dues-paid-btn').onclick=function(){ if(c){c.dues='납부';saveClinicField(c,{dues:'납부'});renderList();} div.remove(); };
+  document.getElementById('dues-unpaid-btn').onclick=function(){ if(c){c.dues='비납부';saveClinicField(c,{dues:'비납부'});renderList();} div.remove(); };
   setTimeout(function(){
     document.addEventListener('click',function handler(e){
       if(!div.contains(e.target)&&!el.contains(e.target)){div.remove();document.removeEventListener('click',handler);}
