@@ -875,7 +875,8 @@ function rowToClinic(r){
     patients:r.patients, ilCnt:r.il_cnt, nonCnt:r.non_cnt, lastVisit:r.last_visit,
     edu:r.edu, device:r.device, dues:r.dues, region:r.region, visited:r.visited,
     dh:r.dh, dh_op:r.dh_op, dh_cp:r.dh_cp, dh_sp:r.dh_sp, dh_mb:r.dh_mb,
-    note:r.note||'', biz_no:r.biz_no||'', welcheck_cnt:r.welcheck_cnt, ilmansa_cnt:r.ilmansa_cnt};
+    note:r.note||'', biz_no:r.biz_no||'', welcheck_cnt:r.welcheck_cnt, ilmansa_cnt:r.ilmansa_cnt,
+    ilmansaStart:r.ilmansa_start||''};
 }
 function loadClinics(){
   return db.from('clinics').select('*').order('id').then(function(res){
@@ -1380,7 +1381,7 @@ function renderList(){
       +'</span></span></td>'
       // 일만사&웰체크 구역 (클릭하여 변경)
       +'<td style="text-align:center;border-left:2px solid #C8D8C0;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'visited\')">'+visitMark+'</td>'
-      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'ilmansa\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
+      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
       +'<td><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
@@ -1758,6 +1759,64 @@ function showNotePopup(el){
   },100);
 }
 
+function closeIlmansaPopup(){ var p=document.getElementById('ilmansa-popup'); if(p) p.remove(); }
+function openIlmansaPopup(idx, event){
+  if(event) event.stopPropagation();
+  var existing=document.getElementById('ilmansa-popup');
+  if(existing) existing.remove();
+  var c=CLINICS[idx]; if(!c) return;
+  var el=event.currentTarget;
+  var status=c.ilmansa==='참여'?'참여':'미참여';
+  var div=document.createElement('div');
+  div.id='ilmansa-popup';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid var(--bd2);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);width:220px';
+  var rect=el.getBoundingClientRect();
+  div.style.top=(rect.bottom+6)+'px';
+  div.style.left=Math.min(rect.left,window.innerWidth-230)+'px';
+  div.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px">'+c.name+' · 일만사</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:10px">'
+    +'<button id="ilm-no" style="flex:1;padding:6px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer">미참여</button>'
+    +'<button id="ilm-yes" style="flex:1;padding:6px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer">참여</button>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--t2);margin-bottom:4px">일만사 시작일</div>'
+    +'<input type="date" id="ilm-start" value="'+(c.ilmansaStart||'')+'" style="width:100%;padding:6px;font-size:12px;border:0.5px solid var(--bd2);border-radius:6px;box-sizing:border-box;margin-bottom:10px">'
+    +'<div style="display:flex;gap:6px">'
+    +'<button id="ilm-save" style="flex:1;padding:5px;font-size:11px;background:var(--dw);color:white;border:none;border-radius:6px;cursor:pointer">저장</button>'
+    +'<button onclick="closeIlmansaPopup()" style="flex:1;padding:5px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+    +'</div>';
+  document.body.appendChild(div);
+  var noBtn=document.getElementById('ilm-no'), yesBtn=document.getElementById('ilm-yes');
+  function paintButtons(){
+    noBtn.style.border='1px solid '+(status!=='참여'?'var(--dw)':'#ccc');
+    noBtn.style.background=status!=='참여'?'#FFF4EC':'#fff';
+    noBtn.style.color=status!=='참여'?'var(--dw)':'#666';
+    yesBtn.style.border='1px solid '+(status==='참여'?'var(--dw)':'#ccc');
+    yesBtn.style.background=status==='참여'?'#FFF4EC':'#fff';
+    yesBtn.style.color=status==='참여'?'var(--dw)':'#666';
+  }
+  paintButtons();
+  noBtn.onclick=function(){ status='미참여'; paintButtons(); };
+  yesBtn.onclick=function(){
+    status='참여'; paintButtons();
+    var si=document.getElementById('ilm-start');
+    if(!si.value) si.value=new Date().toISOString().slice(0,10);
+  };
+  document.getElementById('ilm-save').onclick=function(){
+    c.ilmansa=status;
+    c.ilmansaStart=document.getElementById('ilm-start').value||'';
+    saveClinicField(c,{ilmansa:c.ilmansa, ilmansa_start:c.ilmansaStart||null});
+    div.remove();
+    renderList();
+    updateEduStats();
+  };
+  setTimeout(function(){
+    document.addEventListener('click',function handler(e){
+      var p=document.getElementById('ilmansa-popup');
+      if(p&&!p.contains(e.target)&&!el.contains(e.target)){p.remove();document.removeEventListener('click',handler);}
+    });
+  },100);
+}
+
 function showDotPopup(el){
   var existing=document.getElementById('dot-popup');
   if(existing) existing.remove();
@@ -1818,7 +1877,6 @@ function toggleClinicField(idx, field){
   var upd={};
   if(field==='visited'){ c.visited=!c.visited; upd.visited=c.visited; }
   else if(field==='welcheck'){ c.welcheck=!c.welcheck; upd.welcheck=c.welcheck; }
-  else if(field==='ilmansa'){ c.ilmansa=c.ilmansa==='참여'?'미참여':'참여'; upd.ilmansa=c.ilmansa; }
   else return;
   saveClinicField(c,upd);
   renderList();
