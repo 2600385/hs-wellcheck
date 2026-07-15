@@ -243,6 +243,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .topRow td:first-child{border-left:5px solid #8CC6A3}
 .midRow td:first-child{border-left:5px solid #D8C16D}
 .lowRow td:first-child{border-left:5px solid #D99A9A}
+/* ===== 활성처 전략판 (원본 전략판 UI 그대로) ===== */
+.infoBar2{margin:0 0 18px;border:1px solid #eadfd4;border-radius:16px;background:#fffdf9;padding:12px 16px;color:#8b8178;font-size:13px;font-weight:700;display:flex;gap:14px;flex-wrap:wrap}
+.infoBar2 b{color:#6f655c;font-weight:800}
+.kpiGrid{display:grid;grid-template-columns:1.45fr 1fr 1fr 1fr 1fr;gap:14px}
+.kcard{background:#fff;border:1px solid #e9ddd2;border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(80,50,20,.05);cursor:pointer;transition:.12s}
+.kcard:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(80,50,20,.12)}
+.kcard .klbl{font-size:13px;color:#74695f;font-weight:900;margin-bottom:8px}
+.kcard .kval{font-size:30px;font-weight:950;letter-spacing:-.5px}
+.kcard .khint{font-size:12px;color:#8e857c;margin-top:6px;font-weight:800}
+.primaryKpi{background:#FFF7EF!important;border:2px solid #F6B37C!important;border-left:8px solid #F47920!important}
+.primaryKpi .kval{font-size:40px;color:#F47920}
+.primaryKpi .smallTarget{font-size:24px;color:#9b8d82}
+.gradePill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fee6e9;color:#c92f3f;font-weight:950;margin-left:6px;font-size:13px}
+.redCard{background:#FFF6F6!important;border:2px solid #E9B9B9!important}
+.redCard .kval,.redCard .klbl{color:#B84242!important}
+.diffKpi{background:#F3FBF6!important;border:2px solid #BDE4CC!important}
+.diffKpi .kval{color:#15803d}
+.newKpi{background:#F3FAFF!important;border:2px solid #CBE3F6!important}
+.newKpi .kval{color:#2F78B7}
+.miniGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px}
+.miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
+.miniCard b{display:block;font-size:26px;margin:3px 0}
+.miniCard .klbl{font-size:12px;color:#74695f;font-weight:900}
+.miniCard .khint{font-size:11px;color:#8e857c;font-weight:800}
+.miniCard.q3{border-top:4px solid #8fb8e8}
+.miniCard.q4{border-top:4px solid #99cfb1}
+.miniCard.c20{border-top:4px solid #e3b6c8}
+.miniCard.c40{border-top:4px solid #b5d8c4}
+.chartBox2{height:420px}
+.stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px}
+.stFilters button.active{border-color:#f47920;border-width:2px;color:#4f4035;background:#fffaf6;box-shadow:0 0 0 3px rgba(244,121,32,.08)}
+.newBadge{margin-left:6px;background:#EAF5FF;color:#2f6f9f;border-radius:99px;padding:2px 7px;font-size:10px;font-weight:900}
+.diffUp{color:#15803d;font-weight:900}
+.diffDown{color:#b91c1c;font-weight:900}
+.emptyMsg2{padding:28px;border:1px dashed #dccfc3;border-radius:16px;background:#fffaf6;color:#8a8178;font-weight:800;text-align:center;font-size:12px}
 .list-content::-webkit-scrollbar{width:4px}
 .list-content::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
 .list-sec{font-size:11px;font-weight:700;color:var(--t2);padding:8px 14px 6px;background:var(--bg2);border-bottom:0.5px solid var(--bd);display:flex;align-items:center;gap:6px}
@@ -351,6 +388,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">지역별 현황 <span onclick="event.stopPropagation();openRegModal()" title="지역 추가/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
       <div class="acc-body open" id="sb-reg-list"></div>
     </div>
+
+    <!-- 활성처 전략판 -->
+    <div class="cat-btn" id="cat-strategy" onclick="switchView('strategy')">
+      <div class="cat-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2A7A4A" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      활성처 전략판
+    </div>
+
+    <div class="sb-div"></div>
 
     <!-- 청구현황판 -->
     <div class="cat-btn" id="cat-claim" onclick="switchView('claim')">
@@ -494,6 +541,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="list-body"></div>
   </div>
 </div><!-- /view-list -->
+
+<!-- VIEW 4: 활성처 전략판 -->
+<div id="view-strategy" class="view-panel">
+  <div class="list-head">
+    <div class="list-head-title">경인1 활성처 확보 전략판</div>
+  </div>
+  <div class="list-content" style="padding:16px">
+    <div id="st-info" class="infoBar2"></div>
+    <div class="sectionTitle" style="margin-top:0">현재 지표</div>
+    <div class="kpiGrid" id="st-kpi"></div>
+    <div class="sectionTitle">평가기준 대응</div>
+    <div class="miniGrid" id="st-mini"></div>
+    <div class="sectionTitle">사무소 월별 활성환자 · 청구 추이</div>
+    <div class="sub" style="margin:-6px 0 10px;font-size:12px">점선=월 신규/순증 활성환자·누적 활성환자, 실선=월별·누적 청구금액</div>
+    <div class="card chartBox2"><canvas id="officeTrend"></canvas></div>
+    <div class="sectionTitle">거래처 리스트</div>
+    <div class="stFilters" id="st-filters"></div>
+    <div id="st-table"></div>
+  </div>
+</div><!-- /view-strategy -->
 
 <!-- VIEW 3: 청구현황판 -->
 <div id="view-claim" class="view-panel">
@@ -931,7 +998,7 @@ function rowToClinic(r){
     edu:r.edu, device:r.device, dues:r.dues, region:r.region, visited:r.visited,
     dh:r.dh, dh_op:r.dh_op, dh_cp:r.dh_cp, dh_sp:r.dh_sp, dh_mb:r.dh_mb,
     note:r.note||'', biz_no:r.biz_no||'', welcheck_cnt:r.welcheck_cnt, ilmansa_cnt:r.ilmansa_cnt,
-    ilmansaStart:r.ilmansa_start||''};
+    ilmansaStart:r.ilmansa_start||'', prevPatients:r.prev_patients||0};
 }
 function loadClinics(){
   return db.from('clinics').select('*').order('id').then(function(res){
@@ -1044,13 +1111,16 @@ function switchView(v){
   document.getElementById('view-cal').classList.toggle('v-active', v==='cal');
   document.getElementById('view-list').classList.toggle('v-active', v==='list');
   document.getElementById('view-claim').classList.toggle('v-active', v==='claim');
+  document.getElementById('view-strategy').classList.toggle('v-active', v==='strategy');
   document.getElementById('cat-cal').classList.toggle('cat-active', v==='cal');
   document.getElementById('cat-list').classList.toggle('cat-active', v==='list');
   document.getElementById('cat-claim').classList.toggle('cat-active', v==='claim');
+  document.getElementById('cat-strategy').classList.toggle('cat-active', v==='strategy');
   var sub = document.getElementById('list-sub');
   sub.style.display = v==='list' ? 'block' : 'none';
   if(v==='list') renderList();
   if(v==='claim') renderClaimView();
+  if(v==='strategy') renderStrategyView();
 }
 
 // ===== 사이드바 =====
@@ -1143,6 +1213,13 @@ function renderCalendar(){
       appendEvsWithMore(az,allEvs,true,3,d,'all');
       cell.appendChild(az);
     } else {
+      // 종일 일정이 있으면 상단에 띠로 표시 (오전/오후와 공존)
+      if(allEvs.length>0){
+        var allBand=document.createElement('div');
+        allBand.style.cssText='flex-shrink:0;padding:0 3px';
+        appendEvsWithMore(allBand,allEvs,true,1,d,'all');
+        cell.appendChild(allBand);
+      }
       // 오전 영역
       var am=document.createElement('div');am.className='dc-am';
       var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.textContent='오전';
@@ -1442,6 +1519,7 @@ function renderList(){
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
       +'<td style="cursor:pointer" title="클릭하여 상세보기" onclick="showClinicDetail('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
+      +(function(){var cl=clinicClaim(c);return '<td style="text-align:right;font-size:10px;color:var(--t2)">'+(cl&&cl.mclaim?cl.mclaim.toLocaleString():'-')+'</td><td style="text-align:right;font-size:10px;font-weight:600">'+(cl&&cl.cum?cl.cum.toLocaleString():'-')+'</td>';})()
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
       // DH 구역
@@ -1460,7 +1538,7 @@ function renderList(){
     +'<table class="gtbl"><thead>'
     +'<tr style="background:var(--bg2)">'
     +'<th colspan="3" style="border-bottom:0.5px solid var(--bd)"></th>'
-    +'<th colspan="6" style="text-align:center;font-size:10px;color:#2A7A4A;border-left:2px solid #C8D8C0;border-bottom:0.5px solid var(--bd);font-weight:700">일만사 &amp; 웰체크</th>'
+    +'<th colspan="8" style="text-align:center;font-size:10px;color:#2A7A4A;border-left:2px solid #C8D8C0;border-bottom:0.5px solid var(--bd);font-weight:700">일만사 &amp; 웰체크</th>'
     +'<th colspan="4" style="text-align:center;font-size:10px;color:#1048A0;border-left:2px solid #B8C8D8;border-bottom:0.5px solid var(--bd);font-weight:700">DH 기기</th>'
     +'</tr>'
     +'<tr>'
@@ -1471,6 +1549,8 @@ function renderList(){
     +sth('ilmansa','일만사','width:48px;text-align:center')
     +sth('welcheck','웰체크','width:44px;text-align:center')
     +sth('patients','활성도','width:150px;text-align:center')
+    +'<th style="width:64px;text-align:right">6월청구</th>'
+    +'<th style="width:72px;text-align:right">누적청구</th>'
     +sth('edu','심화교육','width:68px;text-align:center')
     +sth('dues','의협회비','width:56px;text-align:center')
     +sth('dh_op','옵티나&amp;위스키','width:56px;text-align:center;border-left:2px solid #B8C8D8')
@@ -1494,6 +1574,149 @@ document.addEventListener('click', function(e){
   var th = e.target.closest('.sort-th');
   if(th) setSort(th.dataset.sort);
 });
+
+// ===== 활성처 전략판 (6월 마감 대비 최신 현황) =====
+var stFilter='all';
+var CLAIM_BY_NAME={}; // 거래처명(trim) → {month, cum, mclaim}
+function buildClaimMap(){
+  CLAIM_BY_NAME={};
+  CLINIC_CLAIMS.forEach(function(r){
+    var k=(r.clinic_name||'').trim();
+    var cur=CLAIM_BY_NAME[k];
+    if(!cur||r.month>cur.month) CLAIM_BY_NAME[k]={month:r.month, cum:r.cum_claim||0, mclaim:r.claim||0};
+  });
+}
+function clinicClaim(c){ return CLAIM_BY_NAME[(c.name||'').trim()]||null; }
+var stTrendChart=null;
+function renderStrategyView(){
+  Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
+    buildClaimMap();
+    renderStKPI();
+    renderStTrend();
+    renderStFilters();
+    renderStTable();
+  });
+}
+function stKpiData(){
+  var r=CLINICS;
+  var target=(OFFICE_CLAIMS.length?OFFICE_CLAIMS[OFFICE_CLAIMS.length-1].target:0)||137;
+  var active=r.filter(function(c){return (c.patients||0)>=20;}).length;
+  var risk=r.filter(function(c){var p=c.patients||0;return p>=4&&p<=19;}).length;
+  var newly=r.filter(function(c){return (c.prevPatients||0)===0&&(c.patients||0)>0;}).length;
+  var crossed=r.filter(function(c){var p=c.prevPatients||0,n=c.patients||0;return (p<20&&n>=20)||(p<40&&n>=40);}).length;
+  var patientDiff=r.reduce(function(s,c){return s+(c.patients||0)-(c.prevPatients||0);},0);
+  var achievement=target?Math.round(active/target*100):0;
+  var grade=achievement>=80?'A':achievement>=60?'B':'C';
+  var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
+  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,risk:risk,newly:newly,crossed:crossed,patientDiff:patientDiff};
+}
+function renderStKPI(){
+  var k=stKpiData();
+  document.getElementById('st-info').innerHTML='사업부 <b>서울4</b><span>|</span>사무소 <b>경인1</b><span>|</span>기준 <b>6월 마감 대비 최신 현황</b>';
+  var kpis=[
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>B등급까지 '+k.bNeed+'처 필요','active'],
+    ['redCard','비활성 예상',k.risk+'처','활성환자 4~19명 · 우선 대응','risk'],
+    ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','20·40명 기준 신규 달성','crossed'],
+    ['diffKpi','당월 활성환자 증감',(k.patientDiff>=0?'+':'')+k.patientDiff+'명','6월 마감 대비 순증감','pdiff'],
+    ['newKpi','신규 거래처',k.newly+'처','6월 0명 → 현재 활성환자 발생','newly']
+  ];
+  document.getElementById('st-kpi').innerHTML=kpis.map(function(x){
+    return '<div class="kcard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><div class="kval">'+x[2]+'</div><div class="khint">'+x[3]+'</div></div>';
+  }).join('');
+  var r=CLINICS;
+  var minis=[
+    ['q3','3분기 기준',r.filter(function(c){return (c.patients||0)>=20;}).length,'활성환자 20명 이상','q3'],
+    ['q4','4분기 기준',r.filter(function(c){return (c.patients||0)>=40;}).length,'활성환자 40명 이상','q4'],
+    ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=10&&p<=19;}).length,'10~19명','cand20'],
+    ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=30&&p<=39;}).length,'30~39명','cand40']
+  ];
+  document.getElementById('st-mini').innerHTML=minis.map(function(x){
+    return '<div class="miniCard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><b>'+x[2]+'처</b><div class="khint">'+x[3]+'</div></div>';
+  }).join('');
+}
+function renderStTrend(){
+  var ctx=document.getElementById('officeTrend');
+  if(!ctx||!window.Chart) return;
+  if(stTrendChart){ stTrendChart.destroy(); stTrendChart=null; }
+  if(!OFFICE_CLAIMS.length) return;
+  var labels=OFFICE_CLAIMS.map(function(o){return parseInt(o.month.slice(5,7))+'월';});
+  var newSeries=OFFICE_CLAIMS.map(function(o,i){return i===0?0:(o.cum_patient||0)-(OFFICE_CLAIMS[i-1].cum_patient||0);});
+  stTrendChart=new Chart(ctx,{
+    type:'line',
+    data:{labels:labels,datasets:[
+      {label:'월 신규/순증 활성환자',data:newSeries,borderColor:'#B596D6',backgroundColor:'rgba(181,150,214,.08)',borderDash:[4,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
+      {label:'누적 활성환자',data:OFFICE_CLAIMS.map(function(o){return o.cum_patient;}),borderColor:'#86B7E7',backgroundColor:'rgba(134,183,231,.08)',borderDash:[8,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
+      {label:'월별 청구금액',data:OFFICE_CLAIMS.map(function(o){return o.claim;}),borderColor:'#F4A7B9',backgroundColor:'#F4A7B9',borderWidth:2.5,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'},
+      {label:'누적 청구금액',data:OFFICE_CLAIMS.map(function(o){return o.cum_claim;}),borderColor:'#E6C06A',backgroundColor:'#E6C06A',borderWidth:3,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'top'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+(c.raw||0).toLocaleString();}}}},
+      scales:{
+        y:{position:'left',title:{display:true,text:'활성환자'},ticks:{callback:function(v){return v.toLocaleString();}}},
+        y1:{position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'청구금액'},ticks:{callback:function(v){return v.toLocaleString();}}}
+      }
+    }
+  });
+}
+var ST_FILTERS=[
+  ['all','전체'],['active','현재 활성처'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
+  ['risk','비활성 예상'],['cand20','20명 전환후보'],['cand40','40명 전환후보'],['q3','20명 이상'],['q4','40명 이상'],['q100','100명 이상']
+];
+var ST_TITLES={all:'전체 거래처',active:'현재 활성처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 활성환자 증감',risk:'비활성 예상 거래처',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3:'20명 이상 거래처',q4:'40명 이상 거래처',q100:'100명 이상 거래처'};
+function setStFilter(f){ stFilter=f; renderStFilters(); renderStTable(); var t=document.getElementById('st-table'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }
+function renderStFilters(){
+  document.getElementById('st-filters').innerHTML=ST_FILTERS.map(function(x){
+    return '<button class="'+(stFilter===x[0]?'active':'')+'" onclick="setStFilter(\''+x[0]+'\')">'+x[1]+'</button>';
+  }).join('');
+}
+function stFilterRows(){
+  var r=CLINICS, p=function(c){return c.patients||0;}, pp=function(c){return c.prevPatients||0;};
+  switch(stFilter){
+    case 'active': return r.filter(function(c){return p(c)>=20;});
+    case 'newly': return r.filter(function(c){return pp(c)===0&&p(c)>0;});
+    case 'crossed': return r.filter(function(c){return (pp(c)<20&&p(c)>=20)||(pp(c)<40&&p(c)>=40);});
+    case 'pdiff': return r.filter(function(c){return p(c)-pp(c)!==0;});
+    case 'risk': return r.filter(function(c){return p(c)>=4&&p(c)<=19;});
+    case 'cand20': return r.filter(function(c){return p(c)>=10&&p(c)<=19;});
+    case 'cand40': return r.filter(function(c){return p(c)>=30&&p(c)<=39;});
+    case 'q3': return r.filter(function(c){return p(c)>=20;});
+    case 'q4': return r.filter(function(c){return p(c)>=40;});
+    case 'q100': return r.filter(function(c){return p(c)>=100;});
+    default: return r;
+  }
+}
+function stPill(p){
+  if(p>=100) return '<span class="pill p-green">명의풀</span>';
+  if(p>=40) return '<span class="pill p-green">40명+</span>';
+  if(p>=20) return '<span class="pill p-blue">20명+</span>';
+  if(p>=4) return '<span class="pill p-red">위험</span>';
+  return '<span class="pill p-gray">초기</span>';
+}
+function renderStTable(){
+  var el=document.getElementById('st-table');
+  var rows=stFilterRows().slice().sort(function(a,b){
+    if(stFilter==='pdiff') return ((b.patients||0)-(b.prevPatients||0))-((a.patients||0)-(a.prevPatients||0));
+    return (b.patients||0)-(a.patients||0)||String(a.name).localeCompare(String(b.name),'ko');
+  });
+  var title=ST_TITLES[stFilter]||'거래처 리스트';
+  if(!rows.length){ el.innerHTML='<div class="emptyMsg2">경인1 · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
+  el.innerHTML='<div class="claimTableWrap"><table><thead>'
+    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">경인1 · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px">6월 마감 대비 최신 현황 반영</small></th></tr>'
+    +'<tr><th>거래처</th><th>담당자</th><th>전월(6월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
+    +rows.map(function(c){
+      var m=getMR(c.mr);
+      var prev=c.prevPatients||0, now=c.patients||0, diff=now-prev;
+      var cl=clinicClaim(c);
+      var nb=(prev===0&&now>0)?'<span class="newBadge">신규</span>':'';
+      var idx=CLINICS.indexOf(c);
+      return '<tr onclick="showClinicDetail('+idx+',event)"><td><b>'+c.name+'</b>'+nb+'</td>'
+        +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
+        +'<td>'+prev+'명</td><td><b>'+now+'명</b></td>'
+        +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
+        +'<td>'+(cl?money(cl.cum):'-')+'</td>'
+        +'<td>'+stPill(now)+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
 
 // ===== 청구현황판 (Supabase office_claims/clinic_claims 테이블에서 로드, 원본 전략판 UI 재현) =====
 var OFFICE_CLAIMS = [];
@@ -1598,6 +1821,7 @@ loadManagers().then(function(){ renderCalendar(); }); // 담당자 로드 후 �
 loadRegions();                   // Supabase에서 지역 로드
 loadMemos().then(loadSchedules); // Supabase에서 일정·메모 로드
 loadClinics();                   // Supabase에서 거래처 로드
+loadClinicClaims().then(buildClaimMap); // 거래처별 청구 데이터 로드 (현황판 청구 컬럼용)
 loadVisitNotes();                // 방문 후 특이사항 메모판 로드
 // 관리 모달 외부 클릭 닫기
 document.getElementById('mgr-ov').addEventListener('click',function(e){if(e.target===this)closeMgrModal();});
