@@ -1009,6 +1009,7 @@ function runImport(){
     try{
       var wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'});
       if(type==='current') importCurrentRaw(wb, status);
+      else if(type==='daily') importDailyMAU(wb, status);
       else importBaseline(wb, status);
     }catch(err){
       console.error(err);
@@ -1051,6 +1052,56 @@ function importCurrentRaw(wb, status){
   })).then(function(results){
     var failed=results.filter(function(r){return r.error;}).length;
     status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'.';
+    loadClinics().then(function(){
+      if(document.getElementById('view-list').classList.contains('v-active')) renderList();
+      if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+    });
+  });
+}
+
+// "일일 MAU 파일" (선택) → 사무소 정보가 없는 파일이라 사업자번호+현재 사무소로 기존 거래처만 매칭해 갱신
+// 활성환자수(웰체크&일만사 조합)와 청구 건수 4종만 갱신하고, 활성처/비활성전환 여부는 건드리지 않음(그건 "현재 활성처 현황" 파일이 공식 기준)
+function importDailyMAU(wb, status){
+  var rows=sheetRows(wb, 'Sheet1')||sheetRows(wb, wb.SheetNames[0]);
+  if(!rows||!rows.length){ status.textContent='시트를 찾을 수 없습니다.'; return; }
+  var header=rows[0];
+  var colBiz=header.indexOf('사업자번호');
+  var colPatients=header.indexOf('웰체크가입 & 일만사 참여');
+  var colCarePlan=header.indexOf('케어플랜 청구건수');
+  var colEdu=header.indexOf('교육상담 청구건수');
+  var colMgmt=header.indexOf('환자관리 청구건수');
+  var colCheck=header.indexOf('점검평가 청구건수');
+  if(colBiz<0||colPatients<0){ status.textContent='필요한 컬럼(사업자번호/웰체크가입 & 일만사 참여)을 찾을 수 없습니다.'; return; }
+  // 파일은 전국 데이터라 행이 매우 많음 -> 현재 사무소에 이미 등록된 사업자번호로 먼저 걸러서 불필요한 요청을 줄임
+  var knownBizNos={};
+  officeRows().forEach(function(c){ if(c.biz_no) knownBizNos[String(c.biz_no)]=true; });
+  var updates=[];
+  for(var r=1;r<rows.length;r++){
+    var row=rows[r];
+    if(!row) continue;
+    var bizNo=row[colBiz];
+    if(bizNo==null) continue;
+    bizNo=String(bizNo).replace(/\.0$/,'');
+    if(!knownBizNos[bizNo]) continue;
+    updates.push({
+      biz_no:bizNo,
+      patients: Number(row[colPatients])||0,
+      care_plan_cnt: colCarePlan>=0?(Number(row[colCarePlan])||0):0,
+      edu_cnt: colEdu>=0?(Number(row[colEdu])||0):0,
+      patient_mgmt_cnt: colMgmt>=0?(Number(row[colMgmt])||0):0,
+      check_eval_cnt: colCheck>=0?(Number(row[colCheck])||0):0
+    });
+  }
+  if(!updates.length){ status.textContent='"'+currentOffice+'" 사무소에 등록된 사업자번호와 일치하는 행을 파일에서 찾지 못했습니다.'; return; }
+  status.textContent='"'+currentOffice+'" 사무소 '+updates.length+'개 거래처 반영 중...';
+  Promise.all(updates.map(function(u){
+    return db.from('clinics').update({
+      patients:u.patients, care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt,
+      patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt
+    }).eq('biz_no', u.biz_no).eq('office', currentOffice);
+  })).then(function(results){
+    var failed=results.filter(function(r){return r.error;}).length;
+    status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건 실패'):'')+'.';
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
@@ -3150,8 +3201,9 @@ function showClinicDetail(idx, event){
     <div class="sub" style="margin-bottom:10px">현재 선택된 사무소: <b id="import-office-label" style="color:var(--t1)"></b></div>
     <div class="fld">
       <label>파일 종류</label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;cursor:pointer"><input type="radio" name="import-type" value="current" checked> 현재 활성처 현황 (RAW 파일)</label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="import-type" value="baseline"> 청구현황 베이스라인 (월마감 파일)</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;cursor:pointer"><input type="radio" name="import-type" value="current" checked> 현재 활성처 현황 (RAW 파일, 주 2회)</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;cursor:pointer"><input type="radio" name="import-type" value="baseline"> 청구현황 베이스라인 (월마감 파일)</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="import-type" value="daily"> 일일 MAU 파일 (선택, 활성환자수·청구건수 실시간 갱신)</label>
     </div>
     <div class="fld">
       <label>엑셀 파일 (.xlsx)</label>
