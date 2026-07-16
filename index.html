@@ -35,6 +35,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* 사무소명 */
 .sb-office{padding:10px 14px 2px}
 .sb-office-name{font-size:17px;font-weight:800;color:var(--dw);letter-spacing:-.4px}
+.sb-office-select{font-size:17px;font-weight:800;color:var(--dw);letter-spacing:-.4px;border:none;background:transparent;padding:0;font-family:inherit;cursor:pointer;width:100%}
+.sb-office-select:focus{outline:none}
+.sb-office-fixed{cursor:default}
+.sb-logout{color:var(--t3);text-decoration:underline;cursor:pointer;margin-left:6px}
+.sb-logout:hover{color:var(--t1)}
 .sb-office-sub{font-size:10px;color:var(--t3);margin-top:2px}
 
 /* 사이드바 스크롤 */
@@ -46,14 +51,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cat-btn{display:flex;align-items:center;gap:8px;padding:9px 12px 9px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;border-left:3px solid transparent;margin:1px 0;color:var(--t2)}
 .cat-btn:hover{background:var(--bg2);color:var(--t1)}
 .cat-btn .cat-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-#cat-cal{color:var(--t1)}
-#cat-cal .cat-icon{background:#EAF1FB}
-#cat-cal.cat-active{background:#E2EDF8;border-left-color:#4A7EC7;color:#163D70}
-#cat-list .cat-icon{background:#F5F0E8}
-#cat-list.cat-active{background:var(--bg2);border-left-color:var(--dw);color:var(--t1)}
+.cat-btn .hub-cv{margin-left:auto;font-size:18px;line-height:1;color:var(--t3);transition:transform .18s;flex-shrink:0;padding:6px;margin-right:-6px}
+.cat-btn.hub-open .hub-cv{transform:rotate(180deg)}
+#cat-welcheckhub{color:var(--t1)}
+#cat-welcheckhub .cat-icon{background:#EAF1FB}
+#cat-welcheckhub.cat-active{background:#E2EDF8;border-left-color:#4A7EC7;color:#163D70}
+.wch-sub-item{color:#2563a8}
+.wch-sub-item:hover{background:#E2EDF8;color:#163D70}
+.wch-sub-item.sub-active{background:#E2EDF8;color:#163D70;font-weight:700}
+#cat-claimhub .cat-icon{background:#FBF3D9}
+#cat-claimhub.cat-active{background:#FBF3D9;border-left-color:#8A6800;color:#5C4600}
+.chub-sub-item{color:#8A6800}
+.chub-sub-item:hover{background:#FBF3D9;color:#5C4600}
+.chub-sub-item.sub-active{background:#FBF3D9;color:#5C4600;font-weight:700}
 
 /* 구분선 */
 .sb-div{height:0.5px;background:var(--bd);margin:6px 14px}
+.wch-sub-div{height:0.5px;background:var(--bd);margin:4px 14px 4px 32px}
 
 /* 하위 메뉴 */
 .sub-menu{padding:0}
@@ -325,6 +339,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn{padding:7px 16px;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;font-family:inherit;border:0.5px solid var(--bd2);transition:.12s}
 .btn-cancel{background:var(--white);color:var(--t2)}.btn-cancel:hover{background:var(--bg2)}
 .btn-save{background:var(--dw);color:white;border-color:var(--dw)}.btn-save:hover{background:#d96810}
+
+/* ===== 로그인 화면 ===== */
+.login-ov{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center}
+.login-ov.login-hide{display:none}
+.login-box{width:320px;padding:28px;background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.login-title{font-size:16px;font-weight:800;color:var(--t1)}
+.login-sub{font-size:11px;color:var(--t3)}
+.login-hint{font-size:11px;color:var(--t3);margin-top:10px;text-align:center}
 .btn-del{background:var(--white);color:#B01A1A;border-color:#F7C1C1}.btn-del:hover{background:#FEEEEE}
 /* 상세 모달 */
 .dm-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-top:4px}
@@ -341,10 +364,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 
+<!-- ===== 로그인 화면 ===== -->
+<div class="login-ov" id="login-ov">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100" height="100" rx="14" fill="#F47920"/>
+        <text x="50" y="70" text-anchor="middle" font-family="serif" font-size="62" font-weight="900" fill="white">熊</text>
+      </svg>
+      <div>
+        <div class="login-title">웰체크 거래처 관리장</div>
+        <div class="login-sub">Daewoong</div>
+      </div>
+    </div>
+    <div class="fld">
+      <label>사번</label>
+      <input type="text" id="login-empno" placeholder="사번을 입력하세요" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div id="login-error" style="color:#e53e3e;font-size:12px;margin:-4px 0 10px;display:none">사번을 찾을 수 없습니다. 담당자에게 문의해주세요.</div>
+    <button class="btn btn-save" style="width:100%;padding:10px" onclick="doLogin()">로그인</button>
+    <div class="login-hint">사번을 모르시면 소장/사업부장에게 문의해주세요.</div>
+    <div class="login-hint" style="margin-top:6px;padding-top:10px;border-top:0.5px solid var(--bd)">
+      아직 직원 명단을 등록 전이신가요?<br>
+      <span class="sb-logout" style="font-size:11px" onclick="guestLogin()">임시로 전체 권한으로 입장 (직원 관리에서 등록)</span>
+    </div>
+  </div>
+</div>
+
 <!-- ===== SIDEBAR ===== -->
 <aside class="sb">
   <!-- 로고 -->
-  <div class="sb-logo">
+  <div class="sb-logo" onclick="switchView('cal')" style="cursor:pointer" title="홈으로">
     <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <rect width="100" height="100" rx="14" fill="#F47920"/>
       <text x="50" y="70" text-anchor="middle" font-family="serif" font-size="62" font-weight="900" fill="white">熊</text>
@@ -355,69 +405,66 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 
-  <!-- 사무소명 -->
+  <!-- 사무소명 / 사무소 선택 -->
   <div class="sb-office">
-    <div class="sb-office-name">경인1사무소</div>
-    <div class="sb-office-sub">웰체크 공유 시스템</div>
+    <select id="officeSelect" onchange="setCurrentOffice(this.value)" class="sb-office-select"></select>
+    <div class="sb-office-fixed sb-office-select" id="officeFixedLabel" style="display:none"></div>
+    <div class="sb-office-sub" id="userInfoLine">웰체크 공유 시스템</div>
   </div>
 
   <div class="sb-scroll">
-    <!-- 교육간호사 캘린더 -->
-    <div class="cat-btn" id="cat-cal" onclick="switchView('cal')">
+    <!-- 웰체크 현황판 (캘린더 + 거래처현황판) -->
+    <div class="cat-btn" id="cat-welcheckhub" onclick="switchView('welcheckhub')">
       <div class="cat-icon">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563a8" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
       </div>
-      교육간호사 캘린더
+      웰체크 현황판
+      <span class="hub-cv" onclick="event.stopPropagation();toggleHubCollapse('welcheckhub-sub','cat-welcheckhub')">▾</span>
     </div>
 
-    <div class="sb-div"></div>
-
-    <!-- 거래처 현황판 -->
-    <div class="cat-btn" id="cat-list" onclick="switchView('list')">
-      <div class="cat-icon">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A5C3A" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1.5" fill="#7A5C3A"/><circle cx="3" cy="12" r="1.5" fill="#7A5C3A"/><circle cx="3" cy="18" r="1.5" fill="#7A5C3A"/></svg>
-      </div>
-      거래처 현황판
+    <!-- 웰체크 현황판 하위 -->
+    <div id="welcheckhub-sub" style="display:none">
+      <div class="sub-item wch-sub-item sub-active" id="wch-sub-cal" onclick="switchView('cal')">① 캘린더</div>
+      <div class="wch-sub-div"></div>
+      <div class="sub-item wch-sub-item" id="wch-sub-list" onclick="switchView('list')">② 거래처현황판</div>
     </div>
 
     <!-- 거래처 하위 -->
     <div id="list-sub" style="display:none">
-      <div class="sub-item sub-active" id="sub-all" onclick="setSubNav(this);listFilter('all','all')" style="padding-left:14px;font-weight:700;color:var(--t1)">경인1 전체 현황</div>
       <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">담당자별 현황 <span onclick="event.stopPropagation();openMgrModal()" title="담당자 추가/수정/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
       <div class="acc-body open" id="sb-mr-list"></div>
       <div class="acc-hd open" onclick="toggleAcc(this)" style="padding-left:14px">지역별 현황 <span onclick="event.stopPropagation();openRegModal()" title="지역 추가/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
       <div class="acc-body open" id="sb-reg-list"></div>
     </div>
 
-    <!-- 활성처 전략판 -->
-    <div class="cat-btn" id="cat-strategy" onclick="switchView('strategy')">
-      <div class="cat-icon">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2A7A4A" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      </div>
-      활성처 전략판
-    </div>
-
     <div class="sb-div"></div>
 
-    <!-- 청구현황판 -->
-    <div class="cat-btn" id="cat-claim" onclick="switchView('claim')">
+    <!-- 청구처 현황판 (활성처 전략판 + 청구현황지표) -->
+    <div class="cat-btn" id="cat-claimhub" onclick="switchView('claimhub')">
       <div class="cat-icon">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A6800" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1.5 1.3-2.5 3-2.5s3 1 3 2.5-1.3 2-3 2.5-3 1-3 2.5 1.3 2.5 3 2.5 3-1 3-2.5"/></svg>
       </div>
-      청구현황판
+      청구처 현황판
+      <span class="hub-cv" onclick="event.stopPropagation();toggleHubCollapse('claimhub-sub','cat-claimhub')">▾</span>
+    </div>
+
+    <!-- 청구처 현황판 하위 -->
+    <div id="claimhub-sub" style="display:none">
+      <div class="sub-item chub-sub-item sub-active" id="chub-sub-claim" onclick="switchView('claim')">① 청구현황지표</div>
+      <div class="sub-item chub-sub-item" id="chub-sub-strategy" onclick="switchView('strategy')">② 활성처 전략판</div>
     </div>
 
     <div class="sb-div"></div>
 
     <!-- 전국 사업부 -->
-    <div class="sb-nat" onclick="toggleNat(this)">
+    <div class="sb-nat" id="sb-nat" onclick="toggleNat(this)">
       <div class="sb-nat-left">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         <div>
           <div class="sb-nat-title">전국 사업부 현황</div>
-          <div class="sb-nat-lock">
+          <div class="sb-nat-lock" id="sb-nat-lock">
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            소장·팀장·사업부장 권한
+            신사업팀장·사업부장 권한
           </div>
         </div>
       </div>
@@ -429,6 +476,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 지방3 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">경남1</span><span class="biz-tag">경남2</span><span class="biz-tag">대구1</span><span class="biz-tag">대구2</span><span class="biz-tag">대구3</span><span class="biz-tag">부산1</span><span class="biz-tag">부산2</span><span class="biz-tag">부산3</span><span class="biz-tag">울산</span></div></div>
       <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 지방4 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">광주1</span><span class="biz-tag">광주2</span><span class="biz-tag">대전1</span><span class="biz-tag">대전2</span><span class="biz-tag">전주1</span><span class="biz-tag">전주2</span><span class="biz-tag">청주1</span><span class="biz-tag">청주2</span></div></div>
       <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 폴라리스 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">폴라리스1</span><span class="biz-tag">폴라리스2</span></div></div>
+      <div id="emp-mgmt-btn" style="padding:10px 14px 4px;display:none">
+        <button onclick="event.stopPropagation();openEmpModal()" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">👤 직원 관리</button>
+      </div>
+      <div id="data-import-btn" style="padding:2px 14px 10px;display:none">
+        <button onclick="event.stopPropagation();openImportModal()" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드</button>
+      </div>
     </div>
   </div>
 </aside>
@@ -545,7 +598,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- VIEW 4: 활성처 전략판 -->
 <div id="view-strategy" class="view-panel">
   <div class="list-head">
-    <div class="list-head-title">경인1 활성처 확보 전략판</div>
+    <div class="list-head-title" id="strategy-title">경인1 활성처 확보 전략판</div>
   </div>
   <div class="list-content" style="padding:16px">
     <div id="st-info" class="infoBar2"></div>
@@ -557,6 +610,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="sub" style="margin:-6px 0 10px;font-size:12px">점선=월 신규/순증 활성환자·누적 활성환자, 실선=월별·누적 청구금액</div>
     <div class="card chartBox2"><canvas id="officeTrend"></canvas></div>
     <div class="sectionTitle">거래처 리스트</div>
+    <div class="stFilters" id="st-mr-filters" style="margin-bottom:4px"></div>
     <div class="stFilters" id="st-filters"></div>
     <div id="st-table"></div>
   </div>
@@ -698,6 +752,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ===== Supabase 연결 =====
 var SUPA_URL='https://cmwmadacnlygdbrhxviy.supabase.co';
@@ -760,7 +815,7 @@ function renderManagerUI(){
   var wrap=document.getElementById('mr-btn-wrap');
   if(wrap){
     var h='<button class="mr-btn" id="mb-all" onclick="filterMR(\'all\')">전체</button>';
-    MANAGERS.forEach(function(m){
+    officeManagers().forEach(function(m){
       h+='<button class="mr-btn" id="mb-'+m.code+'" onclick="filterMR(\''+m.code+'\')">'+mrCircle(m)+m.name+'</button>';
     });
     wrap.innerHTML=h;
@@ -769,7 +824,7 @@ function renderManagerUI(){
   // 사이드바 담당자별 현황
   var sb=document.getElementById('sb-mr-list');
   if(sb){
-    sb.innerHTML=MANAGERS.map(function(m){
+    sb.innerHTML=officeManagers().map(function(m){
       return '<div class="sub-item" onclick="setSubNav(this);listFilter(\''+m.code+'\',\'all\')"><span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</div>';
     }).join('');
   }
@@ -781,14 +836,14 @@ function fillMRSelect(id){
   var sel=document.getElementById(id);
   if(!sel) return;
   var cur=sel.value;
-  sel.innerHTML=MANAGERS.map(function(m){ return '<option value="'+m.code+'">'+m.name+'</option>'; }).join('');
+  sel.innerHTML=officeManagers().map(function(m){ return '<option value="'+m.code+'">'+m.name+'</option>'; }).join('');
   if(cur&&MR[cur]) sel.value=cur;
 }
 function renderFilterPills(){
   var row=document.getElementById('fp-row');
   if(!row) return;
   var h='<button class="fpill'+(listMR==='all'&&listReg==='all'?' fp-on':'')+'" onclick="fpClick(this,\'all\',\'all\')">전체</button>';
-  MANAGERS.forEach(function(m){
+  officeManagers().forEach(function(m){
     h+='<button class="fpill'+(listMR===m.code?' fp-on':'')+'" onclick="fpClick(this,\''+m.code+'\',\'all\')">'+mrCircle(m)+m.name+'</button>';
   });
   h+='<div style="width:0.5px;height:16px;background:var(--bd2);margin:0 4px;align-self:center"></div>';
@@ -819,7 +874,7 @@ function openMgrModal(){ renderMgrList(); hideMgrForm(); document.getElementById
 function closeMgrModal(){ document.getElementById('mgr-ov').classList.remove('ov-open'); }
 function renderMgrList(){
   var el=document.getElementById('mgr-list');
-  el.innerHTML=MANAGERS.map(function(m){
+  el.innerHTML=officeManagers().map(function(m){
     return '<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:0.5px solid var(--bd);font-size:12px">'
       +'<span class="mr-chip" style="background:'+m.bg+';color:'+m.fg+'">'+m.name+'</span>'
       +'<span style="flex:1"></span>'
@@ -839,7 +894,7 @@ function showMgrForm(id){
     document.getElementById('mgr-bg').value=m.bg;
     document.getElementById('mgr-fg').value=m.fg;
   } else {
-    var p=MGR_PALETTE[MANAGERS.length%MGR_PALETTE.length];
+    var p=MGR_PALETTE[officeManagers().length%MGR_PALETTE.length];
     document.getElementById('mgr-name').value='';
     document.getElementById('mgr-bg').value=p[0];
     document.getElementById('mgr-fg').value=p[1];
@@ -856,7 +911,7 @@ function saveMgr(){
   var bg=document.getElementById('mgr-bg').value, fg=document.getElementById('mgr-fg').value;
   var q=editingMgrId
     ? db.from('managers').update({name:name,bg:bg,fg:fg}).eq('id',editingMgrId)
-    : db.from('managers').insert({code:'m'+Date.now().toString(36),name:name,bg:bg,fg:fg,sort:MANAGERS.length+1});
+    : db.from('managers').insert({code:'m'+Date.now().toString(36),name:name,bg:bg,fg:fg,sort:MANAGERS.length+1,office:currentOffice});
   q.then(function(res){
     if(res.error){ alert('저장 실패: '+res.error.message); return; }
     loadManagers().then(function(){
@@ -925,6 +980,177 @@ function deleteRegion(id){
       renderRegList();
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
     });
+  });
+}
+
+// ===== 청구처 현황판 데이터 업로드 (엑셀 자동 반영) =====
+function openImportModal(){
+  document.getElementById('import-office-label').textContent=currentOffice;
+  document.getElementById('import-status').textContent='';
+  document.getElementById('import-file').value='';
+  document.getElementById('import-ov').classList.add('ov-open');
+}
+function closeImportModal(){ document.getElementById('import-ov').classList.remove('ov-open'); }
+
+function sheetRows(wb, name){
+  var sh=wb.Sheets[name];
+  if(!sh) return null;
+  return XLSX.utils.sheet_to_json(sh, {header:1, raw:true, defval:null});
+}
+
+function runImport(){
+  var file=document.getElementById('import-file').files[0];
+  var status=document.getElementById('import-status');
+  if(!file){ status.textContent='파일을 선택해주세요.'; return; }
+  var type=document.querySelector('input[name="import-type"]:checked').value;
+  status.textContent='읽는 중...';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      if(type==='current') importCurrentRaw(wb, status);
+      else importBaseline(wb, status);
+    }catch(err){
+      console.error(err);
+      status.textContent='오류: '+err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// "현재 활성처 현황(RAW)" 파일 → clinics 테이블(patients/is_active/inactive_transition/prev_active/prev_patients) 갱신
+function importCurrentRaw(wb, status){
+  var rows=sheetRows(wb, '거래처별 RAW');
+  if(!rows){ status.textContent='시트 "거래처별 RAW"를 찾을 수 없습니다.'; return; }
+  var hIdx=-1;
+  for(var i=0;i<rows.length;i++){ if(rows[i]&&rows[i][0]==='사업부'){ hIdx=i; break; } }
+  if(hIdx<0){ status.textContent='"거래처별 RAW" 헤더 행을 찾을 수 없습니다.'; return; }
+  var updates=[];
+  for(var r=hIdx+1;r<rows.length;r++){
+    var row=rows[r];
+    if(!row||row[1]!==currentOffice) continue;
+    var bizNo=row[11];
+    if(bizNo==null) continue;
+    bizNo=String(bizNo).replace(/\.0$/,'');
+    updates.push({
+      biz_no:bizNo,
+      patients: Number(row[5])||0,
+      is_active: row[4]==='해당',
+      inactive_transition: row[8]==='해당',
+      prev_active: row[22]==='해당',
+      prev_patients: (Number(row[23])||0)+(Number(row[24])||0)
+    });
+  }
+  if(!updates.length){ status.textContent='"'+currentOffice+'" 사무소 데이터를 파일에서 찾지 못했습니다.'; return; }
+  status.textContent=updates.length+'개 거래처 반영 중...';
+  Promise.all(updates.map(function(u){
+    return db.from('clinics').update({
+      patients:u.patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
+      prev_active:u.prev_active, prev_patients:u.prev_patients
+    }).eq('biz_no', u.biz_no).eq('office', currentOffice);
+  })).then(function(results){
+    var failed=results.filter(function(r){return r.error;}).length;
+    status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'.';
+    loadClinics().then(function(){
+      if(document.getElementById('view-list').classList.contains('v-active')) renderList();
+      if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+    });
+  });
+}
+
+// "청구현황 베이스라인(월마감)" 파일 → clinic_claims(월별 거래처 청구/환자수) + office_claims(사무소 월별 요약) 갱신
+function importBaseline(wb, status){
+  var claimRows=sheetRows(wb, '거래처별 청구현황');
+  if(!claimRows){ status.textContent='시트 "거래처별 청구현황"을 찾을 수 없습니다.'; return; }
+  var hIdx=-1;
+  for(var i=0;i<claimRows.length;i++){
+    var row=claimRows[i];
+    if(row && row.indexOf('병원명')>=0 && row.indexOf('총 건수')>=0){ hIdx=i; break; }
+  }
+  if(hIdx<0){ status.textContent='"거래처별 청구현황" 헤더 행을 찾을 수 없습니다.'; return; }
+  var header=claimRows[hIdx];
+  var colName=header.indexOf('병원명'), colOffice=header.indexOf('사무소');
+  var blockStarts=[];
+  header.forEach(function(v,idx){ if(v==='총 건수') blockStarts.push(idx); });
+  if(!blockStarts.length){ status.textContent='월별 청구 블록을 찾을 수 없습니다.'; return; }
+  // 월 라벨: 헤더 위쪽 행들 중 "N월" 패턴이 있는 행에서 각 블록 시작 위치의 값을 읽음
+  var months=null;
+  for(var lr=hIdx-1; lr>=0 && lr>=hIdx-3; lr--){
+    var lrow=claimRows[lr];
+    if(!lrow) continue;
+    var cand=blockStarts.map(function(bs){
+      var v=lrow[bs];
+      var m=typeof v==='string'?v.match(/(\d+)월/):null;
+      return m?parseInt(m[1],10):null;
+    });
+    if(cand.every(function(x){return x!=null;})){ months=cand; break; }
+  }
+  if(!months){ status.textContent='월 라벨을 찾을 수 없습니다.'; return; }
+
+  var year=new Date().getFullYear();
+  var clinicClaimRecords=[];
+  var officeMonthly={};
+  for(var r=hIdx+1;r<claimRows.length;r++){
+    var drow=claimRows[r];
+    if(!drow||drow[colOffice]!==currentOffice) continue;
+    var name=drow[colName];
+    if(!name) continue;
+    var cum=0;
+    blockStarts.forEach(function(bs,idx){
+      var mon=months[idx];
+      if(!mon) return;
+      var claimAmt=Number(drow[bs+1])||0;
+      var patientCnt=Number(drow[bs+11])||0;
+      cum+=claimAmt;
+      var monthStr=year+'-'+(mon<10?'0'+mon:mon)+'-01';
+      clinicClaimRecords.push({clinic_name:name, office:currentOffice, month:monthStr, patient:patientCnt, claim:claimAmt, cum_claim:cum, cum_patient:patientCnt});
+      if(!officeMonthly[monthStr]) officeMonthly[monthStr]={claim:0,patient:0};
+      officeMonthly[monthStr].claim+=claimAmt;
+      officeMonthly[monthStr].patient+=patientCnt;
+    });
+  }
+  if(!clinicClaimRecords.length){ status.textContent='"'+currentOffice+'" 사무소 청구현황 데이터를 파일에서 찾지 못했습니다.'; return; }
+
+  // 사무소 목표(target)/사업부명: "사업부사무소현황" 시트의 [사무소 현황] 표에서 검색
+  var target=null, business='';
+  var officeSheetRows=sheetRows(wb,'사업부사무소현황');
+  if(officeSheetRows){
+    var hIdx2=-1, colOff2=-1;
+    for(var i2=0;i2<officeSheetRows.length;i2++){
+      var r2=officeSheetRows[i2];
+      if(!r2) continue;
+      var co=r2.indexOf('사무소');
+      if(co>0 && r2[co-1]==='사업부'){ hIdx2=i2; colOff2=co; break; }
+    }
+    if(hIdx2>=0){
+      for(var r3=hIdx2+2;r3<officeSheetRows.length;r3++){
+        var drow2=officeSheetRows[r3];
+        if(!drow2||(drow2[colOff2-1]==null&&drow2[colOff2]==null)) break;
+        if(drow2[colOff2]===currentOffice){ business=drow2[colOff2-1]||''; target=Number(drow2[colOff2+4])||null; break; }
+      }
+    }
+  }
+
+  var sortedMonths=Object.keys(officeMonthly).sort();
+  var cumRun=0;
+  var officeRecords=sortedMonths.map(function(monthStr){
+    cumRun+=officeMonthly[monthStr].claim;
+    return {office:currentOffice, business:business||'', month:monthStr, target:target||0,
+      active_count: officeRows().filter(function(c){return c.isActive;}).length,
+      patient:officeMonthly[monthStr].patient, cum_patient:officeMonthly[monthStr].patient,
+      claim:officeMonthly[monthStr].claim, cum_claim:cumRun};
+  });
+
+  status.textContent='거래처 '+new Set(clinicClaimRecords.map(function(x){return x.clinic_name;})).size+'곳 · '+sortedMonths.length+'개월 데이터 반영 중...';
+  Promise.all([
+    db.from('clinic_claims').upsert(clinicClaimRecords, {onConflict:'office,clinic_name,month'}),
+    db.from('office_claims').upsert(officeRecords, {onConflict:'office,month'})
+  ]).then(function(results){
+    var err=results.find(function(x){return x.error;});
+    if(err){ status.textContent='저장 실패: '+err.error.message; return; }
+    status.textContent='완료: 거래처 '+new Set(clinicClaimRecords.map(function(x){return x.clinic_name;})).size+'곳 · '+sortedMonths.length+'개월 반영됨'+(target?(' (목표 '+target+'처 확인됨)'):'')+'.';
+    if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+    if(document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
   });
 }
 
@@ -998,12 +1224,222 @@ function rowToClinic(r){
     edu:r.edu, device:r.device, dues:r.dues, region:r.region, visited:r.visited,
     dh:r.dh, dh_op:r.dh_op, dh_cp:r.dh_cp, dh_sp:r.dh_sp, dh_mb:r.dh_mb,
     note:r.note||'', biz_no:r.biz_no||'', welcheck_cnt:r.welcheck_cnt, ilmansa_cnt:r.ilmansa_cnt,
-    ilmansaStart:r.ilmansa_start||'', prevPatients:r.prev_patients||0};
+    ilmansaStart:r.ilmansa_start||'', prevPatients:r.prev_patients||0,
+    isActive:!!r.is_active, inactiveTr:!!r.inactive_transition, prevActive:!!r.prev_active,
+    office:r.office||'경인1'};
 }
+// ===== 사무소 선택 =====
+var currentOffice='경인1';
+function officeRows(){ return CLINICS.filter(function(c){return (c.office||'경인1')===currentOffice;}); }
+function officeManagers(){ return MANAGERS.filter(function(m){return (m.office||'경인1')===currentOffice;}); }
+function evInOffice(e){
+  var m=MANAGERS.find(function(x){return x.code===e.mr;});
+  if(!m) return true; // 담당자 미지정 일정은 모든 사무소에 표시
+  return (m.office||'경인1')===currentOffice;
+}
+function renderOfficeSelect(){
+  var offices=Array.from(new Set(
+    CLINICS.map(function(c){return c.office||'경인1';})
+      .concat(MANAGERS.map(function(m){return m.office||'경인1';}))
+  )).sort();
+  if(!offices.length) offices=['경인1'];
+  var sel=document.getElementById('officeSelect');
+  if(sel) sel.innerHTML=offices.map(function(o){return '<option value="'+o+'"'+(o===currentOffice?' selected':'')+'>'+o+'사무소</option>';}).join('');
+  applyOfficeDisplayMode(offices.length);
+}
+// 사무소가 1개뿐이면(현재 경인1만 존재) 드롭다운 대신 고정 텍스트로 표시 — 전국 사업부 현황과 기능이 겹치는 걸 방지
+function applyOfficeDisplayMode(officeCount){
+  var sel=document.getElementById('officeSelect');
+  var fixed=document.getElementById('officeFixedLabel');
+  if(!sel||!fixed) return;
+  var multiRole = !!(currentUser && isMultiOfficeRole(currentUser.role));
+  var showDropdown = multiRole && officeCount>=2;
+  sel.style.display = showDropdown?'':'none';
+  fixed.style.display = showDropdown?'none':'block';
+  if(!showDropdown) fixed.textContent=(currentOffice||'경인1')+'사무소';
+}
+function setCurrentOffice(o){
+  currentOffice=o;
+  activeMR='all';
+  stMR='all';
+  renderOfficeSelect();
+  renderManagerUI();
+  renderCalendar();
+  renderRequests();
+  if(document.getElementById('view-list').classList.contains('v-active')) renderList();
+  if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+}
+
+// ===== 로그인 / 사번-역할 기반 접근 제어 =====
+var EMPLOYEES = [];
+var currentUser = null; // {id,emp_no,name,role,office}
+var MULTI_OFFICE_ROLES = ['신사업팀장','사업부장','관리자']; // 전체 사무소 전환 + 전국 사업부 현황 접근 가능 (관리자는 사업부장과 별개의 시스템 관리 역할)
+
+function loadEmployees(){
+  return db.from('employees').select('*').order('id').then(function(res){
+    if(res.error){ console.error(res.error); return; }
+    EMPLOYEES = res.data;
+  });
+}
+function isMultiOfficeRole(role){ return MULTI_OFFICE_ROLES.indexOf(role)>=0; }
+
+function doLogin(){
+  var empNo=document.getElementById('login-empno').value.trim();
+  var errEl=document.getElementById('login-error');
+  errEl.style.display='none';
+  if(!empNo) return;
+  loadEmployees().then(function(){
+    var emp=EMPLOYEES.find(function(e){return e.emp_no===empNo;});
+    if(!emp){ errEl.style.display='block'; return; }
+    currentUser=emp;
+    localStorage.setItem('wc_emp_no', empNo);
+    document.getElementById('login-ov').classList.add('login-hide');
+    setCurrentOffice(emp.office||'경인1');
+    applyRoleGating();
+  });
+}
+function logout(){
+  currentUser=null;
+  localStorage.removeItem('wc_emp_no');
+  document.getElementById('login-empno').value='';
+  document.getElementById('login-error').style.display='none';
+  document.getElementById('login-ov').classList.remove('login-hide');
+}
+// 직원 명단이 아직 없을 때 잠금 방지용 임시 입장 (세션에만 유지, 새로고침 시 다시 로그인 필요)
+function guestLogin(){
+  currentUser={id:0, emp_no:'guest', name:'임시 관리자', role:'사업부장', office:currentOffice||'경인1'};
+  document.getElementById('login-ov').classList.add('login-hide');
+  applyRoleGating();
+}
+function tryAutoLogin(){
+  var saved=localStorage.getItem('wc_emp_no');
+  if(!saved) return;
+  loadEmployees().then(function(){
+    var emp=EMPLOYEES.find(function(e){return e.emp_no===saved;});
+    if(!emp) return;
+    currentUser=emp;
+    document.getElementById('login-ov').classList.add('login-hide');
+    setCurrentOffice(emp.office||'경인1');
+    applyRoleGating();
+  });
+}
+function applyRoleGating(){
+  if(!currentUser) return;
+  var multi=isMultiOfficeRole(currentUser.role);
+  var isAdmin=currentUser.role==='관리자';
+  renderOfficeSelect(); // 역할이 바뀌었으니 드롭다운/고정텍스트 표시모드도 다시 계산
+  var natEl=document.getElementById('sb-nat');
+  var lockEl=document.getElementById('sb-nat-lock');
+  var natBody=document.getElementById('nat-body');
+  if(natEl){ natEl.style.opacity=multi?'1':'.45'; natEl.style.pointerEvents=multi?'':'none'; }
+  if(lockEl) lockEl.style.display = multi?'none':'flex';
+  if(!multi){
+    // 잠긴 상태에서는 하위 목록을 숨기지 않고 항상 펼친 채로 회색 처리(미리보기)만 하고 클릭은 막음
+    if(natEl) natEl.classList.add('open');
+    if(natBody){ natBody.style.display='block'; natBody.style.opacity='.45'; natBody.style.pointerEvents='none'; }
+  } else if(natBody){
+    natBody.style.opacity=''; natBody.style.pointerEvents='';
+  }
+  var empBtn=document.getElementById('emp-mgmt-btn');
+  if(empBtn) empBtn.style.display = isAdmin?'block':'none'; // 직원 관리는 관리자만 가능(사업부장·신사업팀장도 접근 불가)
+  var importBtn=document.getElementById('data-import-btn');
+  if(importBtn) importBtn.style.display = isAdmin?'block':'none'; // 엑셀 일괄 업로드도 관리자 전용(전체 틀 관리), 개별 거래처 추가는 각 사무소 직원이 거래처현황판에서 진행
+  var uiLine=document.getElementById('userInfoLine');
+  if(uiLine) uiLine.innerHTML=currentUser.name+'('+currentUser.role+') <span class="sb-logout" onclick="logout()">로그아웃</span>';
+}
+
+// ===== 직원(사번) 관리 모달 =====
+var EMP_ROLES=['MR','간호사','소장','신사업팀장','사업부장','관리자'];
+var editingEmpId=null;
+function openEmpModal(){ renderEmpList(); hideEmpForm(); document.getElementById('emp-ov').classList.add('ov-open'); }
+function closeEmpModal(){ document.getElementById('emp-ov').classList.remove('ov-open'); }
+function renderEmpList(){
+  var el=document.getElementById('emp-list');
+  el.innerHTML=EMPLOYEES.map(function(e){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:0.5px solid var(--bd);font-size:12px">'
+      +'<span style="font-weight:700">'+e.emp_no+'</span><span>'+e.name+'</span>'
+      +'<span style="color:var(--t3)">'+e.role+' · '+e.office+'</span>'
+      +'<span style="flex:1"></span>'
+      +'<button onclick="showEmpForm('+e.id+')" style="padding:3px 9px;font-size:11px;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">✏️ 수정</button>'
+      +'<button onclick="deleteEmp('+e.id+')" style="padding:3px 9px;font-size:11px;border:0.5px solid #F7C1C1;border-radius:6px;background:white;color:#B01A1A;cursor:pointer;font-family:inherit">삭제</button>'
+      +'</div>';
+  }).join('')||'<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px 0">등록된 직원 없음</div>';
+}
+function showEmpForm(id){
+  editingEmpId=id;
+  document.getElementById('emp-form').style.display='block';
+  document.getElementById('emp-add-row').style.display='none';
+  var roleSel=document.getElementById('emp-role');
+  roleSel.innerHTML=EMP_ROLES.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('');
+  if(id){
+    var e=EMPLOYEES.find(function(x){return x.id===id;});
+    if(!e) return;
+    document.getElementById('emp-no').value=e.emp_no;
+    document.getElementById('emp-name').value=e.name;
+    document.getElementById('emp-role').value=e.role;
+    document.getElementById('emp-office').value=e.office;
+  } else {
+    document.getElementById('emp-no').value='';
+    document.getElementById('emp-name').value='';
+    document.getElementById('emp-role').value='MR';
+    document.getElementById('emp-office').value=currentOffice;
+  }
+}
+function hideEmpForm(){
+  editingEmpId=null;
+  document.getElementById('emp-form').style.display='none';
+  document.getElementById('emp-add-row').style.display='flex';
+}
+function saveEmp(){
+  var empNo=document.getElementById('emp-no').value.trim();
+  var name=document.getElementById('emp-name').value.trim();
+  var role=document.getElementById('emp-role').value;
+  var office=document.getElementById('emp-office').value.trim();
+  if(!empNo||!name||!office){ alert('사번/이름/사무소를 입력해주세요.'); return; }
+  var q=editingEmpId
+    ? db.from('employees').update({emp_no:empNo,name:name,role:role,office:office}).eq('id',editingEmpId)
+    : db.from('employees').insert({emp_no:empNo,name:name,role:role,office:office});
+  q.then(function(res){
+    if(res.error){ alert('저장 실패: '+res.error.message); return; }
+    loadEmployees().then(function(){ renderEmpList(); hideEmpForm(); });
+  });
+}
+function saveEmpBulk(){
+  var raw=document.getElementById('emp-bulk').value;
+  var status=document.getElementById('emp-bulk-status');
+  var lines=raw.split('\n').map(function(l){return l.trim();}).filter(function(l){return l;});
+  if(!lines.length){ status.textContent='붙여넣은 내용이 없습니다.'; return; }
+  var rows=[], badLines=[];
+  lines.forEach(function(line, i){
+    var parts=line.split(/\t|,/).map(function(p){return p.trim();});
+    if(parts.length<4||!parts[0]||!parts[1]||!parts[3]){ badLines.push(i+1); return; }
+    var role=EMP_ROLES.indexOf(parts[2])>=0?parts[2]:'MR';
+    rows.push({emp_no:parts[0], name:parts[1], role:role, office:parts[3]});
+  });
+  if(!rows.length){ status.textContent='형식이 올바른 줄이 없습니다. (사번/이름/역할/사무소 순서로 입력해주세요)'; return; }
+  status.textContent=rows.length+'명 등록 중...';
+  db.from('employees').upsert(rows,{onConflict:'emp_no'}).then(function(res){
+    if(res.error){ status.textContent='등록 실패: '+res.error.message; return; }
+    status.textContent=rows.length+'명 등록 완료'+(badLines.length?(' ('+badLines.length+'줄은 형식 오류로 건너뜀: '+badLines.join(', ')+'번째 줄)'):'')+'.';
+    document.getElementById('emp-bulk').value='';
+    loadEmployees().then(function(){ renderEmpList(); });
+  });
+}
+function deleteEmp(id){
+  var e=EMPLOYEES.find(function(x){return x.id===id;});
+  if(!e) return;
+  if(!confirm(e.name+'('+e.emp_no+') 직원을 삭제할까요?')) return;
+  db.from('employees').delete().eq('id',id).then(function(res){
+    if(res.error){ alert('삭제 실패: '+res.error.message); return; }
+    loadEmployees().then(function(){ renderEmpList(); });
+  });
+}
+
 function loadClinics(){
   return db.from('clinics').select('*').order('id').then(function(res){
     if(res.error){ console.error(res.error); alert('거래처 목록을 불러오지 못했습니다: '+res.error.message); return; }
     CLINICS = res.data.map(rowToClinic);
+    renderOfficeSelect();
     updateEduStats();
     if(document.getElementById('view-list').classList.contains('v-active')) renderList();
   });
@@ -1103,24 +1539,47 @@ var editingId=null, addDay=null, addZone='all', detailId=null;
 function gc(p){return p>=100?'#10b981':p>=40?'#EAB308':p>=20?'#f97316':'#ef4444';}
 function gw(p){return p>=40?'100%':p>=20?'55%':'28%';}
 function getKey(){return curYear+'-'+curMonth;}
-function getEvs(){return EVENTS[getKey()]||[];}
+function getEvs(){return (EVENTS[getKey()]||[]).filter(evInOffice);}
 function timeLabel(t){return t==='am'?'오전':t==='pm'?'오후':'종일';}
 
 // ===== 뷰 전환 =====
+var claimHubTab='claim'; // 청구처 현황판의 마지막으로 본 하위 탭 (claim|strategy)
+var welcheckHubTab='cal'; // 웰체크 현황판의 마지막으로 본 하위 탭 (cal|list)
 function switchView(v){
+  if(v==='claimhub') v=claimHubTab;
+  if(v==='welcheckhub') v=welcheckHubTab;
+  if(v==='strategy'||v==='claim') claimHubTab=v;
+  if(v==='cal'||v==='list') welcheckHubTab=v;
   document.getElementById('view-cal').classList.toggle('v-active', v==='cal');
   document.getElementById('view-list').classList.toggle('v-active', v==='list');
   document.getElementById('view-claim').classList.toggle('v-active', v==='claim');
   document.getElementById('view-strategy').classList.toggle('v-active', v==='strategy');
-  document.getElementById('cat-cal').classList.toggle('cat-active', v==='cal');
-  document.getElementById('cat-list').classList.toggle('cat-active', v==='list');
-  document.getElementById('cat-claim').classList.toggle('cat-active', v==='claim');
-  document.getElementById('cat-strategy').classList.toggle('cat-active', v==='strategy');
+  document.getElementById('cat-welcheckhub').classList.toggle('cat-active', v==='cal'||v==='list');
+  document.getElementById('cat-claimhub').classList.toggle('cat-active', v==='claim'||v==='strategy');
+  document.getElementById('cat-welcheckhub').classList.toggle('hub-open', v==='cal'||v==='list');
+  document.getElementById('cat-claimhub').classList.toggle('hub-open', v==='claim'||v==='strategy');
+  var subW = document.getElementById('welcheckhub-sub');
+  subW.style.display = (v==='cal'||v==='list') ? 'block' : 'none';
   var sub = document.getElementById('list-sub');
   sub.style.display = v==='list' ? 'block' : 'none';
+  var subC = document.getElementById('claimhub-sub');
+  subC.style.display = (v==='claim'||v==='strategy') ? 'block' : 'none';
+  var wchCal=document.getElementById('wch-sub-cal'), wchList=document.getElementById('wch-sub-list');
+  if(wchCal) wchCal.classList.toggle('sub-active', v==='cal');
+  if(wchList) wchList.classList.toggle('sub-active', v==='list');
+  var chubStrategy=document.getElementById('chub-sub-strategy'), chubClaim=document.getElementById('chub-sub-claim');
+  if(chubStrategy) chubStrategy.classList.toggle('sub-active', v==='strategy');
+  if(chubClaim) chubClaim.classList.toggle('sub-active', v==='claim');
   if(v==='list') renderList();
   if(v==='claim') renderClaimView();
   if(v==='strategy') renderStrategyView();
+}
+// 상위 카테고리(웰체크 현황판/청구처 현황판)의 하위 목록만 접었다 펼치기 (화면 전환과 별개)
+function toggleHubCollapse(subId, catId){
+  var sub=document.getElementById(subId);
+  var isOpen = sub.style.display!=='none';
+  sub.style.display = isOpen?'none':'block';
+  document.getElementById(catId).classList.toggle('hub-open', !isOpen);
 }
 
 // ===== 사이드바 =====
@@ -1143,7 +1602,7 @@ function filterMR(mr){
   renderCalendar();
 }
 function applyMRButtons(){
-  var keys=['all'].concat(MANAGERS.map(function(m){return m.code;}));
+  var keys=['all'].concat(officeManagers().map(function(m){return m.code;}));
   keys.forEach(function(k){
     var b=document.getElementById('mb-'+k);
     if(!b) return;
@@ -1442,7 +1901,7 @@ function closeDetail(){document.getElementById('detail-ov').classList.remove('ov
 // ===== 거래처 현황판 =====
 function listFilter(mr, reg){
   listMR=mr; listReg=reg;
-  var title='경인1 거래처 현황판';
+  var title=currentOffice+' 거래처 현황판';
   if(mr!=='all') title=getMR(mr).name+' 담당 거래처';
   else if(reg!=='all') title='📍 '+reg+' 지역 거래처';
   document.getElementById('list-title').textContent=title;
@@ -1452,16 +1911,17 @@ function listFilter(mr, reg){
 function fpClick(btn, mr, reg){
   listMR=mr; listReg=reg;
   renderFilterPills();
-  var title='경인1 거래처 현황판';
+  var title=currentOffice+' 거래처 현황판';
   if(mr!=='all') title=getMR(mr).name+' 담당 거래처';
   else if(reg!=='all') title='📍 '+reg+' 지역 거래처';
   document.getElementById('list-title').textContent=title;
   renderList();
 }
 function renderList(){
+  if(listMR==='all'&&listReg==='all') document.getElementById('list-title').textContent=currentOffice+' 거래처 현황판';
   var fpRow=document.getElementById('fp-row');
   if(fpRow) fpRow.style.display=(listMR==='all'&&listReg==='all')?'flex':'none';
-  var data=CLINICS.filter(function(c){
+  var data=officeRows().filter(function(c){
     return (listMR==='all'||c.mr===listMR)&&(listReg==='all'||c.region===listReg);
   });
   if(listVisit!=='all'){
@@ -1532,7 +1992,7 @@ function renderList(){
 
   document.getElementById('list-body').innerHTML=
     '<div class="list-sec" style="display:flex;align-items:center;gap:8px">'
-    +'<span style="font-weight:700">경인1 거래처 현황판 ('+data.length+'곳)</span>'
+    +'<span style="font-weight:700">'+currentOffice+' 거래처 현황판 ('+data.length+'곳)</span>'
     +'<button onclick="openAddClinic()" style="margin-left:6px;padding:3px 10px;font-size:11px;border-radius:999px;border:1px solid var(--dw);color:var(--dw);background:white;cursor:pointer;font-family:inherit">+ 거래처 추가</button>'
     +'</div>'
     +'<table class="gtbl"><thead>'
@@ -1594,41 +2054,47 @@ function renderStrategyView(){
     renderStKPI();
     renderStTrend();
     renderStFilters();
+    renderStMRFilters();
     renderStTable();
   });
 }
+function stOfficeClaims(){ return OFFICE_CLAIMS.filter(function(o){return o.office===currentOffice;}); }
 function stKpiData(){
-  var r=CLINICS;
-  var target=(OFFICE_CLAIMS.length?OFFICE_CLAIMS[OFFICE_CLAIMS.length-1].target:0)||137;
-  var active=r.filter(function(c){return (c.patients||0)>=20;}).length;
-  var risk=r.filter(function(c){var p=c.patients||0;return p>=4&&p<=19;}).length;
+  var r=officeRows();
+  var oc=stOfficeClaims();
+  var target=(oc.length?oc[oc.length-1].target:0)||120;
+  var active=r.filter(function(c){return c.isActive;}).length;
+  var inactiveTr=r.filter(function(c){return c.inactiveTr;}).length;
+  var thresholdMet=r.filter(function(c){return (c.patients||0)>=20;}).length;
   var newly=r.filter(function(c){return (c.prevPatients||0)===0&&(c.patients||0)>0;}).length;
   var crossed=r.filter(function(c){var p=c.prevPatients||0,n=c.patients||0;return (p<20&&n>=20)||(p<40&&n>=40);}).length;
   var patientDiff=r.reduce(function(s,c){return s+(c.patients||0)-(c.prevPatients||0);},0);
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievement>=80?'A':achievement>=60?'B':'C';
   var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
-  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,risk:risk,newly:newly,crossed:crossed,patientDiff:patientDiff};
+  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,inactiveTr:inactiveTr,thresholdMet:thresholdMet,newly:newly,crossed:crossed,patientDiff:patientDiff};
 }
 function renderStKPI(){
   var k=stKpiData();
-  document.getElementById('st-info').innerHTML='사업부 <b>서울4</b><span>|</span>사무소 <b>경인1</b><span>|</span>기준 <b>6월 마감 대비 최신 현황</b>';
+  var stTitleEl=document.getElementById('strategy-title');
+  if(stTitleEl) stTitleEl.textContent=currentOffice+' 활성처 확보 전략판';
+  document.getElementById('st-info').innerHTML='사업부 <b>서울4</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>6/30 → 최신</b><span>|</span>청구 기준 <b>6월 2차 마감</b>';
   var kpis=[
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>B등급까지 '+k.bNeed+'처 필요','active'],
-    ['redCard','비활성 예상',k.risk+'처','활성환자 4~19명 · 우선 대응','risk'],
-    ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','20·40명 기준 신규 달성','crossed'],
-    ['diffKpi','당월 활성환자 증감',(k.patientDiff>=0?'+':'')+k.patientDiff+'명','6월 마감 대비 순증감','pdiff'],
-    ['newKpi','신규 거래처',k.newly+'처','6월 0명 → 현재 활성환자 발생','newly']
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>환자수 충족 '+k.thresholdMet+'처 · B등급까지 '+k.bNeed+'처 필요','active'],
+    ['redCard','7월 비활성 전환',k.inactiveTr+'처','활성처 현황 파일의 비활성 전환 거래처','inactive'],
+    ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','6/30 대비 20·40명 기준 신규 달성','crossed'],
+    ['diffKpi','당월 활성환자 증감',(k.patientDiff>=0?'+':'')+k.patientDiff+'명','6/30 마감 대비 순증감','pdiff'],
+    ['newKpi','신규 거래처',k.newly+'처','6/30 기준 0명 → 최신 활성환자 발생','newly']
   ];
   document.getElementById('st-kpi').innerHTML=kpis.map(function(x){
     return '<div class="kcard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><div class="kval">'+x[2]+'</div><div class="khint">'+x[3]+'</div></div>';
   }).join('');
-  var r=CLINICS;
+  var r=officeRows();
   var minis=[
-    ['q3','3분기 기준',r.filter(function(c){return (c.patients||0)>=20;}).length,'활성환자 20명 이상','q3'],
-    ['q4','4분기 기준',r.filter(function(c){return (c.patients||0)>=40;}).length,'활성환자 40명 이상','q4'],
-    ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=10&&p<=19;}).length,'10~19명','cand20'],
-    ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=30&&p<=39;}).length,'30~39명','cand40']
+    ['q3','3분기 기준',r.filter(function(c){return c.isActive;}).length,'공식 활성처 기준','q3'],
+    ['q4','4분기 기준',r.filter(function(c){return !c.inactiveTr&&(c.patients||0)>=40;}).length,'활성환자 40명 이상','q4'],
+    ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length,'15~19명','cand20'],
+    ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=35&&p<=39;}).length,'35~39명','cand40']
   ];
   document.getElementById('st-mini').innerHTML=minis.map(function(x){
     return '<div class="miniCard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><b>'+x[2]+'처</b><div class="khint">'+x[3]+'</div></div>';
@@ -1638,16 +2104,17 @@ function renderStTrend(){
   var ctx=document.getElementById('officeTrend');
   if(!ctx||!window.Chart) return;
   if(stTrendChart){ stTrendChart.destroy(); stTrendChart=null; }
-  if(!OFFICE_CLAIMS.length) return;
-  var labels=OFFICE_CLAIMS.map(function(o){return parseInt(o.month.slice(5,7))+'월';});
-  var newSeries=OFFICE_CLAIMS.map(function(o,i){return i===0?0:(o.cum_patient||0)-(OFFICE_CLAIMS[i-1].cum_patient||0);});
+  var oc=stOfficeClaims();
+  if(!oc.length) return;
+  var labels=oc.map(function(o){return parseInt(o.month.slice(5,7))+'월';});
+  var newSeries=oc.map(function(o,i){return i===0?0:(o.cum_patient||0)-(oc[i-1].cum_patient||0);});
   stTrendChart=new Chart(ctx,{
     type:'line',
     data:{labels:labels,datasets:[
       {label:'월 신규/순증 활성환자',data:newSeries,borderColor:'#B596D6',backgroundColor:'rgba(181,150,214,.08)',borderDash:[4,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
-      {label:'누적 활성환자',data:OFFICE_CLAIMS.map(function(o){return o.cum_patient;}),borderColor:'#86B7E7',backgroundColor:'rgba(134,183,231,.08)',borderDash:[8,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
-      {label:'월별 청구금액',data:OFFICE_CLAIMS.map(function(o){return o.claim;}),borderColor:'#F4A7B9',backgroundColor:'#F4A7B9',borderWidth:2.5,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'},
-      {label:'누적 청구금액',data:OFFICE_CLAIMS.map(function(o){return o.cum_claim;}),borderColor:'#E6C06A',backgroundColor:'#E6C06A',borderWidth:3,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'}
+      {label:'누적 활성환자',data:oc.map(function(o){return o.cum_patient;}),borderColor:'#86B7E7',backgroundColor:'rgba(134,183,231,.08)',borderDash:[8,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
+      {label:'월별 청구금액',data:oc.map(function(o){return o.claim;}),borderColor:'#F4A7B9',backgroundColor:'#F4A7B9',borderWidth:2.5,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'},
+      {label:'누적 청구금액',data:oc.map(function(o){return o.cum_claim;}),borderColor:'#E6C06A',backgroundColor:'#E6C06A',borderWidth:3,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{position:'top'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+(c.raw||0).toLocaleString();}}}},
@@ -1659,33 +2126,49 @@ function renderStTrend(){
   });
 }
 var ST_FILTERS=[
-  ['all','전체'],['active','현재 활성처'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
-  ['risk','비활성 예상'],['cand20','20명 전환후보'],['cand40','40명 전환후보'],['q3','20명 이상'],['q4','40명 이상'],['q100','100명 이상']
+  ['all','전체'],['active','현재 활성처'],['inactive','비활성처 전환'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
+  ['cand20','20명 전환후보'],['cand40','40명 전환후보'],['q3long','10명 미만'],['lt20','20명 미만'],['q3','20명 이상'],['q4','40명 이상'],['q100','100명 이상']
 ];
-var ST_TITLES={all:'전체 거래처',active:'현재 활성처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 활성환자 증감',risk:'비활성 예상 거래처',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3:'20명 이상 거래처',q4:'40명 이상 거래처',q100:'100명 이상 거래처'};
+var ST_TITLES={all:'전체 거래처',active:'현재 활성처',inactive:'비활성처 전환 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 활성환자 증감',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3long:'10명 미만 거래처',lt20:'20명 미만 거래처',q3:'20명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
+var stMR='all'; // 활성처 전략판 담당자별 필터
 function setStFilter(f){ stFilter=f; renderStFilters(); renderStTable(); var t=document.getElementById('st-table'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }
+function setStMR(mr){ stMR=mr; renderStMRFilters(); renderStTable(); }
 function renderStFilters(){
   document.getElementById('st-filters').innerHTML=ST_FILTERS.map(function(x){
     return '<button class="'+(stFilter===x[0]?'active':'')+'" onclick="setStFilter(\''+x[0]+'\')">'+x[1]+'</button>';
   }).join('');
 }
+function renderStMRFilters(){
+  var el=document.getElementById('st-mr-filters');
+  if(!el) return;
+  var h='<button class="'+(stMR==='all'?'active':'')+'" onclick="setStMR(\'all\')">전체 담당자</button>';
+  h+=officeManagers().map(function(m){
+    return '<button class="'+(stMR===m.code?'active':'')+'" onclick="setStMR(\''+m.code+'\')">'+m.name+'</button>';
+  }).join('');
+  el.innerHTML=h;
+}
 function stFilterRows(){
-  var r=CLINICS, p=function(c){return c.patients||0;}, pp=function(c){return c.prevPatients||0;};
+  var r=officeRows().filter(function(c){return stMR==='all'||c.mr===stMR;});
+  var p=function(c){return c.patients||0;}, pp=function(c){return c.prevPatients||0;}, ok=function(c){return !c.inactiveTr;};
   switch(stFilter){
-    case 'active': return r.filter(function(c){return p(c)>=20;});
+    case 'active': return r.filter(function(c){return c.isActive;});
+    case 'inactive': return r.filter(function(c){return c.inactiveTr;});
     case 'newly': return r.filter(function(c){return pp(c)===0&&p(c)>0;});
     case 'crossed': return r.filter(function(c){return (pp(c)<20&&p(c)>=20)||(pp(c)<40&&p(c)>=40);});
     case 'pdiff': return r.filter(function(c){return p(c)-pp(c)!==0;});
-    case 'risk': return r.filter(function(c){return p(c)>=4&&p(c)<=19;});
-    case 'cand20': return r.filter(function(c){return p(c)>=10&&p(c)<=19;});
-    case 'cand40': return r.filter(function(c){return p(c)>=30&&p(c)<=39;});
-    case 'q3': return r.filter(function(c){return p(c)>=20;});
-    case 'q4': return r.filter(function(c){return p(c)>=40;});
-    case 'q100': return r.filter(function(c){return p(c)>=100;});
+    case 'cand20': return r.filter(function(c){return p(c)>=15&&p(c)<=19;});
+    case 'cand40': return r.filter(function(c){return p(c)>=35&&p(c)<=39;});
+    case 'q3long': return r.filter(function(c){return ok(c)&&p(c)>=1&&p(c)<=9;});
+    case 'lt20': return r.filter(function(c){return ok(c)&&p(c)>=1&&p(c)<=19;});
+    case 'q3': return r.filter(function(c){return c.isActive;});
+    case 'q4': return r.filter(function(c){return ok(c)&&p(c)>=40;});
+    case 'q100': return r.filter(function(c){return ok(c)&&p(c)>=100;});
     default: return r;
   }
 }
-function stPill(p){
+function stPill(c){
+  var p=c.patients||0;
+  if(c.inactiveTr) return '<span class="pill p-red">비활성 전환</span>';
   if(p>=100) return '<span class="pill p-green">명의풀</span>';
   if(p>=40) return '<span class="pill p-green">40명+</span>';
   if(p>=20) return '<span class="pill p-blue">20명+</span>';
@@ -1699,9 +2182,10 @@ function renderStTable(){
     return (b.patients||0)-(a.patients||0)||String(a.name).localeCompare(String(b.name),'ko');
   });
   var title=ST_TITLES[stFilter]||'거래처 리스트';
-  if(!rows.length){ el.innerHTML='<div class="emptyMsg2">경인1 · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
+  if(stMR!=='all'){ var mrObj=getMR(stMR); title=mrObj.name+' · '+title; }
+  if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table><thead>'
-    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">경인1 · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px">6월 마감 대비 최신 현황 반영</small></th></tr>'
+    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px">6월 마감 대비 최신 현황 반영</small></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월(6월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +rows.map(function(c){
       var m=getMR(c.mr);
@@ -1714,7 +2198,7 @@ function renderStTable(){
         +'<td>'+prev+'명</td><td><b>'+now+'명</b></td>'
         +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
         +'<td>'+(cl?money(cl.cum):'-')+'</td>'
-        +'<td>'+stPill(now)+'</td></tr>';
+        +'<td>'+stPill(c)+'</td></tr>';
     }).join('')+'</tbody></table></div>';
 }
 
@@ -1813,6 +2297,7 @@ function renderClaimTable(){
 }
 
 // ===== 초기화 =====
+tryAutoLogin();
 switchView('cal');
 renderCalendar();
 renderRequests();
@@ -1826,6 +2311,7 @@ loadVisitNotes();                // 방문 후 특이사항 메모판 로드
 // 관리 모달 외부 클릭 닫기
 document.getElementById('mgr-ov').addEventListener('click',function(e){if(e.target===this)closeMgrModal();});
 document.getElementById('reg-ov').addEventListener('click',function(e){if(e.target===this)closeRegModal();});
+document.getElementById('emp-ov').addEventListener('click',function(e){if(e.target===this)closeEmpModal();});
 
 // ===== 담당자 선택 → 거래처 자동 로드 =====
 function loadClinicsByMR(mr) {
@@ -2443,7 +2929,7 @@ function renderRequests(){
   var list=document.getElementById('req-list');
   var badge=document.getElementById('req-badge');
   if(!pnl||!list) return;
-  var pending=REQUESTS.filter(function(r){return r.status==='pending';});
+  var pending=REQUESTS.filter(function(r){return r.status==='pending';}).filter(evInOffice);
   if(badge){ badge.textContent=pending.length+'건'; badge.style.display=pending.length?'inline':'none'; }
   if(!pending.length){
     list.innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:8px 0">현재 요청 없음</div>';
@@ -2650,6 +3136,71 @@ function showClinicDetail(idx, event){
     <div style="display:flex;gap:6px;margin-top:12px">
       <input type="text" id="reg-name" placeholder="새 지역명 (예: 서구)" autocomplete="off" style="flex:1;padding:7px 10px;font-size:12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);font-family:inherit">
       <button class="btn btn-save" onclick="addRegion()">+ 추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 청구처 현황판 데이터 업로드 -->
+<div class="ov" id="import-ov">
+  <div class="modal modal-sm">
+    <div class="modal-head">
+      <span class="modal-title">📥 청구처 현황판 데이터 업로드</span>
+      <button class="modal-x" onclick="closeImportModal()">✕</button>
+    </div>
+    <div class="sub" style="margin-bottom:10px">현재 선택된 사무소: <b id="import-office-label" style="color:var(--t1)"></b></div>
+    <div class="fld">
+      <label>파일 종류</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;cursor:pointer"><input type="radio" name="import-type" value="current" checked> 현재 활성처 현황 (RAW 파일)</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="import-type" value="baseline"> 청구현황 베이스라인 (월마감 파일)</label>
+    </div>
+    <div class="fld">
+      <label>엑셀 파일 (.xlsx)</label>
+      <input type="file" id="import-file" accept=".xlsx,.xls" style="width:100%;font-size:11px">
+    </div>
+    <div id="import-status" style="margin:8px 0;font-size:11px;color:var(--t2);white-space:pre-line;line-height:1.5"></div>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeImportModal()">닫기</button>
+      <button class="btn btn-save" onclick="runImport()">업로드 및 반영</button>
+    </div>
+  </div>
+</div>
+
+<!-- 직원(사번) 관리 -->
+<div class="ov" id="emp-ov">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <span class="modal-title">👤 직원 관리</span>
+      <button class="modal-x" onclick="closeEmpModal()">✕</button>
+    </div>
+    <div id="emp-list" style="max-height:220px;overflow-y:auto"></div>
+    <div id="emp-form" style="display:none;border-top:0.5px solid var(--bd);margin-top:10px;padding-top:10px">
+      <div class="fld"><label>사번 *</label>
+        <input type="text" id="emp-no" placeholder="예) 1001" autocomplete="off">
+      </div>
+      <div class="fld"><label>이름 *</label>
+        <input type="text" id="emp-name" placeholder="예) 홍길동" autocomplete="off">
+      </div>
+      <div class="fld-2">
+        <div class="fld"><label>역할</label>
+          <select id="emp-role"></select>
+        </div>
+        <div class="fld"><label>소속 사무소 *</label>
+          <input type="text" id="emp-office" placeholder="예) 경인1" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-btns" style="margin-top:8px">
+        <button class="btn btn-cancel" onclick="hideEmpForm()">취소</button>
+        <button class="btn btn-save" onclick="saveEmp()">저장</button>
+      </div>
+    </div>
+    <div class="modal-btns" id="emp-add-row">
+      <button class="btn btn-save" onclick="showEmpForm(null)">+ 직원 추가</button>
+    </div>
+    <div class="fld" style="margin-top:14px;border-top:0.5px solid var(--bd);padding-top:12px">
+      <label>여러 명 한번에 추가 (엑셀에서 사번·이름·역할·사무소 4개 열을 복사해서 붙여넣기 — 한 줄에 한 명씩)</label>
+      <textarea id="emp-bulk" placeholder="1001	김민수	MR	경인1&#10;1002	이지은	간호사	경인1" style="min-height:90px;font-family:inherit"></textarea>
+      <button class="btn btn-save" style="width:100%;margin-top:6px" onclick="saveEmpBulk()">일괄 추가</button>
+      <div id="emp-bulk-status" style="font-size:11px;color:var(--t2);margin-top:6px;white-space:pre-line"></div>
     </div>
   </div>
 </div>
