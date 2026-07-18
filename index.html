@@ -375,13 +375,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .sb-backdrop.sb-open{display:block}
   .main{width:100%}
   .cal-head,.cal-topbar{padding-left:56px}
-  .miniGrid{grid-template-columns:repeat(2,1fr)}
-  #st-kpi{grid-template-columns:repeat(1,1fr) !important}
+  /* 현재지표/평가기준대응 카드는 세로로 쌓지 않고 한 줄로 가로 스크롤 (아래 그래프가 바로 보이도록) */
+  .miniGrid,#st-kpi.kpiGrid{display:flex;overflow-x:auto;gap:10px}
+  .miniGrid>*,#st-kpi.kpiGrid>*{flex:0 0 78vw;max-width:230px}
   .modal-lg,.modal-sm{width:92vw !important}
   .cal-content{flex-direction:column}
-}
-@media (max-width:480px){
-  .miniGrid{grid-template-columns:1fr}
+  /* 캘린더 칸이 좁아 시간표기까지 넣으면 거래처명이 다 잘리므로, 모바일에선 이름만 노출 */
+  .ev-time,.ev-dot{display:none}
+  .ev input[type=checkbox]{width:10px;height:10px}
 }
 </style>
 </head>
@@ -1251,11 +1252,13 @@ function parseCurrentRaw(wb){
     if(bizNo==null) continue;
     bizNo=String(bizNo).replace(/\.0$/,'');
     var patientsVal=Number(row[6])||0; // 일만사 활성환자(웰체크 일만사 환자수 - 활성 환자 목표 지표)
+    var nonVal=Number(row[7])||0; // 비일만사 활성환자
     updates.push({
       biz_no:bizNo,
       name:row[10],
       patients: patientsVal,
-      is_active: patientsVal>=20, // 활성처 기준도 "웰체크-일만사" 환자수 하나로 일관되게 판단 (파일 자체의 "활성처" 플래그는 비일만사 포함 총합 기준이라 여기선 쓰지 않음)
+      non_patients: nonVal,
+      is_active: (patientsVal+nonVal)>=20, // 회사 기준(일만사+비일만사 합산 20명)으로 활성처 판정. 일만사만으로는 미달이지만 비일만사로 활성이 된 곳은 nonOnlyActive로 별도 표기
       inactive_transition: row[8]==='해당',
       prev_active: row[22]==='해당',
       prev_patients: Number(row[23])||0, // 전월 환자수(일만사)
@@ -1270,7 +1273,7 @@ function commitCurrentRaw(parsed, status){
   status.textContent=updates.length+'개 거래처 반영 중...';
   Promise.all(updates.map(function(u){
     return db.from('clinics').update({
-      patients:u.patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
+      patients:u.patients, non_patients:u.non_patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
       prev_active:u.prev_active, prev_patients:u.prev_patients
     }).eq('biz_no', u.biz_no).eq('office', currentOffice);
   })).then(function(results){
@@ -1576,6 +1579,7 @@ function rowToClinic(r){
     note:r.note||'', biz_no:r.biz_no||'', welcheck_cnt:r.welcheck_cnt, ilmansa_cnt:r.ilmansa_cnt,
     ilmansaStart:r.ilmansa_start||'', prevPatients:r.prev_patients||0,
     isActive:!!r.is_active, inactiveTr:!!r.inactive_transition, prevActive:!!r.prev_active,
+    nonPatients:r.non_patients||0,
     office:r.office||'경인1',
     care_plan_cnt:r.care_plan_cnt||0, edu_cnt:r.edu_cnt||0, patient_mgmt_cnt:r.patient_mgmt_cnt||0, check_eval_cnt:r.check_eval_cnt||0};
 }
@@ -1889,6 +1893,11 @@ var _td=new Date(); var TODAY={y:_td.getFullYear(),m:_td.getMonth()+1,d:_td.getD
 var editingId=null, addDay=null, addZone='all', detailId=null;
 
 // ===== 유틸 =====
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
 // 클릭한 행 아래에 뜨는 소형 팝업이 화면 아래로 잘리지 않도록 위치 보정 (appendChild 이후, 실제 렌더링된 높이 기준으로 호출)
 function clampPopupVertical(div, rect){
   var h=div.offsetHeight;
@@ -2127,7 +2136,8 @@ function buildChip(ev, isAll){
     });
   };
   var txt=document.createElement('span');txt.className='ev-txt';
-  txt.textContent=(ev.exactTime?compactTime(ev.exactTime)+' ':'')+ev.label;
+  var timeStr=ev.exactTime?compactTime(ev.exactTime):'';
+  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+escapeHtml(ev.label);
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
   chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
   chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
@@ -2450,6 +2460,7 @@ function stKpiData(){
   var inactiveTr=r.filter(function(c){return c.inactiveTr;}).length;
   var thresholdMet=r.filter(function(c){return (c.patients||0)>=20;}).length;
   var thresholdMetInactive=r.filter(function(c){return (c.patients||0)>=20&&c.inactiveTr;}).length;
+  var nonOnlyActive=r.filter(function(c){return c.isActive&&(c.patients||0)<20;}).length;
   var prevActiveCount=r.filter(function(c){return c.prevActive;}).length;
   var newly=r.filter(function(c){return (c.prevPatients||0)===0&&(c.patients||0)>0;}).length;
   var crossed=r.filter(function(c){var p=c.prevPatients||0,n=c.patients||0;return (p<20&&n>=20)||(p<40&&n>=40);}).length;
@@ -2457,7 +2468,7 @@ function stKpiData(){
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievement>=80?'A':achievement>=60?'B':'C';
   var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
-  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,inactiveTr:inactiveTr,thresholdMet:thresholdMet,thresholdMetInactive:thresholdMetInactive,prevActiveCount:prevActiveCount,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain};
+  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,inactiveTr:inactiveTr,thresholdMet:thresholdMet,thresholdMetInactive:thresholdMetInactive,nonOnlyActive:nonOnlyActive,prevActiveCount:prevActiveCount,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain};
 }
 function renderStKPI(){
   var k=stKpiData();
@@ -2465,7 +2476,7 @@ function renderStKPI(){
   if(stTitleEl) stTitleEl.textContent=currentOffice+' 활성처 확보 전략판';
   document.getElementById('st-info').innerHTML='사업부 <b>서울4</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>6/30 → 최신</b><span>|</span>청구 기준 <b>6월 2차 마감</b>';
   var kpis=[
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 20명 이상 총 '+k.thresholdMet+'처, 비활성처 '+k.thresholdMetInactive+'처 제외','active'],
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 20명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
     ['redCard','7월 비활성 전환',k.inactiveTr+'처','6월 마감 활성처수 '+k.prevActiveCount+'처','inactive'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','6월 마감 대비 20명, 40명 신규 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
@@ -2559,6 +2570,7 @@ function clinicsListFilterRows(){
 function stPill(c){
   var p=c.patients||0;
   if(c.inactiveTr) return '<span class="pill p-red">비활성 전환</span>';
+  if(c.isActive&&p<20) return '<span class="pill p-red">비일만사 활성</span>';
   if(p>=100) return '<span class="pill p-green">명의풀</span>';
   if(p>=40) return '<span class="pill p-green">40명+</span>';
   if(p>=20) return '<span class="pill p-blue">20명+</span>';
@@ -2568,13 +2580,14 @@ function stPill(c){
 function clinicRowsTbodyHtml(rows){
   return rows.map(function(c){
     var m=getMR(c.mr);
-    var prev=c.prevPatients||0, now=c.patients||0, diff=now-prev;
+    var prev=c.prevPatients||0, now=c.patients||0, diff=now-prev, nonNow=c.nonPatients||0;
     var cl=clinicClaim(c);
     var nb=(prev===0&&now>0)?'<span class="newBadge">신규</span>':'';
     var idx=CLINICS.indexOf(c);
+    var nowCell='<b>'+now+'명</b>'+(nonNow>0?'<br><span style="color:#B01A1A;font-size:10.5px;font-weight:700">비일만사 '+nonNow+'명</span>':'');
     return '<tr onclick="openClinicChartModal('+idx+',event)" title="클릭하면 활성환자·청구 추이 그래프가 열립니다"><td><span style="opacity:.5;margin-right:4px" title="클릭 시 그래프 보기">📊</span><b>'+c.name+'</b>'+nb+'</td>'
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
-      +'<td>'+prev+'명</td><td><b>'+now+'명</b></td>'
+      +'<td>'+prev+'명</td><td>'+nowCell+'</td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
       +'<td>'+(cl?money(cl.cum):'-')+'</td>'
       +'<td>'+stPill(c)+'</td></tr>';
