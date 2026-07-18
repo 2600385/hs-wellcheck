@@ -73,7 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sub-menu{padding:0}
 /* 담당자 원형 배지 */
 .mr-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:9px;font-weight:700;flex-shrink:0;border:1.5px solid}
-.sub-item{display:flex;align-items:center;gap:7px;padding:6px 14px 6px 32px;font-size:11px;color:var(--t2);cursor:pointer;transition:.12s;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
+.sub-item{display:flex;align-items:center;gap:7px;padding:7px 14px 7px 32px;font-size:12.5px;color:var(--t2);cursor:pointer;transition:.12s;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
 .sub-item:hover{background:var(--bg2);color:var(--t1)}
 .sub-item.sub-active{background:var(--bg2);color:var(--t1);font-weight:600}
 .sub-item:hover{background:var(--bg2);color:var(--t1)}
@@ -81,7 +81,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 
 /* 아코디언 */
-.acc-hd{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 24px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;transition:.12s;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
+.acc-hd{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 24px;font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;transition:.12s;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
 .list-sub-hd{padding-left:46px!important}
 .list-sub-child{padding-left:58px!important}
 .acc-hd:hover{background:var(--bg2);color:var(--t1)}
@@ -247,7 +247,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .p-gray{background:#eee;color:#777}
 .claimTableWrap{overflow-x:auto}
 .claimTableWrap table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #e9ddd2;border-radius:16px;overflow:hidden}
-.claimTableWrap th,.claimTableWrap td{padding:10px 12px;border-bottom:1px solid #eee4dc;font-size:13px;text-align:left;white-space:nowrap}
+.claimTableWrap th,.claimTableWrap td{padding:10px 12px;border-bottom:1px solid #eee4dc;font-size:13px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .claimTableWrap th{background:#f6eee6;color:#6f655c;font-size:12px;font-weight:950}
 .claimTableWrap tr:hover td{background:#fff8f1}
 .claimTableWrap th{text-align:left}
@@ -291,7 +291,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.c40{border-top:4px solid #b5d8c4}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px}
+.stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
 .stFilters button.active{border-color:#f47920;border-width:2px;color:#4f4035;background:#fffaf6;box-shadow:0 0 0 3px rgba(244,121,32,.08)}
 .newBadge{margin-left:6px;background:#EAF5FF;color:#2f6f9f;border-radius:99px;padding:2px 7px;font-size:10px;font-weight:900}
 .diffUp{color:#15803d;font-weight:900}
@@ -1088,6 +1088,37 @@ function renderImportLog(){
 function logImport(type, asOfDate){
   return db.from('import_log').upsert({office:currentOffice, import_type:type, source_date:asOfDate}, {onConflict:'office,import_type'}).then(function(){ loadImportLog(); });
 }
+// 업로드할 때마다(활성처 현황/베이스라인) office_claims 최신 상태를 별도 이력 테이블에도 남겨서,
+// 매 업로드 시점의 스냅샷을 나중에 돌아볼 수 있게 함 (숫자 몇 개짜리 행이라 저장 비용은 무시할 수준)
+function saveSnapshot(sourceType, officeRecord){
+  if(!officeRecord) return;
+  db.from('data_snapshots').insert({
+    office: officeRecord.office, snapshot_date: new Date().toISOString().slice(0,10),
+    source_type: sourceType, business: officeRecord.business||'', target: officeRecord.target||0,
+    active_count: officeRecord.active_count||0, patient_sum: officeRecord.patient||0,
+    claim_month: officeRecord.claim||0, cum_claim: officeRecord.cum_claim||0
+  }).then(function(res){ if(res.error) console.error('스냅샷 저장 실패', res.error); });
+}
+function openSnapshotModal(){
+  db.from('data_snapshots').select('*').eq('office',currentOffice).order('snapshot_date',{ascending:false}).then(function(res){
+    var el=document.getElementById('snap-list');
+    if(res.error){ el.innerHTML='불러오기 실패: '+res.error.message; return; }
+    var rows=(res.data||[]).slice().sort(function(a,b){
+      if(a.snapshot_date!==b.snapshot_date) return a.snapshot_date<b.snapshot_date?1:-1;
+      return b.id-a.id;
+    });
+    if(!rows.length){ el.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px 0">아직 저장된 이력이 없습니다. 앞으로 데이터를 업로드할 때마다 여기에 기록됩니다.</div>'; return; }
+    var typeLabel={current:'활성처 현황', baseline:'베이스라인', daily:'MAU'};
+    el.innerHTML=rows.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:0.5px solid var(--bd);font-size:12px">'
+        +'<div><b>'+r.snapshot_date+'</b> <span style="color:var(--t3)">('+(typeLabel[r.source_type]||r.source_type)+')</span></div>'
+        +'<div style="text-align:right;color:var(--t2)">활성처 '+(r.active_count||0)+'처 · 활성환자 '+(r.patient_sum||0)+'명 · 누적청구 '+money(r.cum_claim||0)+'</div>'
+        +'</div>';
+    }).join('');
+  });
+  document.getElementById('snap-ov').classList.add('ov-open');
+}
+function closeSnapshotModal(){ document.getElementById('snap-ov').classList.remove('ov-open'); }
 
 // ===== 업로드 → 검증 → 반영 파이프라인 =====
 // runImport(): 파일을 읽어 파싱만 하고(DB 미반영), 검증 결과를 보여줌.
@@ -1219,11 +1250,12 @@ function parseCurrentRaw(wb){
     var bizNo=row[11];
     if(bizNo==null) continue;
     bizNo=String(bizNo).replace(/\.0$/,'');
+    var patientsVal=Number(row[6])||0; // 일만사 활성환자(웰체크 일만사 환자수 - 활성 환자 목표 지표)
     updates.push({
       biz_no:bizNo,
       name:row[10],
-      patients: Number(row[6])||0, // 일만사 활성환자(웰체크 일만사 환자수 - 활성 환자 목표 지표)
-      is_active: row[4]==='해당',
+      patients: patientsVal,
+      is_active: patientsVal>=20, // 활성처 기준도 "웰체크-일만사" 환자수 하나로 일관되게 판단 (파일 자체의 "활성처" 플래그는 비일만사 포함 총합 기준이라 여기선 쓰지 않음)
       inactive_transition: row[8]==='해당',
       prev_active: row[22]==='해당',
       prev_patients: Number(row[23])||0, // 전월 환자수(일만사)
@@ -1278,6 +1310,7 @@ function saveCurrentMonthClaims(updates, asOf, status, failed){
       db.from('office_claims').upsert([officeRecord], {onConflict:'office,month'})
     ]).then(function(){
       status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 이번달 진행중 청구현황도 반영됨)';
+      saveSnapshot('current', officeRecord);
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
       if(document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
       if(document.getElementById('view-clinicslist').classList.contains('v-active')) renderClinicsListView();
@@ -1465,6 +1498,7 @@ function commitBaseline(parsed, status){
     var asOf=sortedMonths[sortedMonths.length-1]; // 파일이 다루는 가장 최신 월(마감월)을 기준일로 기록
     status.textContent='완료: 거래처 '+new Set(clinicClaimRecords.map(function(x){return x.clinic_name;})).size+'곳 · '+sortedMonths.length+'개월 반영됨'+(target?(' (목표 '+target+'처 확인됨)'):'')+'. (파일 기준월: '+asOf+')';
     logImport('baseline', asOf);
+    saveSnapshot('baseline', officeRecords[officeRecords.length-1]);
     if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
     if(document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
   });
@@ -2494,7 +2528,7 @@ function renderStMRFilters(){
   if(!el) return;
   var h='<button class="'+(stMR==='all'?'active':'')+'" onclick="setStMR(\'all\')">전체 담당자</button>';
   h+=officeManagers().map(function(m){
-    return '<button class="'+(stMR===m.code?'active':'')+'" onclick="setStMR(\''+m.code+'\')">'+m.name+'</button>';
+    return '<button class="'+(stMR===m.code?'active':'')+'" onclick="setStMR(\''+m.code+'\')">'+mrCircle(m)+m.name+'</button>';
   }).join('');
   el.innerHTML=h;
 }
@@ -2510,9 +2544,9 @@ function stFilterRows(){
     case 'pdiff': return r.filter(function(c){return p(c)-pp(c)>0;}); // 순수 신규 증가분만(감소분 제외)
     case 'cand20': return r.filter(function(c){return p(c)>=15&&p(c)<=19;});
     case 'cand40': return r.filter(function(c){return p(c)>=35&&p(c)<=39;});
-    case 'q3long': return r.filter(function(c){return ok(c)&&p(c)>=1&&p(c)<=9;});
-    case 'lt20': return r.filter(function(c){return ok(c)&&p(c)>=1&&p(c)<=19;});
-    case 'q3': return r.filter(function(c){return c.isActive;});
+    case 'q3long': return r.filter(function(c){return p(c)<=9;});
+    case 'lt20': return r.filter(function(c){return p(c)<=19;});
+    case 'q3': return r.filter(function(c){return ok(c)&&p(c)>=20;});
     case 'q4': return r.filter(function(c){return ok(c)&&p(c)>=40;});
     case 'q100': return r.filter(function(c){return ok(c)&&p(c)>=100;});
     default: return r;
@@ -2538,7 +2572,7 @@ function clinicRowsTbodyHtml(rows){
     var cl=clinicClaim(c);
     var nb=(prev===0&&now>0)?'<span class="newBadge">신규</span>':'';
     var idx=CLINICS.indexOf(c);
-    return '<tr onclick="openClinicChartModal('+idx+',event)"><td><b>'+c.name+'</b>'+nb+'</td>'
+    return '<tr onclick="openClinicChartModal('+idx+',event)" title="클릭하면 활성환자·청구 추이 그래프가 열립니다"><td><span style="opacity:.5;margin-right:4px" title="클릭 시 그래프 보기">📊</span><b>'+c.name+'</b>'+nb+'</td>'
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
       +'<td>'+prev+'명</td><td><b>'+now+'명</b></td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
@@ -2554,11 +2588,13 @@ function renderStTable(){
   });
   var title=ST_TITLES[stFilter]||'거래처 리스트';
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
-  el.innerHTML='<div class="claimTableWrap"><table><thead>'
+  el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed">'+CLINIC_LIST_COLGROUP+'<thead>'
     +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px">6월 마감 대비 최신 현황 반영</small></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월(6월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows)+'</tbody></table></div>';
 }
+// 담당자 필터를 바꿔도 컬럼 폭이 유지되도록 고정 colgroup (내용 길이에 따라 표가 좌우로 흔들리는 문제 방지)
+var CLINIC_LIST_COLGROUP='<colgroup><col style="width:26%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:16%"><col style="width:10%"></colgroup>';
 function renderClinicsListTable(){
   var el=document.getElementById('st-table-mr');
   if(!el) return;
@@ -2567,7 +2603,7 @@ function renderClinicsListTable(){
   });
   var title=stMR==='all'?'전체 담당자':getMR(stMR).name;
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
-  el.innerHTML='<div class="claimTableWrap"><table><thead>'
+  el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed">'+CLINIC_LIST_COLGROUP+'<thead>'
     +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)</th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월(6월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows)+'</tbody></table></div>';
@@ -3437,6 +3473,17 @@ function closeClinicChart(){
 document.getElementById('ccm-ov').addEventListener('click',function(e){if(e.target===this)closeClinicChart();});
 </script>
 
+<!-- 데이터 업데이트 이력 모달 -->
+<div class="ov" id="snap-ov">
+  <div class="modal modal-sm" style="width:460px;max-height:80vh;overflow-y:auto">
+    <div class="modal-head">
+      <span class="modal-title">📅 데이터 업데이트 이력</span>
+      <button class="modal-x" onclick="closeSnapshotModal()">✕</button>
+    </div>
+    <div id="snap-list" style="font-size:12px"></div>
+  </div>
+</div>
+
 <!-- 거래처 활성환자/청구 추이 통합 모달 -->
 <div class="ov" id="ccm-ov">
   <div class="modal modal-lg" style="width:min(760px,92vw);max-height:85vh;overflow-y:auto">
@@ -3591,7 +3638,7 @@ document.getElementById('ccm-ov').addEventListener('click',function(e){if(e.targ
       <span class="modal-title">📥 청구처 현황판 데이터 업로드</span>
       <button class="modal-x" onclick="closeImportModal()">✕</button>
     </div>
-    <div class="sub" style="margin-bottom:10px">현재 선택된 사무소: <b id="import-office-label" style="color:var(--t1)"></b></div>
+    <div class="sub" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">현재 선택된 사무소: <b id="import-office-label" style="color:var(--t1)"></b><span onclick="openSnapshotModal()" style="cursor:pointer;color:#2B5FA0;font-weight:600;font-size:11px">📅 업데이트 이력</span></div>
     <div id="import-step1">
       <div class="fld">
         <label>파일 종류</label>
