@@ -490,6 +490,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="acc-body open" id="sb-reg-list"></div>
     </div>
 
+    <!-- 데이터 업로드(간소화): 거래처현황판만 갱신하는 용도 - RAW/MAU만, 누가 올리든 청구현황판은 절대 안 건드림 -->
+    <div id="data-import-btn" style="padding:2px 14px 10px;display:none">
+      <button onclick="openImportModal('simple')" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드</button>
+    </div>
+
     <div class="sb-div"></div>
 
     <!-- 청구처 현황판 (활성처 전략판 + 청구현황지표) -->
@@ -506,11 +511,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="sub-item chub-sub-item sub-active" id="chub-sub-claim" onclick="switchView('claim')">① 청구현황지표</div>
       <div class="sub-item chub-sub-item" id="chub-sub-strategy" onclick="switchView('strategy')">② 활성처 전략판</div>
       <div class="sub-item chub-sub-item" id="chub-sub-clinics" onclick="switchView('clinicslist')">③ 거래처 리스트 (담당자별)</div>
-    </div>
-
-    <!-- 데이터 업로드: 전국 사업부 현황(다른 사무소 열람 권한)과는 무관하게, 자기 사무소 데이터를 올릴 수 있는 사람이면 누구나 접근 가능해야 해서 전국 사업부 잠금(nat-body) 밖에 둠 -->
-    <div id="data-import-btn" style="padding:2px 14px 10px;display:none">
-      <button onclick="openImportModal()" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드</button>
     </div>
 
     <div class="sb-div"></div>
@@ -537,6 +537,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="biz-g"><div class="biz-hd" onclick="toggleBiz(this)">🏢 폴라리스 <span class="bcv">▾</span></div><div class="biz-body"><span class="biz-tag">폴라리스1</span><span class="biz-tag">폴라리스2</span></div></div>
       <div id="emp-mgmt-btn" style="padding:10px 14px 4px;display:none">
         <button onclick="event.stopPropagation();openEmpModal()" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">👤 직원 관리</button>
+      </div>
+      <!-- 데이터 업로드(전체): 베이스라인 포함 전체 파일 종류, 관리자 전용 -->
+      <div id="data-import-btn-full" style="padding:2px 14px 10px;display:none">
+        <button onclick="event.stopPropagation();openImportModal('full')" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드 (전체)</button>
       </div>
     </div>
   </div>
@@ -1047,9 +1051,17 @@ function deleteRegion(id){
   });
 }
 
-// ===== 청구처 현황판 데이터 업로드 (엑셀 자동 반영) =====
-function openImportModal(){
-  document.getElementById('import-office-label').textContent=currentOffice;
+// ===== 데이터 업로드 (엑셀 자동 반영) =====
+// 두 개의 진입점이 있음: 거래처현황판 아래 버튼("simple" - RAW/MAU만, 항상 거래처현황판만 갱신)과
+// 전국 사업부 하단 버튼("full" - 베이스라인 포함, 관리자면 청구현황판·전국 비교까지 반영). 같은 모달을 재사용하고 IMPORT_MODE로 갈라짐
+var IMPORT_MODE='full';
+function openImportModal(mode){
+  IMPORT_MODE=mode||'full';
+  // simple 모드는 지금 사무소 하나만 영향받지만, full(관리자) 모드는 파일 하나로 전국 37개 사무소가 다 같이 갱신되므로
+  // "현재 선택된 사무소" 문구를 그대로 쓰면 마치 이 사무소만 바뀌는 것처럼 오해하게 됨
+  document.getElementById('import-scope-line').innerHTML = IMPORT_MODE==='simple'
+    ? '현재 선택된 사무소: <b style="color:var(--t1)">'+currentOffice+'</b>'
+    : '🌐 전국 37개 사무소 전체가 갱신됩니다 <span style="color:var(--t3);font-weight:400">(업로드 기준 사무소: '+currentOffice+')</span>';
   refreshUnmatchedBadge();
   document.getElementById('import-status').textContent='';
   document.getElementById('import-file').value='';
@@ -1059,11 +1071,28 @@ function openImportModal(){
   document.getElementById('import-btns-step1').style.display='flex';
   document.getElementById('import-btns-step2').style.display='none';
   PENDING_IMPORT=null;
-  // 월마감 베이스라인(전사 확정 데이터)은 관리자만 - 소장·간호사는 자기 사무소 RAW/일일 MAU만 가능
   var isAdmin=currentUser&&currentUser.role==='관리자';
-  var baselineRadio=document.querySelector('input[name="import-type"][value="baseline"]');
-  var baselineLabel=baselineRadio?baselineRadio.closest('label'):null;
-  if(baselineLabel){
+  var titleEl=document.getElementById('import-modal-title');
+  var badgeEl=document.getElementById('current-badge');
+  var descEl=document.getElementById('current-desc');
+  var baselineGroup=document.getElementById('baseline-group');
+  var dailyEl=document.getElementById('daily-desc');
+  if(dailyEl) dailyEl.innerHTML='🔵 '+currentOffice+'의 활성환자수·청구건수만 참고용 반영 (활성처 판정엔 영향 없음)';
+  if(IMPORT_MODE==='simple'){
+    titleEl.textContent='📥 데이터 업로드 (거래처현황판)';
+    badgeEl.style.display='none';
+    descEl.innerHTML='🟢 '+currentOffice+'의 거래처현황판만 반영됩니다 (활성처·활성환자·비일만사). 관리자 업로드 시, 업로드 파일 내용대로 다시 맞춰집니다.';
+    baselineGroup.style.display='none';
+    document.querySelector('input[name="import-type"][value="current"]').checked=true;
+  } else {
+    titleEl.textContent='📥 데이터 업로드 (전체)';
+    badgeEl.style.display='inline-block';
+    badgeEl.textContent='관리자 업로드 시 전체 사무소 반영';
+    descEl.innerHTML='🟢 '+currentOffice+'의 거래처현황판이 갱신됩니다. 관리자가 올리면 케어플랜·교육상담·환자관리·점검평가 건수까지 전국 37개 사무소 청구현황지표에도 반영됩니다.';
+    baselineGroup.style.display='block';
+    // 월마감 베이스라인(전사 확정 데이터)은 관리자만
+    var baselineRadio=document.querySelector('input[name="import-type"][value="baseline"]');
+    var baselineLabel=baselineRadio.closest('label');
     baselineLabel.style.display=isAdmin?'block':'none';
     if(!isAdmin&&baselineRadio.checked) document.querySelector('input[name="import-type"][value="current"]').checked=true;
   }
@@ -1427,8 +1456,13 @@ function commitCurrentRaw(parsed, status){
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
-      // 이번달(마감 전) 청구현황을 clinic_claims/office_claims에 진행중 상태로 반영 (매 업로드마다 최신값으로 덮어씀)
-      saveCurrentMonthClaims(updates, asOf, status, failed, parsed.natToday, parsed.natBusiness);
+      // "거래처현황판" 전용 버튼(IMPORT_MODE==='simple')으로 올리면 관리자가 올려도 청구현황판은 절대 안 건드림.
+      // "전체" 버튼(전국 사업부 하단, 관리자 전용)으로 올릴 때만 청구현황판(진행중 청구현황·전국 반영)까지 반영
+      if(IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자'){
+        saveCurrentMonthClaims(updates, asOf, status, failed, parsed.natToday, parsed.natBusiness);
+      } else {
+        status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 거래처현황판만 갱신됨'+(IMPORT_MODE==='full'?' — 청구현황판 반영은 관리자 업로드 시에만 이뤄져요':'')+')';
+      }
     });
   });
 }
@@ -1929,7 +1963,9 @@ function applyRoleGating(){
   if(empBtn) empBtn.style.display = isAdmin?'block':'none'; // 직원 관리는 관리자만 가능(사업부장·신사업팀장도 접근 불가)
   var canImport=isAdmin||IMPORT_SELF_ROLES.indexOf(currentUser.role)>=0;
   var importBtn=document.getElementById('data-import-btn');
-  if(importBtn) importBtn.style.display = canImport?'block':'none'; // RAW/일일 MAU는 사무소 소장·간호사도 자기 사무소 수시 확인용으로 업로드 가능. 월마감 베이스라인(전사 확정 데이터)은 관리자만 - openImportModal에서 별도로 잠금
+  if(importBtn) importBtn.style.display = canImport?'block':'none'; // 거래처현황판 전용 간소화 버튼 - 소장·간호사도 접근 가능, 청구현황판은 절대 안 건드림
+  var importBtnFull=document.getElementById('data-import-btn-full');
+  if(importBtnFull) importBtnFull.style.display = isAdmin?'block':'none'; // 베이스라인 포함 전체 파일 종류 - 관리자 전용
   var uiLine=document.getElementById('userInfoLine');
   if(uiLine) uiLine.innerHTML=currentUser.name+'('+currentUser.role+') <span class="sb-logout" onclick="logout()">로그아웃</span>';
 }
@@ -4008,10 +4044,10 @@ document.getElementById('ccm-ov').addEventListener('click',function(e){if(e.targ
 <div class="ov" id="import-ov">
   <div class="modal modal-sm" style="width:420px;max-height:85vh;overflow-y:auto">
     <div class="modal-head">
-      <span class="modal-title">📥 청구처 현황판 데이터 업로드</span>
+      <span class="modal-title" id="import-modal-title">📥 데이터 업로드</span>
       <button class="modal-x" onclick="closeImportModal()">✕</button>
     </div>
-    <div class="sub" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">현재 선택된 사무소: <b id="import-office-label" style="color:var(--t1)"></b>
+    <div class="sub" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span id="import-scope-line"></span>
       <span style="display:flex;gap:10px">
         <span onclick="openUnmatchedModal()" style="cursor:pointer;color:#B01A1A;font-weight:600;font-size:11px" id="unmatched-link">⚠️ 미매칭 거래처</span>
         <span onclick="openSnapshotModal()" style="cursor:pointer;color:#2B5FA0;font-weight:600;font-size:11px">📅 업데이트 이력</span>
@@ -4022,18 +4058,20 @@ document.getElementById('ccm-ov').addEventListener('click',function(e){if(e.targ
         <label>파일 종류</label>
         <div style="font-size:10.5px;font-weight:700;color:#8A6800;margin:8px 0 4px">📌 데이터 업데이트용 (수시로, 소장·간호사도 업로드 가능)</div>
         <label style="display:block;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><input type="radio" name="import-type" value="current" checked><b style="font-size:12.5px">활성처 현황 (RAW 파일, 주 2회)</b><span style="font-size:9.5px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:auto">전체 사무소 반영</span></div>
-          <div style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5">예) "○웰체크 활성처 현황_260716", "○웰체크 6월 마감현황_260701" — 둘 다 같은 형식이라 이 옵션 하나로 처리돼요. 우리 사무소 거래처현황판(활성처/활성환자/비일만사)을 갱신하고, 케어플랜·교육상담·환자관리·점검평가 건수까지 전국 37개 사무소 기준으로 청구현황지표에 반영돼요.</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><input type="radio" name="import-type" value="current" checked><b style="font-size:12.5px">활성처 현황 (RAW 파일, 주 2회)</b><span id="current-badge" style="font-size:9.5px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:auto">전체 사무소 반영</span></div>
+          <div id="current-desc" style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5"></div>
         </label>
         <label style="display:block;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;cursor:pointer">
           <div style="display:flex;align-items:center;gap:6px"><input type="radio" name="import-type" value="daily"><b style="font-size:12.5px">일일 MAU 파일 (선택)</b></div>
-          <div style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5">예) "[대외비] 일만사 참여 병원 MAU". 우리 사무소 거래처의 활성환자수·청구건수만 참고용으로 갱신 — 활성처 여부 판정에는 영향 없음.</div>
+          <div id="daily-desc" style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5"></div>
         </label>
-        <div style="font-size:10.5px;font-weight:700;color:#8A6800;margin:14px 0 4px">📌 마감지표 (베이스라인 · 확정 데이터, 관리자만)</div>
-        <label style="display:block;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;cursor:pointer">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><input type="radio" name="import-type" value="baseline"><b style="font-size:12.5px">청구현황 베이스라인 (월마감 파일)</b><span style="font-size:9.5px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:auto">전체 사무소 반영</span></div>
-          <div style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5">예) "26년 웰체크 일만사 청구현황(N월M차)". 확정된 전월 청구금액·건수를 케어플랜·교육상담·환자관리·점검평가별 금액까지 전국 37개 사무소 기준으로 반영해요. 과거 데이터라 이후 안 바뀜.</div>
-        </label>
+        <div id="baseline-group">
+          <div style="font-size:10.5px;font-weight:700;color:#8A6800;margin:14px 0 4px">📌 마감지표 (베이스라인 · 확정 데이터, 관리자만)</div>
+          <label style="display:block;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;cursor:pointer">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><input type="radio" name="import-type" value="baseline"><b style="font-size:12.5px">청구현황 베이스라인 (월마감 파일)</b><span style="font-size:9.5px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:auto">전체 사무소 반영</span></div>
+            <div style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5">예) "26년 웰체크 일만사 청구현황(N월M차)". 확정된 전월 청구금액·건수를 케어플랜·교육상담·환자관리·점검평가별 금액까지 전국 37개 사무소 기준으로 반영해요. 과거 데이터라 이후 안 바뀜.</div>
+          </label>
+        </div>
       </div>
       <div class="fld">
         <label>엑셀 파일 (.xlsx)</label>
