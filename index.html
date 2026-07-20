@@ -188,6 +188,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* 이벤트 칩 */
 .ev{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;display:flex;align-items:center;gap:3px;cursor:pointer;position:relative;z-index:1;transition:.1s}
+/* 거래처 외 일정(연차/학소/내근/기타) - 사무소·담당자와 무관하게 항상 이 빗금 디자인으로 통일, 색만 담당자별로 다름 */
+.ev-leave{font-weight:800}
+.ev-leave .ev-dot{display:none}
 .ev:hover{filter:brightness(.93)}
 .ev input[type=checkbox]{
   width:10px;height:10px;cursor:pointer;flex-shrink:0;margin:0;
@@ -245,8 +248,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sectionTitle{font-size:22px;font-weight:950;margin:28px 0 14px}
 .card{background:#fff;border:1px solid #e9ddd2;border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(80,50,20,.05)}
 .chartBox{height:500px}
-.claimLegend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px;color:#6f655c;font-weight:800}
-.claimLegend span{background:#fff;border:1px solid #e9ddd2;border-radius:999px;padding:6px 10px}
+.claimLegend{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;color:#8a8078;font-weight:700;font-size:10px}
+.claimLegend span{background:#fff;border:1px solid #e9ddd2;border-radius:999px;padding:3px 8px}
+/* 청구현황지표 지표 선택 버튼(환자당/처당/누적) - 눌러야 하는 버튼이라는 게 확실히 보이도록 일반 필터 pill보다 크고 진하게 */
+#claim-metric-toggle{margin-bottom:10px}
+#claim-metric-toggle button{height:44px;font-size:14.5px;font-weight:900;padding:8px 20px;border-width:1.5px;box-shadow:0 2px 6px rgba(80,50,20,.06)}
+#claim-metric-toggle button.active{box-shadow:0 0 0 4px rgba(244,121,32,.12)}
 .dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:5px}
 .pill{display:inline-flex;align-items:center;padding:4px 9px;border-radius:99px;font-size:11px;font-weight:900;margin-left:5px}
 .p-red{background:#F8EDED;color:#9B4A4A}
@@ -332,6 +339,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ===== 모달 ===== */
 .ov{display:none;position:fixed;inset:0;background:rgba(45,41,38,.4);z-index:200;align-items:center;justify-content:center}
+#install-guide-ov{z-index:600} /* 로그인 화면(z-index:500)에서도 열릴 수 있어서 그 위로 뜨도록 */
 .ov.ov-open{display:flex}
 .modal{background:var(--white);border-radius:var(--rl);border:0.5px solid var(--bd);padding:20px;box-shadow:0 8px 32px rgba(0,0,0,.12)}
 .modal-sm{width:340px}
@@ -439,13 +447,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       아직 직원 명단을 등록 전이신가요?<br>
       <span class="sb-logout" style="font-size:11px" onclick="guestLogin()">임시로 전체 권한으로 입장 (직원 관리에서 등록)</span>
     </div>
+    <div class="login-hint" style="margin-top:10px"><span class="sb-logout" onclick="openInstallGuide()">📱 모바일 홈 화면에 앱처럼 설치하기</span></div>
   </div>
 </div>
 
 <!-- ===== SIDEBAR ===== -->
 <aside class="sb">
   <!-- 로고 -->
-  <div class="sb-logo" onclick="switchView('cal')" style="cursor:pointer" title="홈으로">
+  <div class="sb-logo" onclick="goHome()" style="cursor:pointer" title="홈으로">
     <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <rect width="100" height="100" rx="14" fill="#F47920"/>
       <text x="50" y="70" text-anchor="middle" font-family="serif" font-size="62" font-weight="900" fill="white">熊</text>
@@ -456,10 +465,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 
-  <!-- 사무소명 / 사무소 선택 -->
+  <!-- 사무소명 표시(고정 텍스트) - 사무소 전환은 하단 "전국 사업부 현황"에서만 (기능 중복 방지) -->
   <div class="sb-office">
-    <select id="officeSelect" onchange="setCurrentOffice(this.value)" class="sb-office-select"></select>
-    <div class="sb-office-fixed sb-office-select" id="officeFixedLabel" style="display:none"></div>
+    <div class="sb-office-fixed sb-office-select" id="officeFixedLabel"></div>
     <div class="sb-office-sub" id="userInfoLine">웰체크 공유 시스템</div>
     <div class="sb-office-sub" id="import-log-line" style="margin-top:2px"></div>
   </div>
@@ -479,6 +487,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="sub-item wch-sub-item sub-active" id="wch-sub-cal" onclick="switchView('cal')">① 캘린더</div>
       <div class="wch-sub-div"></div>
       <div class="sub-item wch-sub-item" id="wch-sub-list" onclick="switchView('list')">② 거래처현황판</div>
+      <!-- 데이터 업로드(간소화): 거래처현황판만 갱신하는 용도 - RAW/MAU만, 누가 올리든 청구현황판은 절대 안 건드림
+           웰체크 현황판 카테고리에 속한 버튼이라 이 하위 메뉴가 접히면 같이 접히도록 여기 안에 둠 -->
+      <div id="data-import-btn" style="padding:8px 14px 2px;display:none">
+        <button onclick="openImportModal('simple')" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드</button>
+      </div>
     </div>
 
     <!-- 거래처 하위 -->
@@ -488,11 +501,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="acc-body open" id="sb-mr-list"></div>
       <div class="acc-hd list-sub-hd open" onclick="toggleAcc(this)">지역별 현황 <span onclick="event.stopPropagation();openRegModal()" title="지역 추가/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
       <div class="acc-body open" id="sb-reg-list"></div>
-    </div>
-
-    <!-- 데이터 업로드(간소화): 거래처현황판만 갱신하는 용도 - RAW/MAU만, 누가 올리든 청구현황판은 절대 안 건드림 -->
-    <div id="data-import-btn" style="padding:2px 14px 10px;display:none">
-      <button onclick="openImportModal('simple')" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드</button>
     </div>
 
     <div class="sb-div"></div>
@@ -543,6 +551,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button onclick="event.stopPropagation();openImportModal('full')" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드 (전체)</button>
       </div>
     </div>
+
+    <!-- 전국 사업부 현황과 무관하게 누구나 볼 수 있는 모바일 설치 안내 -->
+    <div style="padding:16px 14px 8px;margin-top:6px;border-top:0.5px solid var(--bd)">
+      <span class="sub-item" style="padding:6px 0;color:var(--t2)" onclick="openInstallGuide()">📱 앱 설치 방법</span>
+    </div>
   </div>
 </aside>
 
@@ -553,7 +566,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="view-cal" class="view-panel v-active">
   <div class="cal-head">
     <div class="cal-head-title">교육간호사 캘린더</div>
-    <div class="cal-head-right">경인1사무소 · 부평 / 계양 / 김포</div>
+    <div class="cal-head-right" id="cal-head-right">경인1사무소 · 부평 / 계양 / 김포</div>
   </div>
   <div class="cal-topbar">
     <span class="mr-lbl">담당자</span>
@@ -646,8 +659,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- VIEW 2: 거래처 현황판 -->
 <div id="view-list" class="view-panel">
-  <div class="list-head">
-    <div class="list-head-title" id="list-title">경인1 거래처 현황판</div>
+  <div class="list-head" style="flex-direction:column;align-items:stretch;gap:6px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div class="list-head-title" id="list-title">경인1 웰체크 거래처 현황판</div>
+      <div id="office-board-badge"></div>
+    </div>
     <div class="fp-row" id="fp-row"></div>
   </div>
   <div class="list-content">
@@ -690,13 +706,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="view-claim" class="view-panel">
   <div class="list-head">
     <div class="list-head-title">웰체크 일만사 청구현황 비교</div>
+    <div id="claim-board-badge"></div>
   </div>
   <div class="list-content" style="padding:16px">
     <div class="sub" style="margin-bottom:8px">사무소 청구전환율 기준으로 정렬하고, 누적 환자당 청구 지표를 함께 비교</div>
-    <div style="font-size:11.5px;font-weight:700;color:#2F78B7;background:#F3FAFF;border:1px solid #CBE3F6;border-radius:8px;padding:6px 10px;margin-bottom:8px;display:inline-block">🖱️ 그래프의 점이나 표의 행을 클릭하면 사무소 상세 지표를 확인할 수 있어요</div>
     <div class="stFilters" id="claim-metric-toggle"></div>
     <div class="claimLegend" id="claim-legend"></div>
-    <div class="card chartBox"><canvas id="claimScatter"></canvas></div>
+    <div class="card chartBox" style="position:relative">
+      <div style="position:absolute;top:14px;right:18px;z-index:2;font-size:10.5px;font-weight:700;color:#2F78B7;background:#F3FAFF;border:1px solid #CBE3F6;border-radius:999px;padding:4px 9px">🖱️ 클릭하면 상세 지표</div>
+      <canvas id="claimScatter"></canvas>
+    </div>
     <div class="sectionTitle">웰체크 일만사 청구현황 비교표</div>
     <div id="claimTable"></div>
   </div>
@@ -712,14 +731,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="modal-title" id="add-title">일정 추가</div>
         <div id="add-mr-badge" class="dm-badge" style="margin-top:4px;display:none"></div>
       </div>
-      <button class="modal-x" onclick="closeAdd()">✕</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button type="button" class="btn btn-cancel" id="add-mode-toggle-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap" onclick="toggleAddMode()">📋 거래처 외 일정</button>
+        <button class="modal-x" onclick="closeAdd()">✕</button>
+      </div>
     </div>
     <div class="dm-fields">
-      <div class="dm-field">
+      <div class="dm-field" id="mr-field">
         <div class="dm-field-lbl">담당자</div>
         <select id="inp-mr" onchange="loadClinicsByMR(this.value);updateAddBadge()" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
       </div>
-      <div class="dm-field">
+      <div class="dm-field" id="timeslot-field">
         <div class="dm-field-lbl">시간대</div>
         <select id="inp-time" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer">
           <option value="all">종일</option>
@@ -727,29 +749,52 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <option value="pm">오후</option>
         </select>
       </div>
+    </div>
+    <div class="dm-fields" style="margin-top:8px" id="time-exact-fields">
       <div class="dm-field">
-        <div class="dm-field-lbl">정확한 시간(선택)</div>
+        <div class="dm-field-lbl">시작 시간(선택)</div>
         <select id="inp-time-exact" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
       </div>
-    </div>
-    <div class="fld">
-      <label>거래처명</label>
-      <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요" autocomplete="off">
-      <datalist id="clinic-list"></datalist>
-    </div>
-    <div class="dm-fields" style="margin-top:8px">
-      <div class="dm-field" style="grid-column:span 2">
-        <div class="dm-field-lbl">마지막 방문일</div>
-        <div id="add-last-visit" style="font-size:12px;font-weight:600;color:var(--t1)">거래처 선택 후 표시</div>
+      <div class="dm-field">
+        <div class="dm-field-lbl">종료 시간(선택)</div>
+        <select id="inp-time-exact-end" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
       </div>
     </div>
-    <div style="margin-top:8px">
-      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">웰체크 활성도</div>
-      <div class="gm-wrap" id="add-gauge-wrap" style="display:none">
-        <div class="gm-bar"><div class="gm-fill" id="add-gauge-fill" style="width:0%"></div></div>
-        <span class="gm-num" id="add-gauge-num" style="font-weight:600">0명</span>
+    <div id="visit-only-fields">
+      <div class="fld">
+        <label>거래처명</label>
+        <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요" autocomplete="off">
+        <datalist id="clinic-list"></datalist>
       </div>
-      <div id="add-gauge-empty" style="font-size:11px;color:var(--t3)">거래처 선택 후 표시됩니다</div>
+      <div class="dm-fields" style="margin-top:8px">
+        <div class="dm-field" style="grid-column:span 2">
+          <div class="dm-field-lbl">마지막 방문일</div>
+          <div id="add-last-visit" style="font-size:12px;font-weight:600;color:var(--t1)">거래처 선택 후 표시</div>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">웰체크 활성도</div>
+        <div class="gm-wrap" id="add-gauge-wrap" style="display:none">
+          <div class="gm-bar"><div class="gm-fill" id="add-gauge-fill" style="width:0%"></div></div>
+          <span class="gm-num" id="add-gauge-num" style="font-weight:600">0명</span>
+        </div>
+        <div id="add-gauge-empty" style="font-size:11px;color:var(--t3)">거래처 선택 후 표시됩니다</div>
+      </div>
+    </div>
+    <div id="leave-only-fields" style="display:none">
+      <div class="fld">
+        <label>일정 종류</label>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button type="button" class="type-btn" onclick="setEvType(this,'off')">🌿 연차</button>
+          <button type="button" class="type-btn" onclick="setEvType(this,'study')">📚 학소</button>
+          <button type="button" class="type-btn" onclick="setEvType(this,'office')">🏢 내근</button>
+          <button type="button" class="type-btn" onclick="setEvType(this,'etc')">📌 기타</button>
+        </div>
+      </div>
+      <div class="fld" id="leave-etc-label-fld" style="display:none">
+        <label>기타 일정명</label>
+        <input type="text" id="inp-etc-label" placeholder="예) 병원 방문, 교육 참석 등" autocomplete="off">
+      </div>
     </div>
     <div style="margin-top:10px">
       <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">메모</div>
@@ -760,17 +805,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="hidden" id="inp-patients" value="0">
     <input type="hidden" id="inp-device" value="미도입">
     <input type="hidden" id="inp-edu" value="미이수">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
-      <div style="display:flex;gap:5px">
-        <button type="button" class="type-btn" onclick="setEvType(this,'off')">🌿 연차</button>
-        <button type="button" class="type-btn" onclick="setEvType(this,'office')">🏢 내근</button>
-        <button type="button" class="type-btn" onclick="setEvType(this,'study')">📚 학소</button>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-del" id="del-btn" style="display:none" onclick="deleteEv()">삭제</button>
-        <button class="btn btn-cancel" onclick="closeAdd()">취소</button>
-        <button class="btn btn-save" onclick="saveEv()">저장</button>
-      </div>
+    <div class="modal-btns">
+      <button class="btn btn-del" id="del-btn" style="display:none;margin-right:auto" onclick="deleteEv()">삭제</button>
+      <button class="btn btn-cancel" onclick="closeAdd()">취소</button>
+      <button class="btn btn-save" onclick="saveEv()">저장</button>
     </div>
   </div>
 </div>
@@ -853,13 +891,14 @@ var REGIONS = [];   // regions 테이블 rows
 var MGR_PALETTE=[['#FFE0E9','#B03060'],['#E0F7F1','#0F766E'],['#FFF0D9','#A16207'],['#E3E8FF','#4338CA'],['#F0FFE0','#4D7C0F'],['#FFE8D9','#C2410C']];
 var REG_PALETTE=[['#FFE8F0','#C2185B'],['#E8F5FF','#0369A1'],['#F0FFE8','#3F6212'],['#FFF8E0','#A16207'],['#F3E8FF','#7C3AED']];
 
-function getMR(code){ return MR[code]||{bg:'#EEEEEE',t:'#666666',name:code||'미지정'}; }
+// 담당자 코드가 직원 목록과 매칭 안 되면(오래된 데이터 등) 회색 대신 눈에 띄는 샛노란색+빨간 글씨로 표시
+function getMR(code){ return MR[code]||{bg:'#FFF200',t:'#D40000',name:code||'미지정'}; }
 function getRegionStyle(name){
   var r=REGIONS.find(function(x){return x.name===name;});
   return r?{color:r.color,bg:r.bg}:{color:'#AAAAAA',bg:'#F8F8F8'};
 }
 function loadManagers(){
-  return db.from('managers').select('*').order('sort').order('id').then(function(res){
+  return db.from('managers').select('*').eq('office', currentOffice).order('sort').order('id').then(function(res){
     if(res.error){ console.error(res.error); alert('담당자 목록을 불러오지 못했습니다: '+res.error.message); return; }
     MANAGERS=res.data;
     MR={};
@@ -868,7 +907,7 @@ function loadManagers(){
   });
 }
 function loadRegions(){
-  return db.from('regions').select('*').order('sort').order('id').then(function(res){
+  return db.from('regions').select('*').eq('office', currentOffice).order('sort').order('id').then(function(res){
     if(res.error){ console.error(res.error); alert('지역 목록을 불러오지 못했습니다: '+res.error.message); return; }
     REGIONS=res.data;
     renderRegionUI();
@@ -998,7 +1037,7 @@ function deleteMgr(id){
   var msg=m.name+' 담당자를 삭제할까요?';
   if(nClinics||nEvs) msg+='\n(담당 거래처 '+nClinics+'곳, 일정 '+nEvs+'건은 남지만 담당자 색상/이름 표시가 사라집니다)';
   if(!confirm(msg)) return;
-  db.from('managers').delete().eq('id',id).then(function(res){
+  db.from('managers').delete().eq('id',id).eq('office',currentOffice).then(function(res){
     if(res.error){ alert('삭제 실패: '+res.error.message); return; }
     loadManagers().then(function(){
       renderMgrList();
@@ -1011,6 +1050,8 @@ function deleteMgr(id){
 // ===== 지역 관리 모달 =====
 function openRegModal(){ renderRegList(); document.getElementById('reg-name').value=''; document.getElementById('reg-ov').classList.add('ov-open'); }
 function closeRegModal(){ document.getElementById('reg-ov').classList.remove('ov-open'); }
+function openInstallGuide(){ document.getElementById('install-guide-ov').classList.add('ov-open'); }
+function closeInstallGuide(){ document.getElementById('install-guide-ov').classList.remove('ov-open'); }
 function renderRegList(){
   var el=document.getElementById('reg-list');
   el.innerHTML=REGIONS.map(function(r){
@@ -1026,7 +1067,7 @@ function addRegion(){
   if(!name){ alert('지역명을 입력해주세요.'); return; }
   if(REGIONS.some(function(r){return r.name===name;})){ alert('이미 등록된 지역입니다.'); return; }
   var p=REG_PALETTE[REGIONS.length%REG_PALETTE.length];
-  db.from('regions').insert({name:name,bg:p[0],color:p[1],sort:REGIONS.length+1}).then(function(res){
+  db.from('regions').insert({name:name,bg:p[0],color:p[1],sort:REGIONS.length+1,office:currentOffice}).then(function(res){
     if(res.error){ alert('추가 실패: '+res.error.message); return; }
     document.getElementById('reg-name').value='';
     loadRegions().then(function(){
@@ -1042,7 +1083,7 @@ function deleteRegion(id){
   var msg=r.name+' 지역을 삭제할까요?';
   if(n) msg+='\n(이 지역 거래처 '+n+'곳은 남지만 지역 색상 표시가 사라집니다)';
   if(!confirm(msg)) return;
-  db.from('regions').delete().eq('id',id).then(function(res){
+  db.from('regions').delete().eq('id',id).eq('office',currentOffice).then(function(res){
     if(res.error){ alert('삭제 실패: '+res.error.message); return; }
     loadRegions().then(function(){
       renderRegList();
@@ -1061,7 +1102,7 @@ function openImportModal(mode){
   // "현재 선택된 사무소" 문구를 그대로 쓰면 마치 이 사무소만 바뀌는 것처럼 오해하게 됨
   document.getElementById('import-scope-line').innerHTML = IMPORT_MODE==='simple'
     ? '현재 선택된 사무소: <b style="color:var(--t1)">'+currentOffice+'</b>'
-    : '🌐 전국 37개 사무소 전체가 갱신됩니다 <span style="color:var(--t3);font-weight:400">(업로드 기준 사무소: '+currentOffice+')</span>';
+    : '🌐 전국 37개 사무소 전체가 갱신됩니다';
   refreshUnmatchedBadge();
   document.getElementById('import-status').textContent='';
   document.getElementById('import-file').value='';
@@ -1077,7 +1118,13 @@ function openImportModal(mode){
   var descEl=document.getElementById('current-desc');
   var baselineGroup=document.getElementById('baseline-group');
   var dailyEl=document.getElementById('daily-desc');
-  if(dailyEl) dailyEl.innerHTML='🔵 '+currentOffice+'의 활성환자수·청구건수만 참고용 반영 (활성처 판정엔 영향 없음)';
+  if(dailyEl){
+    dailyEl.innerHTML = IMPORT_MODE==='simple'
+      ? ('🔵 '+currentOffice+'의 활성환자수·청구건수만 참고용 반영 (활성처 판정엔 영향 없음)')
+      : ('🔵 '+currentOffice+'의 활성환자수·청구건수만 참고용 반영 — 이 파일은 사무소 구분이 없어서 관리자가 올려도 지금 선택된 사무소만 적용돼요.');
+    // 이 파일은 "이미 등록된 거래처"만 매칭 가능한 구조라, 아직 거래처가 하나도 없는 신규 사무소는 이 파일로 못 채움 - 미리 경고
+    if(!officeRows().length) dailyEl.innerHTML += '<br><b style="color:#B01A1A">⚠️ "'+currentOffice+'" 사무소는 아직 거래처가 없어서 이 파일로는 채울 수 없어요. "활성처 현황(RAW 파일)"을 이용해주세요.</b>';
+  }
   if(IMPORT_MODE==='simple'){
     titleEl.textContent='📥 데이터 업로드 (거래처현황판)';
     badgeEl.style.display='none';
@@ -1088,7 +1135,7 @@ function openImportModal(mode){
     titleEl.textContent='📥 데이터 업로드 (전체)';
     badgeEl.style.display='inline-block';
     badgeEl.textContent='관리자 업로드 시 전체 사무소 반영';
-    descEl.innerHTML='🟢 '+currentOffice+'의 거래처현황판이 갱신됩니다. 관리자가 올리면 케어플랜·교육상담·환자관리·점검평가 건수까지 전국 37개 사무소 청구현황지표에도 반영됩니다.';
+    descEl.innerHTML='🟢 관리자가 올리면 전국 37개 사무소가 각자 거래처현황판이 갱신되고, 케어플랜·교육상담·환자관리·점검평가 건수까지 청구현황지표에 반영됩니다.';
     baselineGroup.style.display='block';
     // 월마감 베이스라인(전사 확정 데이터)은 관리자만
     var baselineRadio=document.querySelector('input[name="import-type"][value="baseline"]');
@@ -1139,17 +1186,47 @@ function loadImportLog(){
 }
 function renderImportLog(){
   var el=document.getElementById('import-log-line');
-  if(!el) return;
-  var rows=IMPORT_LOG.filter(function(x){return x.office===currentOffice;});
-  var labels={current:'활성처', baseline:'베이스라인', daily:'MAU'};
-  if(!rows.length){ el.textContent=''; return; }
-  el.textContent='데이터 기준일: '+rows.map(function(r){
-    var d=r.source_date?r.source_date.slice(5).replace('-','.'):'?';
-    return labels[r.import_type]+' '+d;
-  }).join(' · ');
+  if(el){
+    var rows=IMPORT_LOG.filter(function(x){return x.office===currentOffice;});
+    var labels={current:'활성처', baseline:'베이스라인', daily:'MAU'};
+    if(!rows.length){ el.textContent=''; }
+    else{
+      el.textContent='데이터 기준일: '+rows.map(function(r){
+        var d=r.source_date?r.source_date.slice(5).replace('-','.'):'?';
+        return labels[r.import_type]+' '+d;
+      }).join(' · ');
+    }
+  }
+  renderOfficeBoardBadge();
+  renderClaimBoardBadge();
 }
 function logImport(type, asOfDate){
-  return db.from('import_log').upsert({office:currentOffice, import_type:type, source_date:asOfDate}, {onConflict:'office,import_type'}).then(function(){ loadImportLog(); });
+  return db.from('import_log').upsert({office:currentOffice, import_type:type, source_date:asOfDate, import_mode:IMPORT_MODE, imported_at:new Date().toISOString()}, {onConflict:'office,import_type'}).then(function(){ loadImportLog(); });
+}
+// 거래처현황판/청구현황판 상단에 "최근 이 데이터가 언제, 누구(사무소/관리자)에 의해 갱신됐는지" 배지
+function latestImportRow(types){
+  var rows=IMPORT_LOG.filter(function(r){ return r.office===currentOffice&&types.indexOf(r.import_type)>=0; });
+  if(!rows.length) return null;
+  return rows.sort(function(a,b){ return new Date(b.imported_at)-new Date(a.imported_at); })[0];
+}
+function importStatusBadgeHtml(types, showUploader){
+  var r=latestImportRow(types);
+  if(!r) return '<span style="font-size:11px;color:var(--t3)">아직 업데이트 이력이 없습니다</span>';
+  var updatedAt=(r.imported_at||'').slice(0,10)||'?';
+  var srcDate=r.source_date||'?';
+  var parts=[];
+  if(showUploader) parts.push(r.import_mode==='full'?'관리자 업데이트':'사무소 업데이트');
+  parts.push('업데이트일 '+updatedAt);
+  parts.push((showUploader?'데이터':'정산') + ' 기준일 ' + srcDate);
+  return '<span style="font-size:11px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:4px 10px">📌 '+parts.join(' · ')+'</span>';
+}
+function renderOfficeBoardBadge(){
+  var el=document.getElementById('office-board-badge');
+  if(el) el.innerHTML=importStatusBadgeHtml(['current','daily'], true);
+}
+function renderClaimBoardBadge(){
+  var el=document.getElementById('claim-board-badge');
+  if(el) el.innerHTML=importStatusBadgeHtml(['current','baseline'], false);
 }
 // 업로드할 때마다(활성처 현황/베이스라인) office_claims 최신 상태를 별도 이력 테이블에도 남겨서,
 // 매 업로드 시점의 스냅샷을 나중에 돌아볼 수 있게 함 (숫자 몇 개짜리 행이라 저장 비용은 무시할 수준)
@@ -1340,7 +1417,10 @@ function buildValidationCurrent(parsed){
   // 여러 명이 올릴 수 있게 되면서, 예전(더 오래된) 파일을 나중에 실수로 올려 최신 숫자를 되돌리는 사고를 막기 위한 기준일 비교
   var lastLog=IMPORT_LOG.find(function(r){return r.office===currentOffice&&r.import_type==='current';});
   var isStale=!!(lastLog&&lastLog.source_date&&parsed.asOf&&parsed.asOf<lastLog.source_date);
+  var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
+  var natCount=parsed.natToday?Object.keys(parsed.natToday).length:0;
   var items=[
+    {label:'반영 범위', value: isFullAdmin?('전국 '+(natCount+1)+'개 사무소 전체(거래처현황판+청구현황판)'):(currentOffice+' 거래처현황판만 (청구현황판은 안 건드림)')},
     {label:'파일 기준일', value:parsed.asOf+(isStale?' — 마지막 반영('+lastLog.source_date+')보다 과거 파일! 잘못된 파일은 아닌지 확인하세요':''), warn:isStale},
     {label:'사업자번호 매칭', value:matched+' / '+updates.length+'건'},
     {label:'신규 거래처', value:fresh+'처'},
@@ -1376,8 +1456,10 @@ function parseCurrentRaw(wb){
   for(var i=0;i<rows.length;i++){ if(rows[i]&&rows[i][0]==='사업부'){ hIdx=i; break; } }
   if(hIdx<0) return {error:'"거래처별 RAW" 헤더 행을 찾을 수 없습니다.'};
   var updates=[];
-  // 이 시트도 전사 거래처가 다 들어있는 시트라, 같은 패스에서 전국 사무소별 당일 현황도 같이 집계
+  // 이 시트도 전사 거래처가 다 들어있는 시트라, 같은 패스에서 전국 사무소별 당일 현황(집계)과
+  // 개별 거래처 단위 데이터(natUpdates, 관리자가 전체 업로드할 때만 다른 사무소 clinics 테이블에 반영)를 같이 뽑음
   var natToday={}; // office -> {claim,patient,active,care,edu,mgmt,check}
+  var natUpdates=[]; // 다른 사무소들의 거래처 단위 상세 데이터
   for(var r=hIdx+1;r<rows.length;r++){
     var row=rows[r];
     if(!row) continue;
@@ -1387,15 +1469,16 @@ function parseCurrentRaw(wb){
     if(!isCur&&!isNat) continue;
     var bizNo=row[11];
     if(bizNo==null) continue;
+    bizNo=String(bizNo).replace(/\.0$/,'');
     var patientsVal=Number(row[6])||0; // 일만사 활성환자(웰체크 일만사 환자수 - 활성 환자 목표 지표)
     var nonVal=Number(row[7])||0; // 비일만사 활성환자
     var claimVal=Number(row[27])||0;
     var careCnt=Number(row[29])||0, eduCnt=Number(row[30])||0, mgmtCnt=Number(row[31])||0, checkCnt=Number(row[32])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
     if(isCur){
-      bizNo=String(bizNo).replace(/\.0$/,'');
       updates.push({
         biz_no:bizNo,
         name:row[10],
+        mr:row[3]||'-',
         patients: patientsVal,
         non_patients: nonVal,
         is_active: (patientsVal+nonVal)>=20, // 회사 기준(일만사+비일만사 합산 20명)으로 활성처 판정. 일만사만으로는 미달이지만 비일만사로 활성이 된 곳은 nonOnlyActive로 별도 표기
@@ -1411,6 +1494,15 @@ function parseCurrentRaw(wb){
       natToday[rowOffice].patient+=patientsVal;
       natToday[rowOffice].care+=careCnt; natToday[rowOffice].edu+=eduCnt; natToday[rowOffice].mgmt+=mgmtCnt; natToday[rowOffice].check+=checkCnt;
       if((patientsVal+nonVal)>=20) natToday[rowOffice].active++;
+      natUpdates.push({
+        office:rowOffice, biz_no:bizNo, name:row[10], mr:row[3]||'-',
+        patients: patientsVal, non_patients: nonVal,
+        is_active: (patientsVal+nonVal)>=20,
+        inactive_transition: row[8]==='해당',
+        prev_active: row[22]==='해당',
+        prev_patients: Number(row[23])||0,
+        care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt
+      });
     }
   }
   if(!updates.length) return {error:'"'+currentOffice+'" 사무소 데이터를 파일에서 찾지 못했습니다.'};
@@ -1436,11 +1528,33 @@ function parseCurrentRaw(wb){
       }
     }
   }
-  return {updates:updates, natToday:natToday, natBusiness:natBusiness, asOf: findAsOfDate(wb, ['사업부사무소현황','거래처별 RAW'])||new Date().toISOString().slice(0,10)};
+  return {updates:updates, natToday:natToday, natBusiness:natBusiness, natUpdates:natUpdates, asOf: findAsOfDate(wb, ['사업부사무소현황','거래처별 RAW'])||new Date().toISOString().slice(0,10)};
 }
 function commitCurrentRaw(parsed, status){
   var updates=parsed.updates, asOf=parsed.asOf;
+  var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   status.textContent=updates.length+'개 거래처 반영 중...';
+  if(isFullAdmin){
+    // 관리자가 "전체" 버튼으로 올릴 땐 currentOffice도 다른 사무소들과 똑같이 통째로 upsert함.
+    // (아래 update()-only 경로는 이미 등록된 거래처만 갱신되고 신규 거래처는 전부 "미매칭"으로 빠지는데,
+    // 그러면 아직 거래처가 하나도 없는 사무소는 이 경로로 부트스트랩(최초 등록)할 수가 없었음)
+    var natUpdates=parsed.natUpdates||[];
+    var allRows=updates.map(function(u){
+      return {office:currentOffice, biz_no:u.biz_no, name:u.name, mr:u.mr||'-', patients:u.patients, non_patients:u.non_patients,
+        is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
+        care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
+    }).concat(natUpdates);
+    db.from('clinics').upsert(allRows, {onConflict:'office,biz_no'}).then(function(res){
+      if(res.error){ status.textContent='전국 거래처 반영 실패: '+res.error.message; return; }
+      logImport('current', asOf);
+      loadClinics().then(function(){
+        if(document.getElementById('view-list').classList.contains('v-active')) renderList();
+        if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+        saveCurrentMonthClaims(updates, asOf, status, 0, parsed.natToday, parsed.natBusiness, natUpdates.length);
+      });
+    });
+    return;
+  }
   Promise.all(updates.map(function(u){
     return db.from('clinics').update({
       patients:u.patients, non_patients:u.non_patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
@@ -1456,19 +1570,13 @@ function commitCurrentRaw(parsed, status){
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
-      // "거래처현황판" 전용 버튼(IMPORT_MODE==='simple')으로 올리면 관리자가 올려도 청구현황판은 절대 안 건드림.
-      // "전체" 버튼(전국 사업부 하단, 관리자 전용)으로 올릴 때만 청구현황판(진행중 청구현황·전국 반영)까지 반영
-      if(IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자'){
-        saveCurrentMonthClaims(updates, asOf, status, failed, parsed.natToday, parsed.natBusiness);
-      } else {
-        status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 거래처현황판만 갱신됨'+(IMPORT_MODE==='full'?' — 청구현황판 반영은 관리자 업로드 시에만 이뤄져요':'')+')';
-      }
+      status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 거래처현황판만 갱신됨)';
     });
   });
 }
 // 거래처별 RAW 파일에 있는 이번달(마감 전) 청구금액을 clinic_claims/office_claims의 최신 월로 upsert
 // 누적청구(cum_claim)는 직전 마감월의 누적치 + 이번달 진행중 금액으로 계산
-function saveCurrentMonthClaims(updates, asOf, status, failed, natToday, natBusiness){
+function saveCurrentMonthClaims(updates, asOf, status, failed, natToday, natBusiness, natClinicCount){
   var monthStr=asOf.slice(0,7)+'-01';
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
     var priorOffice=OFFICE_CLAIMS.filter(function(o){return o.office===currentOffice&&o.month<monthStr;}).sort(function(a,b){return a.month<b.month?1:-1;})[0];
@@ -1514,7 +1622,7 @@ function saveCurrentMonthClaims(updates, asOf, status, failed, natToday, natBusi
     ];
     if(nationalRecords.length) calls.push(db.from('office_claims').upsert(nationalRecords, {onConflict:'office,month'}));
     Promise.all(calls).then(function(){
-      status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 이번달 진행중 청구현황도 반영됨)'+(nationalRecords.length?(' · 전국 '+nationalRecords.length+'개 사무소 비교 데이터도 갱신됨'):'');
+      status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 이번달 진행중 청구현황도 반영됨)'+(nationalRecords.length?(' · 전국 '+nationalRecords.length+'개 사무소 비교 데이터도 갱신됨'):'')+(natClinicCount?(' · 다른 사무소 거래처 '+natClinicCount+'곳도 반영됨'):'');
       saveSnapshot('current', officeRecord);
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
       if(document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
@@ -1556,7 +1664,11 @@ function parseDailyMAU(wb){
       check_eval_cnt: colCheck>=0?(Number(row[colCheck])||0):0
     });
   }
-  if(!updates.length) return {error:'"'+currentOffice+'" 사무소에 등록된 사업자번호와 일치하는 행을 파일에서 찾지 못했습니다.'};
+  if(!updates.length){
+    // 이 파일은 사무소 구분 컬럼 자체가 없어서 "이미 등록된 거래처"만 매칭 가능 - 신규 사무소는 이 파일로는 절대 못 채움
+    if(!officeRows().length) return {error:'"일일 MAU 파일"은 사무소 구분이 없어서, 아직 거래처가 하나도 없는 "'+currentOffice+'" 사무소는 이 파일로 채울 수 없어요.\n\n"활성처 현황 (RAW 파일)"을 선택해서 관리자 전체 업로드로 올려주세요 - 그 파일 하나로 전국 37개 사무소가 한 번에 채워집니다.'};
+    return {error:'"'+currentOffice+'" 사무소에 등록된 사업자번호와 일치하는 행을 파일에서 찾지 못했습니다.'};
+  }
   return {updates:updates, asOf:new Date().toISOString().slice(0,10)}; // 이 파일엔 자체 기준일 표기가 없어 업로드일로 기록(실시간 파일 특성상 근사치)
 }
 function commitDailyMAU(parsed, status){
@@ -1769,7 +1881,7 @@ var MEMO_STORE = {}; // 거래처명 → 메모 저장소 (clinic_memos 테이�
 
 function rowToEv(r){
   return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, label:r.label,
-    time:r.time_slot, exactTime:r.exact_time||'', evType:r.ev_type, region:r.region, patients:r.patients,
+    time:r.time_slot, exactTime:r.exact_time||'', exactTimeEnd:r.exact_time_end||'', evType:r.ev_type, region:r.region, patients:r.patients,
     memo:r.memo||'', checked:r.checked, status:r.status};
 }
 // "14:30" -> "2p30", "09:00" -> "9a", "14:00" -> "2p"
@@ -1797,7 +1909,9 @@ function byExactTimeDesc(a,b){
   return b.exactTime.localeCompare(a.exactTime);
 }
 function loadSchedules(){
-  return db.from('schedules').select('*').neq('status','rejected').order('id').then(function(res){
+  // 예전엔 전 사무소 일정을 다 받아온 뒤 담당자(mr)로 짐작해서 걸러냈는데, mr이 비어있거나
+  // 매칭 안 되는 일정은 모든 사무소에 그대로 노출되는 구멍이 있었음. 서버 단에서 사무소로 필터링
+  return db.from('schedules').select('*').eq('office', currentOffice).neq('status','rejected').order('id').then(function(res){
     if(res.error){ console.error(res.error); alert('일정을 불러오지 못했습니다: '+res.error.message); return; }
     EVENTS={}; REQUESTS=[];
     res.data.forEach(function(r){
@@ -1848,43 +1962,31 @@ function evInOffice(e){
   if(!m) return true; // 담당자 미지정 일정은 모든 사무소에 표시
   return (m.office||'경인1')===currentOffice;
 }
+// 사무소 전환은 "전국 사업부 현황"(selectNatOffice)에서만 하고, 여기는 현재 사무소명을 고정 텍스트로만 표시
 function renderOfficeSelect(){
-  // CLINICS는 이제 내 사무소 데이터만 로드하므로(보안상 다른 사무소 거래처는 아예 안 내려받음),
-  // 드롭다운 목록은 전국 사무소 고정 목록(NATIONAL_OFFICES)에서 가져옴
-  var offices=Array.from(new Set(
-    NATIONAL_OFFICES
-      .concat(CLINICS.map(function(c){return c.office||'경인1';}))
-      .concat(MANAGERS.map(function(m){return m.office||'경인1';}))
-  )).sort();
-  if(!offices.length) offices=['경인1'];
-  var sel=document.getElementById('officeSelect');
-  if(sel) sel.innerHTML=offices.map(function(o){return '<option value="'+o+'"'+(o===currentOffice?' selected':'')+'>'+o+'사무소</option>';}).join('');
-  applyOfficeDisplayMode(offices.length);
-}
-// 사무소가 1개뿐이면(현재 경인1만 존재) 드롭다운 대신 고정 텍스트로 표시 — 전국 사업부 현황과 기능이 겹치는 걸 방지
-function applyOfficeDisplayMode(officeCount){
-  var sel=document.getElementById('officeSelect');
   var fixed=document.getElementById('officeFixedLabel');
-  if(!sel||!fixed) return;
-  var multiRole = !!(currentUser && isMultiOfficeRole(currentUser.role));
-  var showDropdown = multiRole && officeCount>=2;
-  sel.style.display = showDropdown?'':'none';
-  fixed.style.display = showDropdown?'none':'block';
-  if(!showDropdown) fixed.textContent=(currentOffice||'경인1')+'사무소';
+  if(fixed) fixed.textContent=(currentOffice||'경인1')+'사무소';
 }
 function setCurrentOffice(o){
   currentOffice=o;
   activeMR='all';
   stMR='all';
-  // CLINICS가 이제 사무소별로 필터링해서 로드되므로, 사무소를 바꾸면 그 사무소 데이터를 새로 받아와야 함
-  loadClinics().then(function(){
+  // CLINICS/일정/담당자/지역 모두 사무소별로 필터링해서 로드되므로, 사무소를 바꾸면 그 사무소 데이터를 새로 받아와야 함
+  return Promise.all([loadClinics(), loadSchedules(), loadManagers(), loadRegions()]).then(function(){
     renderManagerUI();
-    renderCalendar();
     renderRequests();
     renderImportLog();
     if(document.getElementById('view-list').classList.contains('v-active')) renderList();
     if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
     if(document.getElementById('view-clinicslist').classList.contains('v-active')) renderClinicsListView();
+  });
+}
+// 전국 사업부 현황에서 사무소 태그를 눌렀을 때 그 사무소로 드릴다운
+function selectNatOffice(office){
+  document.querySelectorAll('.biz-tag').forEach(function(t){ t.classList.toggle('cur', t.textContent===office); });
+  switchView('list');
+  setCurrentOffice(office).then(function(){
+    if(!CLINICS.length) alert(office+' 사무소는 아직 거래처현황판 데이터가 없어요 (그 사무소에서 RAW 파일을 올려야 채워져요).');
   });
 }
 
@@ -2170,6 +2272,66 @@ var NATIONAL_BUSINESS={'남부1':'서울3','남부2':'서울3','남부3':'서울
   '경남1':'지방3','경남2':'지방3','대구1':'지방3','대구2':'지방3','대구3':'지방3','부산1':'지방3','부산2':'지방3','부산3':'지방3','울산':'지방3',
   '광주1':'지방4','광주2':'지방4','대전1':'지방4','대전2':'지방4','전주1':'지방4','전주2':'지방4','청주1':'지방4','청주2':'지방4',
   '폴라리스1':'폴라리스','폴라리스2':'폴라리스'};
+// 사무소별 담당지역 (각 사무소 표 기준, 첫 항목이 그 사무소 이름과 가장 가까운 "중심 지역"이 되도록 순서 정리)
+var OFFICE_REGIONS={
+  '남부1':['서울 강남구','서울 서초구','서울 송파구','서울 성동구'],
+  '남부2':['경기 성남시 분당구','경기 성남시 수정구','경기 하남시','경기 성남시 중원구'],
+  '남부3':['경기 과천시','서울 관악구','서울 금천구','서울 동작구','서울 영등포구'],
+  '동부1':['서울 강동구','경기 하남시','서울 광진구','서울 중랑구'],
+  '동부2':['경기 광주시','경기 여주시','경기 이천시','서울 송파구'],
+  '북부1':['서울 은평구','서울 용산구','서울 서대문구','서울 마포구','서울 동대문구','서울 중구','서울 종로구'],
+  '북부2':['경기 구리시','경기 양평군','서울 강북구','서울 노원구','서울 도봉구','서울 성북구'],
+  '북부3':['경기 가평군','경기 남양주시','경기 동두천시','경기 양주시','경기 의정부시','경기 포천시'],
+  '서부1':['서울 구로구','서울 양천구','서울 강서구'],
+  '서부2':['경기 파주시','경기 고양시'],
+  '강원':['강릉시','고성군','동해시','삼척시','속초시','양구군','양양군','원주시','인제군','정선군','춘천시','태백시','평창군','홍천군','화천군','횡성군'],
+  '경기1':['수원시 권선구','수원시 영통구','수원시 장안구','수원시 팔달구','오산시','화성시'],
+  '경기2':['안산시 단원구','안산시 상록구','안양시 동안구','안양시 만안구','군포시','수원시(일부)','의왕시'],
+  '경기3':['안성시','용인시 기흥구','용인시 수지구','용인시 처인구','평택시','화성시'],
+  '경인1':['경기 김포시','경기 부천시','인천 강화군','인천 계양구','인천 부평구'],
+  '경인2':['인천 동구','인천 미추홀구','인천 서구','인천 옹진군','인천 중구'],
+  '경인3':['인천 남동구','인천 연수구','경기 시흥시(66%)'],
+  '경인4':['경기 광명시','경기 부천시','경기 시흥시(34%)'],
+  '경남1':['경남 고성군','경남 김해시','경남 밀양시','경남 사천시','경남 산청군','창원시 마산합포구','창원시 마산회원구','창원시 진해구','경남 하동군','경남 함양군','경남 함안군'],
+  '경남2':['경남 거제시','경남 거창군','경남 남해군','경남 의령군','경남 진주시','경남 창녕군','창원시 성산구','창원시 의창구','경남 통영시','경남 합천군'],
+  '대구1':['경북 고령군','경북 김천시','경북 성주군','경북 청도군','대구 달서구','대구 달성군','대구 서구','대구 수성구'],
+  '대구2':['경북 경산시','경북 경주시','경북 영덕군','경북 영천시','포항시 남구','포항시 북구','대구 남구','대구 달서구','대구 수성구','대구 동구'],
+  '대구3':['경북 상주시','경북 의성군','경북 구미시','경북 군위군','경북 문경시','경북 봉화군','경북 안동시','경북 영양군','경북 영주시','경북 예천군','경북 울진군','경북 청송군','경북 칠곡군','대구 북구','대구 중구'],
+  '부산1':['부산 강서구','부산 동구','부산 부산진구','부산 사하구'],
+  '부산2':['부산 금정구','부산 남구','부산 동래구','부산 북구','부산 연제구','부산 중구'],
+  '부산3':['부산 기장군','부산 사상구','부산 서구','부산 수영구','부산 영도구','부산 해운대구'],
+  '울산':['울산 남구','울산 동구','울산 북구','울산 울주군','울산 중구','경남 양산시'],
+  '광주1':['광주 남구','광주 동구','광주 서구','전남 목포시','전남 무안군','전남 여수시','전남 진도군','전남 해남군','전남 화순군','전남 신안군','광주 광산구(일부)'],
+  '광주2':['광주 북구','광주 동구','전남 강진군','전남 고흥군','전남 곡성군','전남 광양시','전남 구례군','전남 나주시','전남 담양군','전남 보성군','전남 순천시','전남 영광군','전남 영암군','전남 완도군','전남 장성군','전남 장흥군','광주 광산구(일부)'],
+  '대전1':['대전 서구','대전 중구(75%)','충남 계룡시','충남 보령시','충남 부여군','충남 서산시','충남 청양군','충남 홍성군','충남 태안군'],
+  '대전2':['대전 대덕구','대전 동구','대전 유성구','대전 중구(25%)','전북 무주군','충남 금산군','충남 논산시','충남 당진시','충남 예산군','충북 영동군','충북 옥천군'],
+  '전주1':['전북 전주시(일부)','전북 군산시','전북 완주군','전북 익산시','전북 남원시','전북 임실군','전북 순창군','충남 서천군'],
+  '전주2':['전북 전주시(일부)','전북 장수군','전북 진안군','전북 고창군','전북 김제시','전북 부안군','전북 정읍시'],
+  '청주1':['청주시 상당구','청주시 청원구','충남 공주시','충남 아산시','충북 진천군','충북 충주시','천안시 동남구','천안시 서북구(53%)','세종시(7%)'],
+  '청주2':['청주시 서원구','청주시 흥덕구','충북 괴산군','충북 보은군','충북 음성군','충북 증평군','천안시 서북구(47%)','세종시(93%)'],
+  '폴라리스1':[],
+  '폴라리스2':[]
+};
+var REGION_PROVINCE_WORDS=['서울','경기','인천','충남','충북','전남','전북','경남','경북','광주','대전','대구','부산','울산','강원','세종','창원시','청주시','수원시','안산시','안양시','용인시','천안시','포항시','성남시'];
+// "경기 김포시" -> "김포", "대전 중구(75%)" -> "중구" 처럼 시/도 접두어와 %표기를 떼고 짧게 표시
+function shortRegionName(r){
+  var s=r.replace(/\([^)]*\)/g,'').trim();
+  REGION_PROVINCE_WORDS.forEach(function(p){ if(s.indexOf(p+' ')===0) s=s.slice(p.length+1); });
+  if(/^[가-힣]{2,}(시|군|구)$/.test(s)&&s.length>2) s=s.slice(0,-1);
+  return s;
+}
+function officeRegionLabel(office){
+  var regions=OFFICE_REGIONS[office];
+  if(!regions||!regions.length) return '';
+  var shown=regions.slice(0,3).map(shortRegionName);
+  return shown.join(' / ')+(regions.length>3?' 외 '+(regions.length-3)+'곳':'');
+}
+function renderOfficeRegionLabel(){
+  var el=document.getElementById('cal-head-right');
+  if(!el) return;
+  var label=officeRegionLabel(currentOffice);
+  el.textContent=currentOffice+'사무소'+(label?(' · '+label):'');
+}
 // ===== 유틸 =====
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, function(c){
@@ -2228,6 +2390,15 @@ function switchView(v){
   if(v==='clinicslist') renderClinicsListView();
   closeMobileSidebar();
 }
+// 좌측 상단 로고/타이틀 클릭 시 - 새로고침한 것처럼 캘린더 화면으로 돌아가고, 열려있던 전국 사업부 현황은 닫음
+function goHome(){
+  switchView('cal');
+  var nat=document.getElementById('sb-nat');
+  if(nat && nat.classList.contains('open')){
+    nat.classList.remove('open');
+    document.getElementById('nat-body').style.display='none';
+  }
+}
 function toggleMobileSidebar(){
   document.querySelector('.sb').classList.toggle('sb-open');
   document.getElementById('sb-backdrop').classList.toggle('sb-open');
@@ -2278,6 +2449,7 @@ function applyMRButtons(){
 
 // ===== 달력 렌더링 =====
 function renderCalendar(){
+  renderOfficeRegionLabel();
   autoCheckPastEvents();
   var evs=getEvs();
   var firstDow=new Date(curYear,curMonth-1,1).getDay();
@@ -2400,12 +2572,26 @@ function openDayList(day, zone, evsList){
 }
 function closeDayList(){document.getElementById('daylist-ov').classList.remove('ov-open');}
 
+function timeRangeLabel(ev){
+  if(!ev.exactTime) return '';
+  return compactTime(ev.exactTime)+(ev.exactTimeEnd?'~'+compactTime(ev.exactTimeEnd):'');
+}
+var EV_TYPE_ICON={off:'🌿',study:'📚',office:'🏢',etc:'📌'};
 function buildChip(ev, isAll){
   var m=getMR(ev.mr);
+  var isLeave=ev.evType&&ev.evType!=='visit';
   var chip=document.createElement('div');
-  chip.className='ev'+(isAll?' ev-allday':'');
-  chip.style.background=m.bg; chip.style.color=m.t;
-  
+  chip.className='ev'+(isAll?' ev-allday':'')+(isLeave?' ev-leave':'');
+  if(isLeave){
+    // 거래처 외 일정(연차/학소/내근/기타)은 사무소·담당자 상관없이 항상 같은 빗금 디자인으로 구분 -
+    // 담당자 색은 빗금 줄무늬 색으로만 반영해서 "누구" 일정인지는 여전히 한눈에 보이게 함
+    chip.style.backgroundImage='repeating-linear-gradient(135deg, '+m.bg+' 0px, '+m.bg+' 6px, #ffffff 6px, #ffffff 11px)';
+    chip.style.color='#2d2926';
+    chip.style.border='1.5px solid #2d2926';
+  } else {
+    chip.style.background=m.bg; chip.style.color=m.t;
+  }
+
   var cb=document.createElement('input');cb.type='checkbox';cb.checked=ev.checked;
   cb.onclick=function(e){
     e.stopPropagation();ev.checked=cb.checked;
@@ -2414,8 +2600,9 @@ function buildChip(ev, isAll){
     });
   };
   var txt=document.createElement('span');txt.className='ev-txt';
-  var timeStr=ev.exactTime?compactTime(ev.exactTime):'';
-  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+escapeHtml(ev.label);
+  var timeStr=timeRangeLabel(ev);
+  var iconStr=isLeave?(EV_TYPE_ICON[ev.evType]||'📌')+' ':'';
+  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+escapeHtml(ev.label);
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
   chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
   chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
@@ -2434,12 +2621,15 @@ function openAdd(day, zone){
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
   document.getElementById('inp-time').value=zone;
   document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML('');
+  document.getElementById('inp-time-exact-end').innerHTML=timeOptionsHTML('');
   document.getElementById('inp-patients').value='';
   document.getElementById('inp-ilmansa').value='참여';
   document.getElementById('inp-device').value='미도입';
   document.getElementById('inp-edu').value='이수완료';
   document.getElementById('inp-memo').value='';
+  document.getElementById('inp-etc-label').value='';
   document.getElementById('del-btn').style.display='none';
+  setAddMode('visit');
   document.getElementById('add-ov').classList.add('ov-open');
 }
 function openEditModal(ev){
@@ -2451,36 +2641,54 @@ function openEditModal(ev){
   document.getElementById('inp-clinic').value=ev.label;
   document.getElementById('inp-time').value=ev.time;
   document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML(ev.exactTime||'');
+  document.getElementById('inp-time-exact-end').innerHTML=timeOptionsHTML(ev.exactTimeEnd||'');
   document.getElementById('inp-patients').value=ev.patients;
   document.getElementById('inp-ilmansa').value=ev.ilmansa;
   document.getElementById('inp-device').value=ev.device;
   document.getElementById('inp-edu').value=ev.edu;
   document.getElementById('inp-memo').value=ev.memo;
   document.getElementById('del-btn').style.display='inline-block';
+  var isLeave=ev.evType&&ev.evType!=='visit';
+  setAddMode(isLeave?'leave':'visit');
+  if(isLeave){
+    document.getElementById('inp-etc-label').value=ev.evType==='etc'?ev.label:'';
+    var btn=document.querySelector('#leave-only-fields .type-btn[onclick*="\''+ev.evType+'\'"]');
+    if(btn) setEvType(btn, ev.evType);
+  }
   document.getElementById('detail-ov').classList.remove('ov-open');
   document.getElementById('add-ov').classList.add('ov-open');
 }
 function saveEv(){
-  var label=document.getElementById('inp-clinic').value.trim();
-  if(!label){alert('거래처명을 입력해주세요.');return;}
+  var isLeave=ADD_MODE==='leave';
+  var evType=document.getElementById('inp-type').value||'visit';
+  var label;
+  if(isLeave){
+    label = evType==='etc' ? document.getElementById('inp-etc-label').value.trim() : (EV_TYPE_LABELS[evType]||'일정');
+    if(!label){ alert('기타 일정명을 입력해주세요.'); return; }
+  } else {
+    label=document.getElementById('inp-clinic').value.trim();
+    if(!label){alert('거래처명을 입력해주세요.');return;}
+  }
   var row={
     year:curYear, month:curMonth, day:addDay,
+    office:currentOffice,
     mr:document.getElementById('inp-mr').value,
     label:label,
-    region:(function(){
+    region: isLeave ? '기타' : (function(){
       var cl=CLINICS.find(function(c){return c.name===label;});
       if(cl&&cl.region) return cl.region;
       var rg=REGIONS.find(function(r){return label.indexOf(r.name)>=0;});
       return rg?rg.name:'기타';
     })(),
-    patients:parseInt(document.getElementById('inp-patients').value)||0,
+    patients: isLeave?0:(parseInt(document.getElementById('inp-patients').value)||0),
     time_slot:document.getElementById('inp-time').value,
     exact_time:document.getElementById('inp-time-exact').value||null,
-    ev_type:document.getElementById('inp-type').value||'visit',
+    exact_time_end:document.getElementById('inp-time-exact-end').value||null,
+    ev_type:evType,
     memo:document.getElementById('inp-memo').value
   };
   // 메모 저장
-  if(row.memo){ MEMO_STORE[label]=row.memo; saveMemoToDB(label,row.memo); }
+  if(row.memo && !isLeave){ MEMO_STORE[label]=row.memo; saveMemoToDB(label,row.memo); }
   if(editingId){
     // 수정: 바로 반영
     db.from('schedules').update(row).eq('id',editingId).then(function(res){
@@ -2515,7 +2723,7 @@ function openDetail(id){
   document.getElementById('dm-name').textContent=ev.label;
   var badge=document.getElementById('dm-badge');
   badge.textContent=m.name+' MR'; badge.style.background=m.bg; badge.style.color=m.t;
-  document.getElementById('dm-time').textContent=timeLabel(ev.time)+(ev.exactTime?' · '+compactTime(ev.exactTime):'');
+  document.getElementById('dm-time').textContent=timeLabel(ev.time)+(ev.exactTime?' · '+timeRangeLabel(ev):'');
   document.getElementById('dm-checked').textContent=ev.checked?'✅ 방문 완료':'⬜ 방문 예정';
   // 마지막 방문일: 같은 거래처의 체크된 이벤트 중 가장 최근
   var allEvs2=[];
@@ -2564,7 +2772,7 @@ function closeDetail(){document.getElementById('detail-ov').classList.remove('ov
 // ===== 거래처 현황판 =====
 function listFilter(mr, reg){
   listMR=mr; listReg=reg;
-  var title=currentOffice+' 거래처 현황판';
+  var title=currentOffice+' 웰체크 거래처 현황판';
   if(mr!=='all') title=getMR(mr).name+' 담당 거래처';
   else if(reg!=='all') title='📍 '+reg+' 지역 거래처';
   document.getElementById('list-title').textContent=title;
@@ -2574,14 +2782,14 @@ function listFilter(mr, reg){
 function fpClick(btn, mr, reg){
   listMR=mr; listReg=reg;
   renderFilterPills();
-  var title=currentOffice+' 거래처 현황판';
+  var title=currentOffice+' 웰체크 거래처 현황판';
   if(mr!=='all') title=getMR(mr).name+' 담당 거래처';
   else if(reg!=='all') title='📍 '+reg+' 지역 거래처';
   document.getElementById('list-title').textContent=title;
   renderList();
 }
 function renderList(){
-  if(listMR==='all'&&listReg==='all') document.getElementById('list-title').textContent=currentOffice+' 거래처 현황판';
+  if(listMR==='all'&&listReg==='all') document.getElementById('list-title').textContent=currentOffice+' 웰체크 거래처 현황판';
   var fpRow=document.getElementById('fp-row');
   if(fpRow) fpRow.style.display=(listMR==='all'&&listReg==='all')?'flex':'none';
   var data=officeRows().filter(function(c){
@@ -2781,7 +2989,25 @@ function renderStTrend(){
   var oc=stOfficeClaims();
   if(!oc.length) return;
   var labels=oc.map(function(o){return parseInt(o.month.slice(5,7))+'월';});
-  var newSeries=oc.map(function(o,i){return i===0?0:(o.cum_patient||0)-(oc[i-1].cum_patient||0);});
+  // "월 신규/순증 활성환자"는 사무소 전체 스냅샷(cum_patient)의 단순 전월 대비 증감이 아니라,
+  // 거래처별로 전월 대비 늘어난 만큼만(감소는 0으로 처리, 상쇄시키지 않음) 합산 - 순수 신규 확보 패턴을 보기 위함
+  var ccByClinic={};
+  CLINIC_CLAIMS.filter(function(c){return c.office===currentOffice;}).forEach(function(c){
+    if(!ccByClinic[c.clinic_name]) ccByClinic[c.clinic_name]={};
+    ccByClinic[c.clinic_name][c.month]=c.patient||0;
+  });
+  var newSeries=oc.map(function(o,i){
+    if(i===0) return 0;
+    var prevMonth=oc[i-1].month;
+    var gain=0;
+    Object.keys(ccByClinic).forEach(function(name){
+      var cur=ccByClinic[name][o.month]||0;
+      var prev=ccByClinic[name][prevMonth]||0;
+      var d=cur-prev;
+      if(d>0) gain+=d;
+    });
+    return gain;
+  });
   stTrendChart=new Chart(ctx,{
     type:'line',
     data:{labels:labels,datasets:[
@@ -3123,9 +3349,15 @@ loadMemos().then(loadSchedules); // Supabase에서 일정·메모 로드
 loadClinics();                   // Supabase에서 거래처 로드
 loadClinicClaims().then(buildClaimMap); // 거래처별 청구 데이터 로드 (현황판 청구 컬럼용)
 loadVisitNotes();                // 방문 후 특이사항 메모판 로드
+// 전국 사업부 현황의 사무소 태그 클릭 -> 그 사무소로 전환해서 조회 (신사업팀장·사업부장·관리자만 이 영역이 잠금 해제되어 있음)
+document.getElementById('nat-body').addEventListener('click',function(e){
+  if(!e.target.classList.contains('biz-tag')) return;
+  selectNatOffice(e.target.textContent);
+});
 // 관리 모달 외부 클릭 닫기
 document.getElementById('mgr-ov').addEventListener('click',function(e){if(e.target===this)closeMgrModal();});
 document.getElementById('reg-ov').addEventListener('click',function(e){if(e.target===this)closeRegModal();});
+document.getElementById('install-guide-ov').addEventListener('click',function(e){if(e.target===this)closeInstallGuide();});
 document.getElementById('emp-ov').addEventListener('click',function(e){if(e.target===this)closeEmpModal();});
 
 // ===== 담당자 선택 → 거래처 자동 로드 =====
@@ -3577,7 +3809,54 @@ function showDotPopup(el){
     });
   },100);
 }
-function setEvType(btn,type){document.getElementById('inp-type').value=type;document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('type-active');});btn.classList.add('type-active');}
+function setEvType(btn,type){
+  document.getElementById('inp-type').value=type;
+  document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('type-active');});
+  btn.classList.add('type-active');
+  document.getElementById('leave-etc-label-fld').style.display=type==='etc'?'block':'none';
+  updateLeaveTimeVisibility();
+}
+var EV_TYPE_LABELS={off:'연차',study:'학소',office:'내근'};
+// 연차/학소는 항상 종일 처리(시간 선택 자체를 숨김), 내근/기타만 시간대+시작/종료시간 선택 가능
+function updateLeaveTimeVisibility(){
+  var isLeave=ADD_MODE==='leave';
+  var type=document.getElementById('inp-type').value;
+  var forceAllDay = isLeave && (type==='off'||type==='study');
+  document.getElementById('timeslot-field').style.display = forceAllDay?'none':'';
+  document.getElementById('time-exact-fields').style.display = forceAllDay?'none':'';
+  if(forceAllDay){
+    document.getElementById('inp-time').value='all';
+    document.getElementById('inp-time-exact').value='';
+    document.getElementById('inp-time-exact-end').value='';
+  }
+}
+// 거래처 일정 <-> 거래처 외 일정(연차/학소/내근/기타) 모드 전환
+var ADD_MODE='visit';
+function toggleAddMode(){ setAddMode(ADD_MODE==='visit'?'leave':'visit'); }
+function setAddMode(mode){
+  ADD_MODE=mode;
+  var isLeave=mode==='leave';
+  document.getElementById('visit-only-fields').style.display=isLeave?'none':'block';
+  document.getElementById('leave-only-fields').style.display=isLeave?'block':'none';
+  document.getElementById('add-mode-toggle-btn').textContent=isLeave?'🏥 거래처 일정으로':'📋 거래처 외 일정';
+  // 거래처 외 일정(연차/학소/내근/기타)은 간호사 본인 일정이라 담당자를 따로 고를 필요가 없어 담당자 선택 UI 자체를 숨김
+  // (현재 담당자 필터 탭이 특정 인물로 고정돼 있으면 그 사람으로, 아니면 기존 기본값을 그대로 사용)
+  document.getElementById('mr-field').style.display=isLeave?'none':'';
+  if(isLeave){
+    document.getElementById('inp-clinic').value='';
+    if(typeof activeMR!=='undefined' && activeMR && activeMR!=='all' && MR[activeMR]){
+      document.getElementById('inp-mr').value=activeMR;
+      updateAddBadge();
+    }
+    if(document.getElementById('inp-type').value==='visit') document.getElementById('inp-type').value='off';
+    var checked=document.querySelector('.type-btn.type-active');
+    if(!checked){ var firstBtn=document.querySelector('#leave-only-fields .type-btn'); if(firstBtn) setEvType(firstBtn,'off'); }
+  } else {
+    document.getElementById('inp-type').value='visit';
+    document.querySelectorAll('.type-btn').forEach(function(b){b.classList.remove('type-active');});
+  }
+  updateLeaveTimeVisibility();
+}
 
 function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=document.getElementById('add-mr-badge');if(b&&MR[mr]){b.textContent=MR[mr].name+' MR';b.style.background=MR[mr].bg;b.style.color=MR[mr].t;b.style.display='inline-flex';}}
 
@@ -4036,6 +4315,31 @@ document.getElementById('ccm-ov').addEventListener('click',function(e){if(e.targ
     <div style="display:flex;gap:6px;margin-top:12px">
       <input type="text" id="reg-name" placeholder="새 지역명 (예: 서구)" autocomplete="off" style="flex:1;padding:7px 10px;font-size:12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);font-family:inherit">
       <button class="btn btn-save" onclick="addRegion()">+ 추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 모바일 홈 화면 설치 안내 -->
+<div class="ov" id="install-guide-ov">
+  <div class="modal modal-sm" style="width:340px">
+    <div class="modal-head">
+      <span class="modal-title">📱 앱처럼 설치하기</span>
+      <button class="modal-x" onclick="closeInstallGuide()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.6">
+      <div style="margin-bottom:14px">
+        <div style="font-weight:700;color:var(--t1);margin-bottom:6px">🍎 아이폰 (Safari)</div>
+        <div>1. 하단 <b>공유 버튼</b>(⬆️ 네모에서 위로 화살표)을 눌러요</div>
+        <div>2. 아래로 스크롤해서 <b>"홈 화면에 추가"</b>를 눌러요</div>
+        <div>3. <b>추가</b>를 누르면 완료</div>
+      </div>
+      <div>
+        <div style="font-weight:700;color:var(--t1);margin-bottom:6px">🤖 안드로이드 (Chrome)</div>
+        <div>1. 우측 상단 <b>점 3개(⋮) 메뉴</b>를 눌러요</div>
+        <div>2. <b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b>를 눌러요</div>
+        <div>3. <b>설치</b>를 누르면 완료</div>
+      </div>
+      <div style="margin-top:12px;padding:8px 10px;background:var(--bg2);border-radius:8px;font-size:11px;color:var(--t3)">💡 이미 추가했는데 아이콘/이름이 예전 그대로라면, 기존 아이콘을 삭제하고 새로 추가해보세요.</div>
     </div>
   </div>
 </div>
