@@ -682,8 +682,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="kpiGrid" id="st-kpi"></div>
     <div class="sectionTitle">평가기준 대응</div>
     <div class="miniGrid" id="st-mini"></div>
+    <div class="sectionTitle">청구기준 대응</div>
+    <div class="miniGrid" id="st-eval"></div>
     <div class="sectionTitle">사무소 월별 활성환자 · 청구 추이</div>
-    <div class="sub" style="margin:-6px 0 10px;font-size:12px">점선=월 신규/순증 활성환자·누적 활성환자, 실선=월별·누적 청구금액</div>
+    <div class="sub" style="margin:-6px 0 10px;font-size:12px">점선=월 신규/순증 활성환자·누적 활성환자·청구-평가 GAP, 실선=월별·누적 청구금액</div>
     <div class="card chartBox2"><canvas id="officeTrend"></canvas></div>
     <div class="sectionTitle">거래처 리스트</div>
     <div class="stFilters" id="st-filters"></div>
@@ -2695,8 +2697,15 @@ function saveEv(){
       if(res.error){alert('저장 실패: '+res.error.message);return;}
       closeAdd(); loadSchedules();
     });
+  } else if(isLeave){
+    // 거래처 외 일정(연차/학소/내근/기타)은 방문 요청이 아니라 본인 개인 일정이라, 승인 절차 없이 바로 캘린더에 반영
+    row.checked=false; row.status='approved';
+    db.from('schedules').insert(row).then(function(res){
+      if(res.error){alert('저장 실패: '+res.error.message);return;}
+      closeAdd(); loadSchedules();
+    });
   } else {
-    // 신규: 요청으로 등록 (간호사 승낙 대기)
+    // 신규 거래처 방문: 요청으로 등록 (간호사 승낙 대기)
     row.checked=false; row.status='pending';
     db.from('schedules').insert(row).then(function(res){
       if(res.error){alert('저장 실패: '+res.error.message);return;}
@@ -2850,7 +2859,13 @@ function renderList(){
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
       +'<td style="cursor:pointer" title="클릭하면 활성환자·청구 추이 그래프가 열립니다" onclick="openClinicChartModal('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
-      +(function(){var cl=clinicClaim(c);return '<td style="text-align:right;font-size:10px;color:var(--t2)">'+(cl&&cl.mclaim?cl.mclaim.toLocaleString():'-')+'</td><td style="text-align:right;font-size:10px;font-weight:600">'+(cl&&cl.cum?cl.cum.toLocaleString():'-')+'</td>';})()
+      +(function(){
+        var cl=clinicClaim(c);
+        var gap=clinicEvalGap(c);
+        var gapTxt=gap===null?'-':((gap>=0?'+':'')+gap.toLocaleString());
+        var gapColor=gap===null?'var(--t2)':(gap>=0?'#15803d':'#B01A1A');
+        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600">'+(cl&&cl.cum?cl.cum.toLocaleString():'-')+'</td>';
+      })()
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
       // DH 구역
@@ -2880,7 +2895,7 @@ function renderList(){
     +sth('ilmansa','일만사','width:48px;text-align:center')
     +sth('welcheck','웰체크','width:44px;text-align:center')
     +sth('patients','활성도','width:150px;text-align:center')
-    +'<th style="width:64px;text-align:right">6월청구</th>'
+    +'<th style="width:72px;text-align:right">평가청구GAP</th>'
     +'<th style="width:72px;text-align:right">누적청구</th>'
     +sth('edu','심화교육','width:68px;text-align:center')
     +sth('dues','의협회비','width:56px;text-align:center')
@@ -2908,25 +2923,67 @@ document.addEventListener('click', function(e){
 
 // ===== 활성처 전략판 (6월 마감 대비 최신 현황) =====
 var stFilter='all';
-var CLAIM_BY_NAME={}; // 거래처명(trim) → {month, cum, mclaim}
+var CLAIM_BY_NAME={}; // 거래처명(trim) → {month, cum, mclaim, cumPatient, careAmt, eduAmt, mgmtAmt, checkAmt}
 function buildClaimMap(){
   CLAIM_BY_NAME={};
   CLINIC_CLAIMS.forEach(function(r){
     var k=(r.clinic_name||'').trim();
     var cur=CLAIM_BY_NAME[k];
-    if(!cur||r.month>cur.month) CLAIM_BY_NAME[k]={month:r.month, cum:r.cum_claim||0, mclaim:r.claim||0};
+    if(!cur||r.month>cur.month) CLAIM_BY_NAME[k]={month:r.month, cum:r.cum_claim||0, mclaim:r.claim||0,
+      cumPatient:r.cum_patient||0, careAmt:r.care_amt||0, eduAmt:r.edu_amt||0, mgmtAmt:r.mgmt_amt||0, checkAmt:r.check_amt||0};
   });
 }
 function clinicClaim(c){ return CLAIM_BY_NAME[(c.name||'').trim()]||null; }
+// 거래처별 평가청구 GAP: 그 거래처의 최신 파일 기준 누적 활성환자수×10(평가실적) 대비
+// 같은 시점 총청구금액×10(실제 청구금액). 매칭되는 청구 데이터가 없으면 null
+function clinicEvalGap(c){
+  var cl=clinicClaim(c);
+  if(!cl) return null;
+  var evalScore=(cl.cumPatient||0)*10;
+  var actualClaim=(cl.mclaim||0)*10;
+  return actualClaim-evalScore;
+}
 var stTrendChart=null;
 function renderStrategyView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
     buildClaimMap();
     renderStKPI();
+    renderStEval();
     renderStTrend();
     renderStFilters();
     renderStTable();
   });
+}
+// 일만사 평가 실적(현재까지 누적 활성환자수×10) 대비 실제 청구금액(이번달 1일~파일 기준일 총청구금액×10)으로
+// 청구 전환율과 청구-평가 GAP을 계산. 월이 끝나야 알 수 있는 결산치가 아니라, 파일이 갱신될 때마다 바로바로 갱신되는
+// "지금 페이스로 가면 이번달 목표 대비 얼마나 남았는지" 지표 - 데이터가 1개월치만 있어도(전월 마감 없이도) 계산 가능.
+// 케어플랜/교육상담/환자관리/점검평가 4개로 쪼갠 금액(_amt)은 "청구현황 베이스라인(월마감)" 파일에만 있고, 매일 올리는
+// "활성처 현황(RAW)" 파일에는 건수만 있어(금액 없음) 월 중엔 항상 0으로 잡혀 GAP이 왜곡됨 - 대신 RAW/베이스라인 둘 다
+// 매번 채워주는 총청구금액(claim) 필드를 써서 마감 전에도 실제 값이 나오게 함
+function stEvalConversion(){
+  var oc=stOfficeClaims(); // stOfficeClaims()는 month 오름차순
+  if(!oc.length) return null;
+  var cur=oc[oc.length-1];
+  var evalScore=(cur.cum_patient||0)*10;
+  var actualClaim=(cur.claim||0)*10;
+  var rate=evalScore?Math.round(actualClaim/evalScore*100):0;
+  return {month:cur.month, evalScore:evalScore, actualClaim:actualClaim, rate:rate, gap:actualClaim-evalScore};
+}
+function renderStEval(){
+  var el=document.getElementById('st-eval');
+  if(!el) return;
+  var ec=stEvalConversion();
+  if(!ec){ el.innerHTML='<div class="sub" style="padding:4px 0">청구현황 데이터가 아직 없어서 계산할 수 없어요.</div>'; return; }
+  var gapPositive=ec.gap>=0;
+  var tiles=[
+    ['일만사 평가 실적',ec.evalScore.toLocaleString(),'현재까지 누적 활성환자수 × 10'],
+    ['실제 일만사 청구금액',ec.actualClaim.toLocaleString()+'원',(parseInt(ec.month.slice(5,7))+'월 1일~파일 기준일 총청구금액 × 10')],
+    ['청구 전환율',ec.rate+'%','실제 청구금액 ÷ 평가 실적'],
+    ['청구-평가 GAP',(gapPositive?'+':'')+ec.gap.toLocaleString(),gapPositive?'평가 실적 초과 달성':'남은 기간 동안 더 청구가 필요해요']
+  ];
+  el.innerHTML=tiles.map(function(t){
+    return '<div class="miniCard" style="cursor:default"><div class="klbl">'+t[0]+'</div><b style="font-size:20px">'+t[1]+'</b><div class="khint">'+t[2]+'</div></div>';
+  }).join('');
 }
 function renderClinicsListView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
@@ -3008,13 +3065,20 @@ function renderStTrend(){
     });
     return gain;
   });
+  // 월별 청구-평가 GAP: 그 달 기준 누적 활성환자수×10(평가실적) 대비 그 달 총청구금액×10(실제 청구금액)
+  var gapSeries=oc.map(function(o){
+    var evalScore=(o.cum_patient||0)*10;
+    var actualClaim=(o.claim||0)*10;
+    return actualClaim-evalScore;
+  });
   stTrendChart=new Chart(ctx,{
     type:'line',
     data:{labels:labels,datasets:[
       {label:'월 신규/순증 활성환자',data:newSeries,borderColor:'#B596D6',backgroundColor:'rgba(181,150,214,.08)',borderDash:[4,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
       {label:'누적 활성환자',data:oc.map(function(o){return o.cum_patient;}),borderColor:'#86B7E7',backgroundColor:'rgba(134,183,231,.08)',borderDash:[8,5],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y'},
       {label:'월별 청구금액',data:oc.map(function(o){return o.claim;}),borderColor:'#F4A7B9',backgroundColor:'#F4A7B9',borderWidth:2.5,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'},
-      {label:'누적 청구금액',data:oc.map(function(o){return o.cum_claim;}),borderColor:'#E6C06A',backgroundColor:'#E6C06A',borderWidth:3,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'}
+      {label:'누적 청구금액',data:oc.map(function(o){return o.cum_claim;}),borderColor:'#E6C06A',backgroundColor:'#E6C06A',borderWidth:3,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'},
+      {label:'청구-평가 GAP',data:gapSeries,borderColor:'#5CAD6E',backgroundColor:'#5CAD6E',borderDash:[2,3],borderWidth:2,pointRadius:3,fill:false,tension:.25,yAxisID:'y1'}
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{position:'top'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+(c.raw||0).toLocaleString();}}}},
@@ -3138,6 +3202,7 @@ var claimMetric = 'perPatient'; // 'perPatient' | 'perClinic' | 'total' - 청구
 function metricInfo(m){
   if(m==='total') return {key:'cumClaim', field:'cumClaim', label:'누적청구총액'};
   if(m==='perClinic') return {key:'claimPerClinic', field:'claimPerClinic', label:'처당청구액'};
+  if(m==='gap') return {key:'gap', field:'gap', label:'청구-평가 GAP'};
   return {key:'claimPerPatient', field:'claimPerPatient', label:'환자당청구액'};
 }
 function money(v){ return (v||0).toLocaleString('ko-KR')+'원'; }
@@ -3169,7 +3234,7 @@ function setClaimMetric(m){
 function renderClaimMetricToggle(){
   var el=document.getElementById('claim-metric-toggle');
   if(!el) return;
-  var opts=[['perPatient','환자당 청구액'],['perClinic','처당 청구액'],['total','누적 청구총액']];
+  var opts=[['perPatient','환자당 청구액'],['perClinic','처당 청구액'],['total','누적 청구총액'],['gap','청구-평가 GAP']];
   el.innerHTML=opts.map(function(o){ return '<button class="'+(claimMetric===o[0]?'active':'')+'" onclick="setClaimMetric(\''+o[0]+'\')">'+o[1]+'</button>'; }).join('');
   var lg=document.getElementById('claim-legend');
   if(lg) lg.innerHTML='<span><i class="dot" style="background:#8CC6A3"></i>'+metricInfo(claimMetric).label+' 상위30%</span><span><i class="dot" style="background:#D8C16D"></i>중위40%</span><span><i class="dot" style="background:#D99A9A"></i>하위30%</span>';
@@ -3195,8 +3260,10 @@ function latestOfficeRows(){
     var achievement=r.target?Math.round((r.active_count/r.target)*100):0;
     var claimPerPatient=r.cum_patient?Math.round(r.cum_claim/r.cum_patient):0;
     var claimPerClinic=r.active_count?Math.round(r.cum_claim/r.active_count):0;
+    // 청구-평가 GAP: 그 사무소 최신월 기준 누적 활성환자수×10(평가실적) 대비 그 달 총청구금액×10(실제 청구금액)
+    var gap=(r.claim||0)*10-(r.cum_patient||0)*10;
     return {office:r.office, business:r.business||'', target:r.target||0, activeCount:r.active_count||0,
-      achievement:achievement, patientSum:r.cum_patient||0, claimPerPatient:claimPerPatient, claimPerClinic:claimPerClinic, cumClaim:r.cum_claim||0,
+      achievement:achievement, patientSum:r.cum_patient||0, claimPerPatient:claimPerPatient, claimPerClinic:claimPerClinic, cumClaim:r.cum_claim||0, gap:gap,
       careCnt:r.care_cnt||0, eduCnt:r.edu_cnt||0, mgmtCnt:r.mgmt_cnt||0, checkCnt:r.check_cnt||0,
       careAmt:r.care_amt||0, eduAmt:r.edu_amt||0, mgmtAmt:r.mgmt_amt||0, checkAmt:r.check_amt||0};
   });
@@ -3205,7 +3272,8 @@ function latestOfficeRows(){
   var metricBuckets={
     perPatient:effBuckets,
     perClinic:assignBuckets(base,'claimPerClinic'),
-    total:assignBuckets(base,'cumClaim')
+    total:assignBuckets(base,'cumClaim'),
+    gap:assignBuckets(base,'gap')
   };
   return base.map(function(o){
     var cb=companyBuckets[o.office], eb=effBuckets[o.office], tb=metricBuckets.total[o.office];
