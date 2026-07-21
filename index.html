@@ -3325,7 +3325,9 @@ function showSimpleModal(title, bodyHtml){
 }
 // 회사 스프레드시트 관행(단위: 천 원)대로 축약 표기 - 원 단위 그대로 쓰면 자릿수가 너무 길어서 한눈에 안 들어옴
 function companyMoney(v){ return Math.round((v||0)/1000).toLocaleString(); }
-function companyMoneyHtml(v){ return companyMoney(v)+' <span style="font-weight:400;color:var(--t3);font-size:13px">(원)</span>'; }
+function companyMoneyHtml(v){ return companyMoney(v)+' <span style="font-weight:400;color:var(--t3);font-size:13px">(천원)</span>'; }
+// 표 셀에 단위를 직접 붙여서(헤더만 보고 착각하지 않게) 천원 단위 그대로 노출
+function moneyK(v){ return companyMoney(v)+'천원'; }
 // 일만사 평가 실적/청구는 원래 "청구현황 베이스라인" 파일의 "평가-청구(사무소)" 시트에 회사가 이미 계산해둔
 // 공식 수치(parseEvalClaimSheet, office_claims.eval_clinic_cnt 등)를 그대로 쓰는 게 가장 정확함.
 // 아직 이번 달분 베이스라인이 안 올라와서 그 값이 없을 때만, 일만사 참여 거래처수 대비 이번달 청구 발생 거래처수로
@@ -3370,7 +3372,7 @@ function renderStEval(){
     ['일만사 평가 실적',ec.patientCnt.toLocaleString()+'명','일만사 환자수 × 10'],
     ['당월 일만사 청구금액',companyMoneyHtml(ec.actualClaim),'케어플랜+교육상담+점검평가+환자관리 합산'],
     ['청구 전환율',ec.rate+'%','일만사&웰체크 '+ec.evalCnt+'처<br>일만사 청구처 '+ec.claimCnt+'처'],
-    ['청구-평가 GAP','<span style="color:'+gapColor+'">'+(gapPositive?'+':'')+companyMoney(ec.gap)+'</span>',gapPositive?'평가 실적 초과 달성':'남은 기간 동안 더 청구가 필요해요']
+    ['청구-평가 GAP','<span style="color:'+gapColor+'">'+(gapPositive?'+':'')+companyMoney(ec.gap)+'</span> <span style="font-weight:400;color:var(--t3);font-size:13px">(천원)</span>',gapPositive?'평가 실적 초과 달성':'남은 기간 동안 더 청구가 필요해요']
   ];
   el.innerHTML=tiles.map(function(t){
     return '<div class="miniCard" style="cursor:default"><div class="klbl">'+t[0]+'</div><b style="font-size:20px">'+t[1]+'</b><div class="khint">'+t[2]+'</div></div>';
@@ -3867,22 +3869,22 @@ function renderBizTableInto(el, rows, title, key){
     return '<td style="text-align:right;padding:6px 8px'+(warn?';color:#B01A1A;font-weight:700':'')+'">'+val+'%</td>';
   }
   el.innerHTML+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
-    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:6px 8px">사업부</th><th style="padding:6px 8px">사무소 수</th><th style="padding:6px 8px">활성환자</th><th style="padding:6px 8px">누적청구액</th><th style="padding:6px 8px">환자당청구</th><th style="padding:6px 8px">GAP 합계</th><th style="padding:6px 8px">환자당 GAP</th><th style="padding:6px 8px">케어플랜 진행률</th><th style="padding:6px 8px">교육상담 진행률</th><th style="padding:6px 8px">환자관리 진행률</th><th style="padding:6px 8px">점검평가 진행률</th></tr></thead><tbody>'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:6px 8px">사업부</th><th style="padding:6px 8px">사무소 수</th><th style="padding:6px 8px">활성환자</th><th style="padding:6px 8px">누적청구액(천원)</th><th style="padding:6px 8px">환자당청구(천원)</th><th style="padding:6px 8px">GAP 합계(천원)</th><th style="padding:6px 8px">환자당 GAP(천원)</th><th style="padding:6px 8px">케어플랜 진행률</th><th style="padding:6px 8px">교육상담 진행률</th><th style="padding:6px 8px">환자관리 진행률</th><th style="padding:6px 8px">점검평가 진행률</th></tr></thead><tbody>'
     +list.map(function(g){
       var gapColor=g.gap>=0?'#1048A0':'#B01A1A';
       var gppColor=g.gapPerPatient>=0?'#1048A0':'#B01A1A';
       return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:6px 8px;font-weight:800">'+g.business+'</td>'
         +'<td style="text-align:center;padding:6px 8px">'+g.officeCount+'</td>'
         +'<td style="text-align:right;padding:6px 8px">'+g.patientSum.toLocaleString()+'명</td>'
-        +'<td style="text-align:right;padding:6px 8px">'+money(g.cumClaim)+'</td>'
-        +'<td style="text-align:right;padding:6px 8px">'+money(g.claimPerPatient)+'</td>'
-        +'<td style="text-align:right;padding:6px 8px;color:'+gapColor+'">'+(g.gap>=0?'+':'')+money(g.gap)+'</td>'
-        +'<td style="text-align:right;padding:6px 8px;font-weight:800;color:'+gppColor+'">'+(g.gapPerPatient>=0?'+':'')+money(g.gapPerPatient)+'</td>'
+        +'<td style="text-align:right;padding:6px 8px">'+moneyK(g.cumClaim)+'</td>'
+        +'<td style="text-align:right;padding:6px 8px">'+moneyK(g.claimPerPatient)+'</td>'
+        +'<td style="text-align:right;padding:6px 8px;color:'+gapColor+'">'+(g.gap>=0?'+':'')+moneyK(g.gap)+'</td>'
+        +'<td style="text-align:right;padding:6px 8px;font-weight:800;color:'+gppColor+'">'+(g.gapPerPatient>=0?'+':'')+moneyK(g.gapPerPatient)+'</td>'
         +shareCell(g.carePenet,'care')+shareCell(g.eduPenet,'edu')+shareCell(g.mgmtPenet,'mgmt')+shareCell(g.checkPenet,'check')
         +'</tr>';
     }).join('')
     +'</tbody></table></div>'
-    +'<div style="font-size:10.5px;color:var(--t3);margin-top:4px">진행률 = 해당 유형 누적 청구건수 ÷ 활성환자수. 전체 평균보다 3%p 이상 낮으면 빨간색.</div>';
+    +'<div style="font-size:10.5px;color:var(--t3);margin-top:4px">금액은 전부 천원 단위입니다(예: "3,070천원"=307만원). 진행률 = 해당 유형 누적 청구건수 ÷ 활성환자수. 전체 평균보다 3%p 이상 낮으면 빨간색.</div>';
 
   var worst=list[0];
   if(worst && worst.gapPerPatient<0){
@@ -3891,7 +3893,7 @@ function renderBizTableInto(el, rows, title, key){
     }).sort(function(a,b){return a.diff-b.diff;});
     var w=diffs[0];
     if(w.diff<-2){
-      el.innerHTML+='<div style="margin-top:8px;padding:9px 12px;background:#FFF3E9;border-radius:8px;font-size:12.5px;color:#9B5B2E">📊 <b>'+worst.business+'</b> 사업부가 환자당 GAP '+money(worst.gapPerPatient)+'로 가장 낮습니다(사업부 규모차를 없앤 1인당 기준). 유형별 진행률을 보면 <b>'+w.label+'</b>이 활성환자 대비 '+w.val+'%로 전체 평균('+grandPenet[w.key]+'%)보다 낮아, '+w.label+' 청구가 상대적으로 저조한 것이 GAP을 끌어내리는 요인 중 하나로 보입니다.</div>';
+      el.innerHTML+='<div style="margin-top:8px;padding:9px 12px;background:#FFF3E9;border-radius:8px;font-size:12.5px;color:#9B5B2E">📊 <b>'+worst.business+'</b> 사업부가 환자당 GAP '+moneyK(worst.gapPerPatient)+'로 가장 낮습니다(사업부 규모차를 없앤 1인당 기준). 유형별 진행률을 보면 <b>'+w.label+'</b>이 활성환자 대비 '+w.val+'%로 전체 평균('+grandPenet[w.key]+'%)보다 낮아, '+w.label+' 청구가 상대적으로 저조한 것이 GAP을 끌어내리는 요인 중 하나로 보입니다.</div>';
     }
   }
 }
@@ -3949,6 +3951,8 @@ function openBizGapExplainer(key){
     if(corr>bestCorr){ bestCorr=corr; best=c; }
   });
 
+  // 헷갈림 방지: 이 표의 금액은 전부 회사 관행대로 "천원" 단위로 통일해서 보여줌(원 단위와 섞어 쓰면
+  // "환자당GAP -3,070"이 3,070원인지 3,070만원인지 헷갈릴 수 있음 - 헤더에도, 셀 값에도 단위를 명시)
   function pct(v){ return v==null?'-':v+'%'; }
   var rowsHtml=list.map(function(g){
     var gapColor=g.gapPerPatient>=0?'#1048A0':'#B01A1A';
@@ -3958,10 +3962,11 @@ function openBizGapExplainer(key){
       +'<td style="text-align:right;padding:6px 8px">'+g.patientSum.toLocaleString()+'명</td>'
       +'<td style="text-align:center;padding:6px 8px">'+g.activeSum+'/'+g.targetSum+' ('+g.achievement+'%)</td>'
       +'<td style="text-align:right;padding:6px 8px">'+g.patientPerClinic+'명</td>'
-      +'<td style="text-align:right;padding:6px 8px">'+money(g.claimPerClinic)+'</td>'
-      +'<td style="text-align:right;padding:6px 8px">'+money(g.claimPerPatient)+'</td>'
+      +'<td style="text-align:right;padding:6px 8px">'+moneyK(g.claimPerClinic)+'</td>'
+      +'<td style="text-align:right;padding:6px 8px">'+moneyK(g.claimPerPatient)+'</td>'
       +'<td style="text-align:center;padding:6px 8px">'+pct(g.conversion)+'</td>'
-      +'<td style="text-align:right;padding:6px 8px;font-weight:800;color:'+gapColor+'">'+(g.gapPerPatient>=0?'+':'')+money(g.gapPerPatient)+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;color:'+gapColor+'">'+(g.gap>=0?'+':'')+moneyK(g.gap)+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;font-weight:800;color:'+gapColor+'">'+(g.gapPerPatient>=0?'+':'')+moneyK(g.gapPerPatient)+'</td>'
       +'<td style="text-align:center;padding:6px 8px">'+g.carePenet+'%</td>'
       +'<td style="text-align:center;padding:6px 8px">'+g.eduPenet+'%</td>'
       +'<td style="text-align:center;padding:6px 8px">'+g.mgmtPenet+'%</td>'
@@ -3969,9 +3974,9 @@ function openBizGapExplainer(key){
       +'</tr>';
   }).join('');
 
-  var body='<div class="sub" style="padding:0 0 8px">환자당 GAP이 낮은 순으로 정렬했습니다. 활성처 수(목표 대비)·처당 지표·유형별 진행률을 같이 보면 어디서 격차가 생기는지 짚을 수 있습니다.</div>'
+  var body='<div class="sub" style="padding:0 0 8px">환자당 GAP이 낮은 순으로 정렬했습니다. 금액은 전부 <b>천원 단위</b>입니다(예: "3,070천원"=307만원). 활성처 수(목표 대비)·처당 지표·유형별 진행률을 같이 보면 어디서 격차가 생기는지 짚을 수 있습니다.</div>'
     +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;white-space:nowrap">'
-    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:6px 8px">사업부</th><th style="padding:6px 8px">사무소</th><th style="padding:6px 8px">활성환자</th><th style="padding:6px 8px">활성처(목표대비)</th><th style="padding:6px 8px">처당환자수</th><th style="padding:6px 8px">처당청구액</th><th style="padding:6px 8px">환자당청구</th><th style="padding:6px 8px">청구전환율</th><th style="padding:6px 8px">환자당GAP</th><th style="padding:6px 8px">케어%</th><th style="padding:6px 8px">교육%</th><th style="padding:6px 8px">관리%</th><th style="padding:6px 8px">점검%</th></tr></thead><tbody>'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:6px 8px">사업부</th><th style="padding:6px 8px">사무소</th><th style="padding:6px 8px">활성환자</th><th style="padding:6px 8px">활성처(목표대비)</th><th style="padding:6px 8px">처당환자수</th><th style="padding:6px 8px">처당청구액(천원)</th><th style="padding:6px 8px">환자당청구(천원)</th><th style="padding:6px 8px">청구전환율</th><th style="padding:6px 8px">GAP합계(천원)</th><th style="padding:6px 8px">환자당GAP(천원)</th><th style="padding:6px 8px">케어%</th><th style="padding:6px 8px">교육%</th><th style="padding:6px 8px">관리%</th><th style="padding:6px 8px">점검%</th></tr></thead><tbody>'
     +rowsHtml+'</tbody></table></div>';
 
   if(best && bestCorr>0.4){
@@ -3979,7 +3984,7 @@ function openBizGapExplainer(key){
   }
   var worst2=list[0];
   if(worst2 && worst2.gapPerPatient<0){
-    body+='<div style="margin-top:8px;padding:9px 12px;background:#FFF3E9;border-radius:8px;font-size:12.5px;color:#9B5B2E">📊 <b>'+worst2.business+'</b>가 환자당 GAP '+money(worst2.gapPerPatient)+'로 가장 낮습니다. 활성처는 목표 대비 '+worst2.achievement+'%만 채워져 있고, 처당청구액은 '+money(worst2.claimPerClinic)+'입니다'+(worst2.conversion==null?' (아직 마감 데이터가 없어 청구전환율은 계산할 수 없음)':(', 청구전환율은 '+worst2.conversion+'%'))+'.</div>';
+    body+='<div style="margin-top:8px;padding:9px 12px;background:#FFF3E9;border-radius:8px;font-size:12.5px;color:#9B5B2E">📊 <b>'+worst2.business+'</b>가 환자당 GAP '+moneyK(worst2.gapPerPatient)+'(사업부 전체 합계 '+moneyK(worst2.gap)+')로 가장 낮습니다. 활성처는 목표 대비 '+worst2.achievement+'%만 채워져 있고, 처당청구액은 '+moneyK(worst2.claimPerClinic)+'입니다'+(worst2.conversion==null?' (아직 마감 데이터가 없어 청구전환율은 계산할 수 없음)':(', 청구전환율은 '+worst2.conversion+'%'))+'.</div>';
   }
   showSimpleModal('📊 사업부별 청구 GAP 원인 분석 ('+(key==='official'?'마감 기준':'당월 진행중')+')', body);
 }
