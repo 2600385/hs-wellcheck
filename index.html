@@ -2378,11 +2378,26 @@ function loadClinics(){
 }
 // 거래처 관리(전국 검색) - 사업자번호/사번/담당자명 혼동 방지를 위해 37개 사무소 거래처를 한곳에서 검색
 // 사무소별로 나뉜 CLINICS/MANAGERS 캐시를 그대로 쓰면 currentOffice 외엔 못 보므로, 열 때마다 전체를 새로 불러옴
+// Supabase(PostgREST)는 명시적으로 다 받아오지 않으면 한 번에 최대 1000행만 돌려줌 - 전국 거래처는
+// 4천건이 넘어서(37개 사무소 합산) 그냥 select()만 하면 뒷부분 사무소/거래처가 통째로 누락됨.
+// range()로 1000건씩 끝까지 이어받아서 전체를 다 받는다(정렬 기준이 있어야 페이지 간 중복/누락이 안 생김).
+function fetchAllRows(table, cols){
+  var PAGE=1000;
+  function loop(from, acc){
+    return db.from(table).select(cols).order('id').range(from, from+PAGE-1).then(function(res){
+      if(res.error) return res;
+      acc=acc.concat(res.data);
+      if(res.data.length<PAGE) return {data:acc, error:null};
+      return loop(from+PAGE, acc);
+    });
+  }
+  return loop(0, []);
+}
 function openClinicMgmtModal(){
   document.getElementById('clinic-mgmt-ov').classList.add('ov-open');
   document.getElementById('clinic-mgmt-search').value='';
   document.getElementById('clinic-mgmt-list').innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px 0">불러오는 중...</div>';
-  Promise.all([db.from('clinics').select('office,biz_no,name,mr'), db.from('managers').select('office,code,name,emp_no')]).then(function(resArr){
+  Promise.all([fetchAllRows('clinics','id,office,biz_no,name,mr'), fetchAllRows('managers','office,code,name,emp_no')]).then(function(resArr){
     var cRes=resArr[0], mRes=resArr[1];
     if(cRes.error||mRes.error){
       document.getElementById('clinic-mgmt-list').innerHTML='<div style="font-size:11px;color:#B01A1A;text-align:center;padding:12px 0">불러오기 실패: '+((cRes.error||mRes.error).message)+'</div>';
@@ -3243,10 +3258,10 @@ function renderClaimTypeTrend(){
   var oc=stOfficeClaims();
   if(!oc.length) return;
   var labels=oc.map(function(o){return parseInt(o.month.slice(5,7))+'월';});
-  // 원본 파일 값을 그대로 그리면 진행 단계 이동(케어플랜→교육상담 등) 때문에 특정 달에 줄어드는 것처럼
-  // 보여 "누적인데 왜 줄어드냐"는 혼란을 준다. trueCumTypeSeries가 월별 증가분만 누적해서 절대
-  // 감소하지 않는 진짜 누적(1월부터)을 다시 계산한다.
-  var s=trueCumTypeSeries(oc);
+  // office_claims의 care_cnt 등은 그 달에 발생한 당월 건수(파일 자체가 그렇게 저장됨) - 1월부터의
+  // 누적을 보려면 매달 값을 그대로 다 더해야 한다(개별 거래처 값이 줄었다 늘었다 하는 건 당월 실적이라
+  // 당연한 현상이지, 누적값이 깨진 게 아님 - 실제 파일로 검증 완료).
+  var s=cumTypeSeries(oc);
   claimTypeTrendChart=new Chart(ctx,{
     type:'line',
     data:{labels:labels,datasets:[
@@ -3285,7 +3300,15 @@ function openClaimTypeBreakdown(){
   var oc=stOfficeClaims();
   if(!oc.length) return;
   var latest=oc[oc.length-1];
-  var rows=CLINIC_CLAIMS.filter(function(c){return c.office===currentOffice&&c.month===latest.month;})
+  // 위 차트/비중 박스가 1월부터의 누적을 보여주므로, 드릴다운도 거래처별로 전체 월을 합산해야 숫자가 서로 맞음
+  var byClinic={};
+  CLINIC_CLAIMS.filter(function(c){return c.office===currentOffice&&c.clinic_id;}).forEach(function(c){
+    if(!byClinic[c.clinic_id]) byClinic[c.clinic_id]={clinic_name:c.clinic_name, care_cnt:0,edu_cnt:0,mgmt_cnt:0,check_cnt:0,care_amt:0,edu_amt:0,mgmt_amt:0,check_amt:0};
+    var g=byClinic[c.clinic_id];
+    g.care_cnt+=c.care_cnt||0; g.edu_cnt+=c.edu_cnt||0; g.mgmt_cnt+=c.mgmt_cnt||0; g.check_cnt+=c.check_cnt||0;
+    g.care_amt+=c.care_amt||0; g.edu_amt+=c.edu_amt||0; g.mgmt_amt+=c.mgmt_amt||0; g.check_amt+=c.check_amt||0;
+  });
+  var rows=Object.keys(byClinic).map(function(id){return byClinic[id];})
     .filter(function(c){return (c.care_cnt||0)+(c.edu_cnt||0)+(c.mgmt_cnt||0)+(c.check_cnt||0)>0;})
     .sort(function(a,b){return ((b.care_cnt||0)+(b.edu_cnt||0)+(b.mgmt_cnt||0)+(b.check_cnt||0))-((a.care_cnt||0)+(a.edu_cnt||0)+(a.mgmt_cnt||0)+(a.check_cnt||0));});
   var body;
@@ -3310,7 +3333,7 @@ function openClaimTypeBreakdown(){
       +'<td style="text-align:center;padding:6px">'+(totCare+totEdu+totMgmt+totCheck)+'</td></tr>'
       +'</tbody></table></div>';
   }
-  showSimpleModal(currentOffice+' · '+parseInt(latest.month.slice(5,7))+'월 청구 유형별 거래처 상세 ('+rows.length+'곳)', body);
+  showSimpleModal(currentOffice+' · 1~'+parseInt(latest.month.slice(5,7))+'월 누적 청구 유형별 거래처 상세 ('+rows.length+'곳)', body);
 }
 // 간단한 내용을 보여줄 범용 팝업(따로 전용 모달 마크업을 안 만들고 재사용)
 function showSimpleModal(title, bodyHtml){
@@ -3388,28 +3411,27 @@ function renderClinicsListView(){
   });
 }
 function stOfficeClaims(){ return OFFICE_CLAIMS.filter(function(o){return o.office===currentOffice;}); }
-// 원본 파일의 케어플랜/교육상담/환자관리/점검평가 건수는 그 달까지의 "진행 단계별 현재 분포" 스냅샷이라,
-// 환자가 한 단계에서 다음 단계로 넘어가면(예: 케어플랜→교육상담) 이전 단계 건수가 줄 수 있다(총합은 안 줄어듦).
-// 파일 값을 그대로 쓰면 "누적인데 왜 줄어드냐"는 오해를 사므로, 월별 증가분만 계속 더하고 감소분은
-// 무시(그대로 유지)해서 절대 감소하지 않는 진짜 누적을 다시 만든다.
+// parseBaseline()이 office_claims에 저장하는 care_cnt/edu_cnt/mgmt_cnt/check_cnt는 "그 달에 실제로 발생한"
+// 당월 건수다(거래처별 청구현황 시트의 각 월 블록 자체가 당월 값 - claim/cum_claim처럼 별도 누적 계산기를
+// 거치지 않고 그 달 합계를 그대로 저장). 실제 파일로 검증: 개별 거래처는 달마다 건수가 늘었다 줄었다(심지어
+// 0까지) 하는데, 이는 진짜 누적(1월부터의 running total)이라면 수학적으로 불가능함 - 그래서 "1월부터 누적"은
+// 매달 값을 그대로 다 더해야(단순 합산) 나온다. 예전에 "이미 누적값이라 다시 더하면 부풀려진다"고 판단해서
+// 합산을 없앴던 적이 있는데, 그게 착각이었음(개별 거래처 값이 줄어드는 걸 직접 확인해서 정정).
 function officeClaimsAsc(office){ return OFFICE_CLAIMS.filter(function(o){return o.office===office;}).sort(function(a,b){return a.month<b.month?-1:1;}); }
-function trueCumTypeSeries(rowsAsc){
+function cumTypeSeries(rowsAsc){
   var care=[],edu=[],mgmt=[],check=[];
-  rowsAsc.forEach(function(r,i){
-    if(i===0){ care.push(r.care_cnt||0); edu.push(r.edu_cnt||0); mgmt.push(r.mgmt_cnt||0); check.push(r.check_cnt||0); return; }
-    var p=rowsAsc[i-1];
-    care.push(care[i-1]+Math.max(0,(r.care_cnt||0)-(p.care_cnt||0)));
-    edu.push(edu[i-1]+Math.max(0,(r.edu_cnt||0)-(p.edu_cnt||0)));
-    mgmt.push(mgmt[i-1]+Math.max(0,(r.mgmt_cnt||0)-(p.mgmt_cnt||0)));
-    check.push(check[i-1]+Math.max(0,(r.check_cnt||0)-(p.check_cnt||0)));
+  var cCare=0,cEdu=0,cMgmt=0,cCheck=0;
+  rowsAsc.forEach(function(r){
+    cCare+=r.care_cnt||0; cEdu+=r.edu_cnt||0; cMgmt+=r.mgmt_cnt||0; cCheck+=r.check_cnt||0;
+    care.push(cCare); edu.push(cEdu); mgmt.push(cMgmt); check.push(cCheck);
   });
   return {care:care,edu:edu,mgmt:mgmt,check:check};
 }
-// 특정 사무소의, 특정 월까지의 진짜 누적 최종값만 필요할 때(사무소 비교 테이블 등에서 사용)
-function trueCumTypeAt(office, uptoMonth){
+// 특정 사무소의, 특정 월까지의 누적 합계만 필요할 때(사무소 비교 테이블 등에서 사용)
+function cumTypeAt(office, uptoMonth){
   var rows=officeClaimsAsc(office).filter(function(r){return r.month<=uptoMonth;});
   if(!rows.length) return {care:0,edu:0,mgmt:0,check:0};
-  var s=trueCumTypeSeries(rows);
+  var s=cumTypeSeries(rows);
   var last=s.care.length-1;
   return {care:s.care[last], edu:s.edu[last], mgmt:s.mgmt[last], check:s.check[last]};
 }
@@ -3705,9 +3727,9 @@ function latestOfficeRows(onlyOfficial){
     // 청구-평가 GAP: "평가-청구(사무소)" 시트 공식 수치가 있으면 그걸 쓰고, 없으면
     // 누적 활성환자수×10,000원(평가실적) 대비 총청구금액(실제 청구금액)으로 근사
     var gap=r.eval_clinic_cnt ? (r.claim_ilmansa_amt||0)-(r.eval_score||0) : (r.claim||0)-(r.cum_patient||0)*10000;
-    // 원본 파일의 유형별 건수는 진행 단계 이동 때문에 개별적으로 줄어들 수 있어(총합은 안 줄어듦),
-    // 사무소 비교에서도 이 사무소가 선택된 월까지의 "진짜 누적"(감소 없음)을 다시 계산해서 씀
-    var trueCum=trueCumTypeAt(r.office, r.month);
+    // office_claims의 유형별 건수는 당월 값이라(위 cumTypeSeries 설명과 동일), 사무소 비교에서도
+    // 이 사무소가 선택된 월까지 매달 값을 다 더한 누적으로 계산해서 씀
+    var trueCum=cumTypeAt(r.office, r.month);
     return {office:r.office, business:r.business||'', month:r.month, target:r.target||0, activeCount:r.active_count||0,
       achievement:achievement, patientSum:r.cum_patient||0, claimPerPatient:claimPerPatient, claimPerClinic:claimPerClinic, cumClaim:r.cum_claim||0, gap:gap,
       careCnt:trueCum.care, eduCnt:trueCum.edu, mgmtCnt:trueCum.mgmt, checkCnt:trueCum.check,
