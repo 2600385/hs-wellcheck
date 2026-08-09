@@ -1192,6 +1192,20 @@ function sheetRows(wb, name){
   if(!sh) return null;
   return XLSX.utils.sheet_to_json(sh, {header:1, raw:true, defval:null});
 }
+// 라디오 버튼으로 사람이 직접 골라야 하는 방식은, 파일명이 헷갈리면(예: "활성처 현황..." 파일을 실수로
+// "일일 MAU" 라디오로 선택) 곧바로 파싱 실패로 이어진다. 업로드할 때마다 실제 파일 내용(시트 구성)을
+// 보고 어떤 종류인지 스스로 판별해서, 사람이 잘못 고른 라디오와 다르면 자동으로 바로잡아준다.
+function detectFileType(wb){
+  var names=wb.SheetNames||[];
+  if(names.indexOf('거래처별 RAW')>=0) return 'current';
+  if(names.indexOf('거래처별 청구현황')>=0) return 'baseline';
+  if(names.indexOf('사업부 사무소')>=0 && names.indexOf('MR')>=0) return 'h2target';
+  // 일일 MAU 파일: 보통 시트가 하나(Sheet1 등)뿐이고, 헤더 행에 "웰체크가입 & 일만사 참여" 컬럼이 있음
+  var s1=sheetRows(wb,'Sheet1')||(names[0]?sheetRows(wb,names[0]):null);
+  if(s1&&s1[0]&&s1[0].indexOf('웰체크가입 & 일만사 참여')>=0) return 'daily';
+  return null; // 판별 불가 - 사람이 고른 종류를 그대로 신뢰
+}
+var IMPORT_TYPE_LABELS={current:'활성처 현황(RAW)', baseline:'청구현황 베이스라인(월마감)', daily:'일일 MAU', h2target:'26년 하반기 목표'};
 // 파일 안에서 "N/N 기준" 형태의 날짜 텍스트를 찾아 파일이 대표하는 기준일을 추정 (업로드한 날짜가 아니라 파일 내용의 날짜)
 function findAsOfDate(wb, sheetNames){
   for(var s=0;s<sheetNames.length;s++){
@@ -1241,10 +1255,24 @@ function renderImportLog(){
   renderClaimBoardBadge();
   renderStEvalBadge();
 }
-function logImport(type, asOfDate){
-  return db.from('import_log').upsert({office:currentOffice, import_type:type, source_date:asOfDate, import_mode:IMPORT_MODE, imported_at:new Date().toISOString()}, {onConflict:'office,import_type'}).then(function(){ loadImportLog(); });
+// offices: 생략하면 currentOffice 하나만. "전체" 업로드처럼 여러 사무소 clinics가 한 번에 갱신될 땐
+// 실제로 갱신된 사무소 전부를 넘겨야 한다 - 안 그러면 currentOffice(업로드한 사람 자신의 사무소)만
+// 기록되고 나머지 36개 사무소는 실제로는 데이터가 갱신됐는데도 import_log가 영영 안 남아서,
+// "데이터 기준일" 표시나 오래된 파일 재업로드 경고가 그 사무소들에서는 계속 공백으로 남는 문제가 있었음
+function logImport(type, asOfDate, offices){
+  var list=offices&&offices.length?offices:[currentOffice];
+  var rows=list.map(function(o){ return {office:o, import_type:type, source_date:asOfDate, import_mode:IMPORT_MODE, imported_at:new Date().toISOString()}; });
+  return db.from('import_log').upsert(rows, {onConflict:'office,import_type'}).then(function(){ loadImportLog(); });
 }
 // 거래처현황판/청구현황판 상단에 "최근 이 데이터가 언제, 누구(사무소/관리자)에 의해 갱신됐는지" 배지
+// clinics.patients(당월 현재값)를 실제로 덮어쓰는 두 파일 종류("활성처 현황 RAW"·"일일 MAU") 중
+// 현재 사무소 기준 가장 최근(source_date 기준) 반영 로그를 하나로 합쳐서 반환 - 둘 중 하나만 보고
+// 최신 여부를 판단하면 다른 한쪽이 새로 반영된 걸 놓쳐서 오래된 파일에 덮어써지는 사고가 남
+function latestDataSourceLog(){
+  var rows=IMPORT_LOG.filter(function(r){ return r.office===currentOffice && (r.import_type==='current'||r.import_type==='daily') && r.source_date; });
+  if(!rows.length) return null;
+  return rows.reduce(function(a,b){ return b.source_date>a.source_date?b:a; });
+}
 function latestImportRow(types){
   var rows=IMPORT_LOG.filter(function(r){ return r.office===currentOffice&&types.indexOf(r.import_type)>=0; });
   if(!rows.length) return null;
@@ -1405,21 +1433,37 @@ function runImport(){
   if(!file){ status.textContent='파일을 선택해주세요.'; return; }
   if(!(currentUser&&currentUser.role==='관리자')){ status.textContent='데이터 업로드는 관리자만 가능합니다.'; return; }
   var type=document.querySelector('input[name="import-type"]:checked').value;
+  var autoCorrectMsg='';
   status.textContent='읽는 중...';
   var reader=new FileReader();
   function finishParse(parsed){
     if(!parsed || parsed.error){ status.textContent=(parsed&&parsed.error)||'파일을 해석하지 못했습니다.'; return; }
-    status.textContent='';
+    status.textContent=autoCorrectMsg;
     PENDING_IMPORT={type:type, parsed:parsed};
     showImportValidation(type, parsed);
   }
   reader.onload=function(e){
     try{
       var wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      // 사람이 라디오를 잘못 고르면(예: "활성처 현황" 파일을 "일일 MAU"로 선택) 곧장 파싱 실패로 이어지던
+      // 문제 - 실제 파일 내용(시트 구성)으로 종류를 스스로 판별해서, 사람이 고른 것과 다르면 자동으로 바로잡는다.
+      var detected=detectFileType(wb);
+      if(detected && detected!==type){
+        var radio=document.querySelector('input[name="import-type"][value="'+detected+'"]');
+        var radioLabel=radio?radio.closest('label'):null;
+        if(radio && radioLabel && radioLabel.style.display!=='none'){
+          autoCorrectMsg='⚠ 선택하신 파일 종류("'+(IMPORT_TYPE_LABELS[type]||type)+'")와 실제 파일 내용이 달라서, "'+(IMPORT_TYPE_LABELS[detected]||detected)+'"로 자동 변경해서 처리했습니다.';
+          type=detected;
+          radio.checked=true;
+        }
+      }
       if(type==='baseline'){
         // 베이스라인 파일도 RAW 파일과 동일하게 사무소 배정 보호를 적용: 이미 등록된 사무소와
         // 파일이 말하는 사무소가 다른 거래처는 파싱 단계에서부터 집계 제외
-        db.from('clinics').select('id,biz_no,office').then(function(exRes){
+        // 전사 거래처가 1000건이 훨씬 넘어서(현재 4,600여 건) 페이지네이션 없는 select()로는
+        // PostgREST 기본 한도(1000건)에서 잘려 뒤쪽 사무소 거래처가 통째로 매칭 누락됨 -
+        // fetchAllRows로 range() 이어받기 해야 전체가 다 온다
+        fetchAllRows('clinics','id,biz_no,office').then(function(exRes){
           var existingOffice={}, clinicIdByBiz={};
           if(!exRes.error) exRes.data.forEach(function(r){ if(r.biz_no){ existingOffice[r.biz_no]=r.office; clinicIdByBiz[r.biz_no]=r.id; } });
           finishParse(parseBaseline(wb, existingOffice, clinicIdByBiz));
@@ -1430,7 +1474,9 @@ function runImport(){
       if(type==='daily'){
         // 일일 MAU 파일도 RAW/베이스라인과 동일하게 전사 거래처(사업자번호)로 매칭해서 반영하므로,
         // 커밋 전에 전사 clinics 매핑을 먼저 받아와야 함(로컬엔 currentOffice 거래처만 로드돼있음)
-        db.from('clinics').select('id,biz_no,office').then(function(exRes){
+        // 여기도 마찬가지로 fetchAllRows 안 쓰면 1000건 이후 거래처는 매칭 실패로 조용히
+        // 반영에서 빠짐(실제로 "1000곳만 반영됨" 사고로 재현됨)
+        fetchAllRows('clinics','id,biz_no,office').then(function(exRes){
           finishParse(parseDailyMAU(wb, exRes.error?[]:exRes.data));
         });
         return;
@@ -1519,7 +1565,11 @@ function buildValidationCurrent(parsed){
   var activeBefore=officeRows().filter(function(c){return c.isActive;}).length;
   var activeAfter=updates.filter(function(u){return u.is_active;}).length;
   // 여러 명이 올릴 수 있게 되면서, 예전(더 오래된) 파일을 나중에 실수로 올려 최신 숫자를 되돌리는 사고를 막기 위한 기준일 비교
-  var lastLog=IMPORT_LOG.find(function(r){return r.office===currentOffice&&r.import_type==='current';});
+  // "활성처 현황(RAW)"와 "일일 MAU"는 둘 다 clinics.patients를 덮어쓰므로, RAW 파일 하나만 볼 게 아니라
+  // 둘 중 더 최근에 반영된 쪽(source_date가 더 나중인 쪽) 기준으로 비교해야 함 - 안 그러면 "MAU로 최신화한 뒤
+  // 오래된 RAW 파일을 실수로 다시 올려서 되돌리는" 사고를 못 잡는다(실제로 한 번 발생함: 8/9 MAU 반영 후
+  // 7/28자 RAW 파일이 재반영되면서 당월 증감이 전부 0으로 보이는 사고)
+  var lastLog=latestDataSourceLog();
   var isStale=!!(lastLog&&lastLog.source_date&&parsed.asOf&&parsed.asOf<lastLog.source_date);
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   var natCount=parsed.natToday?Object.keys(parsed.natToday).length:0;
@@ -1585,7 +1635,12 @@ function parseCurrentRaw(wb){
     var bizNo=row[11];
     if(bizNo==null) continue;
     bizNo=String(bizNo).replace(/\.0$/,'');
-    var patientsVal=Number(row[6])||0; // 일만사 활성환자(웰체크 일만사 환자수 - 활성 환자 목표 지표)
+    // "일만사 활성환자(의사 접속이력 확인)"(row[6])와 "웰체크 일만사 환자수(활성 환자 목표 지표)"(row[17])는
+    // 서로 다른 컬럼 - row[6]은 그 회차에 의사 접속이 재확인됐는지 여부라 환자가 그대로 있어도 접속 확인이
+    // 안 되면 빈칸(0)이 됨. "활성환자수"(활성처 판정·증감 계산)는 실제 환자 수인 row[17](목표 지표 컬럼)을
+    // 써야 함 - row[6]을 쓰면 환자 수 변화가 전혀 없는데도 "0명→N명 신규 증가"로 잘못 잡힘(회사 파일
+    // 118처 중 20처에서 두 컬럼 값이 실제로 어긋나는 것을 확인, 사용자 확인 완료)
+    var patientsVal=Number(row[17])||0; // 웰체크 일만사 환자수(활성 환자 목표 지표)
     var nonVal=Number(row[7])||0; // 비일만사 활성환자
     var claimVal=Number(row[27])||0;
     var careCnt=Number(row[29])||0, eduCnt=Number(row[30])||0, mgmtCnt=Number(row[31])||0, checkCnt=Number(row[32])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
@@ -1647,6 +1702,19 @@ function parseCurrentRaw(wb){
   }
   return {updates:updates, natToday:natToday, natBusiness:natBusiness, natUpdates:natUpdates, asOf: asOf};
 }
+// RAW가 올라올 때마다 그 시점 "이번회차" 환자수를 (사무소,사업자번호,월) 단위로 스냅샷 저장해둔다.
+// 같은 달 안에서는 최신 값으로 계속 덮어써지다가, 달이 바뀌어 다음 RAW가 새 달로 올라오는 순간부터는
+// 그 값이 그대로 "그 달의 마감(RAW 기준)"으로 남는다 - 청구현황 베이스라인이 다음달 중순~말일에야
+// 나오는 것과 무관하게, 전략판 KPI 카드의 "전월 대비" 계산에 거래처 단위로 정확한 기준점을 제공하기 위함.
+// office_claims/clinic_claims(그래프·청구현황지표 전용)와는 완전히 분리된 테이블이라 그쪽엔 영향 없음.
+function saveRawMonthlySnapshot(rows, asOf){
+  var month=String(asOf||'').slice(0,7)+'-01';
+  var payload=(rows||[]).filter(function(r){return r.biz_no;}).map(function(r){ return {office:r.office, biz_no:r.biz_no, month:month, patients:r.patients||0}; });
+  if(!payload.length) return Promise.resolve();
+  return db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}).then(function(res){
+    if(res.error) console.error('raw_monthly_snapshot 저장 실패:', res.error);
+  });
+}
 function commitCurrentRaw(parsed, status){
   var updates=parsed.updates, asOf=parsed.asOf;
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
@@ -1660,7 +1728,10 @@ function commitCurrentRaw(parsed, status){
     // 파일 하나 잘못 올리면 조용히 사무소가 바뀌고 활성환자수가 엉뚱하게 합산되는 사고가 반복됐음. 그래서 이미 DB에
     // 등록된 사무소와 이 파일이 말하는 사무소가 다른 사업자번호는, 이 파일 값을 무시하고 기존 배정을 그대로 지킴
     // (거래처 갱신도, 청구 집계도 둘 다 건너뜀 - 사무소가 틀렸다면 그 행 전체를 이 파일 기준으로 신뢰할 수 없음)
-    Promise.all([db.from('clinics').select('biz_no,office'), db.from('managers').select('office,code,name,emp_no')]).then(function(resArr){
+    // db.from('clinics').select() 그대로 쓰면 PostgREST 기본 한도(1000건)에 걸려 전사 4,600여 건 중
+    // 뒤쪽 사무소 거래처는 existingOffice에 안 잡혀서 사무소 배정 보호 검사를 조용히 건너뛰게 됨 -
+    // fetchAllRows로 전체를 다 받아야 함
+    Promise.all([fetchAllRows('clinics','biz_no,office'), db.from('managers').select('office,code,name,emp_no')]).then(function(resArr){
       var exRes=resArr[0], mgrRes=resArr[1];
       var existingOffice={};
       if(!exRes.error) exRes.data.forEach(function(r){ if(r.biz_no) existingOffice[r.biz_no]=r.office; });
@@ -1682,7 +1753,13 @@ function commitCurrentRaw(parsed, status){
         return {office:currentOffice, biz_no:u.biz_no, name:u.name, mr:mrCode(currentOffice,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
           care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
-      }).concat(natUpdates.map(function(u){ return Object.assign({}, u, {mr:mrCode(u.office,u.mr,u.mr_sabun)}); }));
+      }).concat(natUpdates.map(function(u){
+        // clinics 테이블엔 mr_sabun 컬럼이 없음 - Object.assign으로 통째로 복사하면 스키마에 없는 컬럼이
+        // 섞여 들어가서 upsert 전체가 실패함(실제로 "전국 거래처 반영 실패" 에러 재현됨). 필요한 필드만 명시적으로 골라 담는다.
+        return {office:u.office, biz_no:u.biz_no, name:u.name, mr:mrCode(u.office,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
+          is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
+          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
+      }));
       var conflictBiz={}, conflictRows=[];
       allRows.forEach(function(r){
         var ex=existingOffice[r.biz_no];
@@ -1694,7 +1771,12 @@ function commitCurrentRaw(parsed, status){
       if(conflictRows.length) saveOfficeConflicts(conflictRows);
       db.from('clinics').upsert(safeRows, {onConflict:'office,biz_no'}).then(function(res){
         if(res.error){ status.textContent='전국 거래처 반영 실패: '+res.error.message; return; }
-        logImport('current', asOf);
+        // safeRows에 실제로 반영된 사무소 전부에 로그를 남김 - currentOffice만 남기면(예전 버그)
+        // 다른 사무소는 clinics는 최신인데 import_log만 영영 안 남아서 "데이터 기준일" 표시·오래된
+        // 파일 재업로드 경고가 그 사무소들에서 계속 공백/미작동 상태가 됨
+        var touchedOffices=Object.keys(safeRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
+        logImport('current', asOf, touchedOffices);
+        saveRawMonthlySnapshot(safeRows, asOf);
         // RAW 파일은 거래처현황판(clinics 테이블)만 갱신함 - 청구현황지표(office_claims/clinic_claims)는
         // 이제 오직 "청구현황 베이스라인(월마감)" 파일만 갱신한다(당월 진행중·잠정 반영 없앰).
         loadClinics().then(function(){
@@ -1718,6 +1800,7 @@ function commitCurrentRaw(parsed, status){
     var unmatched=updates.filter(function(u,i){ return !results[i].error&&(!results[i].data||!results[i].data.length); });
     if(unmatched.length) saveUnmatchedClinics(unmatched, 'current');
     logImport('current', asOf);
+    saveRawMonthlySnapshot(updates.map(function(u){ return {office:currentOffice, biz_no:u.biz_no, patients:u.patients}; }), asOf);
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
@@ -1779,7 +1862,7 @@ function commitDailyMAU(parsed, status){
   })).then(function(results){
     var failed=results.filter(function(r){return r.error;}).length;
     status.textContent='완료: 전국 '+officeList.length+'개 사무소 · 거래처 '+(updates.length-failed)+'곳 반영됨'+(failed?(', '+failed+'건 실패'):'')+' (활성환자수·청구건수 참고용 반영, 활성처 판정엔 영향 없음). (파일 기준일: '+asOf+', 자체 날짜 표기가 없어 업로드일로 기록)';
-    logImport('daily', asOf);
+    logImport('daily', asOf, officeList); // 전국 매칭이라 실제로 갱신된 사무소 전부에 로그를 남겨야 함(currentOffice만 남기면 나머지 사무소는 계속 "데이터 기준일" 공백으로 남음)
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
@@ -2646,7 +2729,7 @@ function checkRank(v){
 function sortVal(c,field){
   if(field==='mrname') return getMR(c.mr).name;
   if(field==='gap') return clinicEvalGap(c); // 평가청구GAP - 클리닉 객체의 실제 필드가 아니라 렌더 시점에 계산되는 값이라 별도 처리
-  if(field==='cum'){ var cl=clinicClaim(c); return cl?cl.cum:null; } // 누적청구도 마찬가지
+  if(field==='cum'){ return clinicMonthlyClaimEstimate(c); } // 당월청구(추정)도 렌더 시점 계산값
   return c[field];
 }
 function setSort(field){
@@ -3291,11 +3374,12 @@ function renderList(){
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
       +'<td style="cursor:pointer" title="클릭하면 활성환자·청구 추이 그래프가 열립니다" onclick="openClinicChartModal('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
       +(function(){
-        var cl=clinicClaim(c);
         var gap=clinicEvalGap(c);
         var gapTxt=gap===null?'-':((gap>=0?'+':'')+companyMoney(gap));
         var gapColor=gap===null?'var(--t2)':(gap>=0?'#15803d':'#B01A1A');
-        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600">'+(cl&&cl.cum?cl.cum.toLocaleString():'-')+'</td>';
+        // 당월청구(추정): MAU가 매일 갱신하는 이번달 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가
+        var monthlyEst=clinicMonthlyClaimEstimate(c);
+        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
       })()
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
@@ -3327,7 +3411,7 @@ function renderList(){
     +sth('welcheck','웰체크','width:44px;text-align:center')
     +sth('patients','활성도','width:150px;text-align:center')
     +sth('gap','평가청구GAP','width:72px;text-align:right')
-    +sth('cum','누적청구','width:72px;text-align:right')
+    +sth('cum','당월청구(추정)','width:72px;text-align:right')
     +sth('edu','심화교육','width:68px;text-align:center')
     +sth('dues','의협회비','width:56px;text-align:center')
     +sth('dh_op','옵티나&amp;위스키','width:56px;text-align:center;border-left:2px solid #B8C8D8')
@@ -3367,6 +3451,15 @@ function buildClaimMap(){
   });
 }
 function clinicClaim(c){ return c&&c.id?(CLAIM_BY_ID[c.id]||null):null; }
+// 거래처현황판(MAU 실시간)의 "당월청구" 추정 - 회사 청구단가(2026년 기준, 건당) × MAU가 매일 갱신하는
+// 이번달 케어플랜/교육상담/환자관리/점검평가 건수. MAU 파일엔 금액 자체가 없어서, 실제 청구금액이 아니라
+// 이 단가로 역산한 "추정치"임 - 공식 확정 금액은 청구처현황판(베이스라인 파일 기준, clinicClaim().mclaim)에서 확인.
+var CLAIM_UNIT_PRICE={care:35810, edu:15650, mgmt:11910, check:28090};
+function clinicMonthlyClaimEstimate(c){
+  if(!c) return 0;
+  return (c.care_plan_cnt||0)*CLAIM_UNIT_PRICE.care + (c.edu_cnt||0)*CLAIM_UNIT_PRICE.edu
+    + (c.patient_mgmt_cnt||0)*CLAIM_UNIT_PRICE.mgmt + (c.check_eval_cnt||0)*CLAIM_UNIT_PRICE.check;
+}
 // 거래처별 평가청구 GAP: "평가-청구" 시트는 거래처 단위 값이 없어(사무소/MR 단위까지만 있음) 여기서만 근사 추정 -
 // 그 거래처의 최신 파일 기준 누적 활성환자수×10,000원(평가실적, 실제 파일로 검증된 환자 1명당 평가단가) 대비
 // 같은 시점 총청구금액(실제 청구금액). 매칭되는 청구 데이터가 없으면 null
@@ -3379,7 +3472,7 @@ function clinicEvalGap(c){
 }
 var stTrendChart=null;
 function renderStrategyView(){
-  Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets()]).then(function(){
+  Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot()]).then(function(){
     buildClaimMap();
     renderStKPI();
     renderStEval();
@@ -3589,7 +3682,10 @@ function cumTypeAt(office, uptoMonth){
 // 활성처 판정 기준(일만사+비일만사 합산 환자수)은 회사 정책상 시기별로 다름: 기본 4명이며,
 // 2026년 7월 딱 한 달만 20명으로 일시 상향되었다가 8월부터 다시 4명으로 복귀됨.
 // monthStr은 'YYYY-MM' 또는 'YYYY-MM-01' 등 앞 7자리(연-월)만 보고 판단.
-function activeThreshold(monthStr){ return String(monthStr||'').slice(0,7)==='2026-07'?20:4; }
+// 활성처 판정 기준(일만사+비일만사 합산 환자수)은 항상 4명. 한때 7월만 20명으로 잠깐 상향됐다가 다시
+// 4명으로 원복된 적이 있었지만, 사용자 확인 결과 데이터 집계는 7월 포함 전체 기간 4명 기준으로 통일한다.
+// (monthStr 인자는 과거 시기별 예외를 두던 흔적으로 시그니처만 남겨둠 - 지금은 항상 4를 반환)
+function activeThreshold(monthStr){ return 4; }
 function todayMonthStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1<10?'0'+(d.getMonth()+1):(d.getMonth()+1)); }
 // "평가기준 대응" 카드용: 익월(다음달)과 12월(연말) 목표 월을 항상 오늘 날짜 기준으로 다시 계산
 function nextMonthStr(){ var d=new Date(); var y=d.getFullYear(), m=d.getMonth()+2; if(m>12){ m-=12; y+=1; } return y+'-'+(m<10?'0'+m:m); }
@@ -3600,6 +3696,11 @@ function prevMonthNum(){ var cur=new Date().getMonth()+1; return cur===1?12:cur-
 // 최대 2주간 그대로 멈춰있게 됨. 매일 올라오는 MAU가 patients를 갱신하므로, "활성" 판정 자체(activeThreshold 기준)는
 // 저장된 플래그 대신 매번 현재 환자수로 다시 계산해서 매일 살아 움직이게 한다(회사 공식 기준: 일만사+비일만사 합산 activeThreshold명↑).
 function liveActive(c){ return ((c.patients||0)+(c.nonPatients||0))>=activeThreshold(todayMonthStr()); }
+// "전월" 기준 환자수는 베이스라인/clinic_claims가 아니라 RAW 파일(주 2회 갱신, "전월 환자수(일만사)"
+// 컬럼을 그 자체로 신뢰)의 prevPatients를 그대로 쓴다. 한때 clinic_claims 기준으로 바꿔봤지만, 베이스라인은
+// 그 달 실적이 다음달 말에야 확정되는 파일이라 진행 중인 달(예: 7월)의 clinic_claims 값이 아직 일부
+// 거래처에서 0으로 비어있는 등 신뢰할 수 없었다(실측: 그것 때문에 신규처가 20곳이나 잘못 잡혔었음).
+// RAW는 이 "전월 대비" 비교를 위해 회사가 직접 매 회차 계산해서 내려주는 값이라 이게 맞는 기준이다.
 function stKpiData(){
   var r=officeRows();
   var oc=stOfficeClaims();
@@ -3609,18 +3710,23 @@ function stKpiData(){
   var target=h2t!=null?h2t:((oc.length?oc[oc.length-1].target:0)||120);
   var TH=activeThreshold(todayMonthStr());
   var active=r.filter(liveActive).length;
-  // "당월 비활성 전환": 전월 마감 때는 활성 기준(4명)을 채웠는데, 당월 들어 실시간 환자수가 기준 미만으로
-  // 떨어진 거래처 - RAW가 격주로만 갱신하는 저장된 플래그(inactive_transition/prev_active) 대신, 매일 갱신되는
-  // prevPatients(전월 환자수)와 오늘자 liveActive를 직접 비교해서 매일 정확하게 움직이게 한다.
+  // "전월" 비교 기준: raw_monthly_snapshot에 그 거래처의 지난달 스냅샷(그 달 마지막으로 올라온 RAW의
+  // "이번회차" 값)이 있으면 그걸 우선 쓰고(사업자번호로 매칭), 없으면(이 기능 도입 전이거나 그 달에 RAW가
+  // 한 번도 안 올라온 경우) clinics.prevPatients로 폴백한다.
+  var rawPrevMap=rawSnapshotPrevMap();
+  var cp=function(c){ return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0); };
+  // "당월 비활성 전환": 전월엔 활성 기준(4명)을 채웠는데, 당월 들어 실시간 환자수가 기준 미만으로 떨어진
+  // 거래처 - RAW의 저장된 플래그(inactive_transition) 대신, cp(전월 스냅샷/prevPatients)와 오늘자
+  // liveActive를 직접 비교해서 MAU가 갱신할 때마다 매일 정확하게 움직이게 한다.
   var PREV_TH=4; // 전월 마감 판정 기준은 4명 고정(사용자 확인)
-  var inactiveTr=r.filter(function(c){ return (c.prevPatients||0)>=PREV_TH && !liveActive(c); }).length;
+  var inactiveTr=r.filter(function(c){ return cp(c)>=PREV_TH && !liveActive(c); }).length;
   var thresholdMet=r.filter(function(c){return (c.patients||0)>=TH;}).length;
-  var thresholdMetInactive=r.filter(function(c){return (c.patients||0)>=TH && (c.prevPatients||0)>=PREV_TH && !liveActive(c);}).length;
+  var thresholdMetInactive=r.filter(function(c){return (c.patients||0)>=TH && cp(c)>=PREV_TH && !liveActive(c);}).length;
   var nonOnlyActive=r.filter(function(c){return liveActive(c)&&(c.patients||0)<TH;}).length;
-  var prevActiveCount=r.filter(function(c){return (c.prevPatients||0)>=PREV_TH;}).length;
-  var newly=r.filter(function(c){return (c.prevPatients||0)===0&&(c.patients||0)>0;}).length;
-  var crossed=r.filter(function(c){var p=c.prevPatients||0,n=c.patients||0;return (p<TH&&n>=TH)||(p<40&&n>=40);}).length;
-  var newPatientsGain=r.reduce(function(s,c){var d=(c.patients||0)-(c.prevPatients||0); return s+(d>0?d:0);},0);
+  var prevActiveCount=r.filter(function(c){return cp(c)>=PREV_TH;}).length;
+  var newly=r.filter(function(c){return cp(c)===0&&(c.patients||0)>0;}).length;
+  var crossed=r.filter(function(c){var p=cp(c),n=c.patients||0;return (p<TH&&n>=TH)||(p<40&&n>=40);}).length;
+  var newPatientsGain=r.reduce(function(s,c){var d=(c.patients||0)-cp(c); return s+(d>0?d:0);},0);
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievement>=80?'A':achievement>=60?'B':'C';
   var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
@@ -3631,8 +3737,28 @@ function renderStKPI(){
   var stTitleEl=document.getElementById('strategy-title');
   if(stTitleEl) stTitleEl.textContent=currentOffice+' 활성처 확보 전략판';
   var oc=stOfficeClaims();
-  var claimMonTxt=oc.length?(parseInt(oc[oc.length-1].month.slice(5,7))+'월 마감'):'-';
-  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>오늘(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>';
+  // "청구 기준"은 office_claims의 단순 마지막 행이 아니라, 청구기준대응 카드(stEvalConversion)가 실제로
+  // 쓰는 "평가·청구 정산 완료된 마지막 달"과 반드시 같아야 한다 - 활성처 수는 이미 반영됐지만 평가·청구
+  // 정산만 늦게 올라오는 달(예: 7월)이 있으면, 여기 표기와 실제 청구 위젯이 서로 다른 달을 가리키게 된다.
+  var ec=stEvalConversion();
+  var claimMonTxt=ec?(parseInt(ec.month.slice(5,7))+'월 마감'):(oc.length?(parseInt(oc[oc.length-1].month.slice(5,7))+'월(정산 전)'):'-');
+  // "당월 활성처 증감"/"신규 활성환자" 등 아래 KPI 카드들이 실제로 무엇과 비교하는지(전월 RAW 마감
+  // 스냅샷, 없으면 prevPatients)가 화면에 안 보이면 눈치채기 어렵다 - raw_monthly_snapshot에 전월 데이터가
+  // 실제로 있는지로 직접 판단해서, 없을 때만(=prevPatients 폴백 중일 때만) 경고를 보여준다.
+  var pm=prevMonthStr();
+  var hasRawSnapshot=RAW_MONTHLY_SNAPSHOT.some(function(x){ return x.month&&x.month.slice(0,7)===pm; });
+  var rawWarn='';
+  if(!hasRawSnapshot){
+    var rawLog=latestImportRow(['current']);
+    if(rawLog){
+      var rawDays=Math.floor((Date.now()-new Date(rawLog.imported_at).getTime())/86400000);
+      var rawD=rawLog.source_date?rawLog.source_date.slice(5).replace('-','.'):'?';
+      rawWarn='<div style="margin-top:4px;font-size:11px;font-weight:700;color:#B01A1A">⚠ '+pm.slice(5)+'월(전월) RAW 마감 스냅샷이 아직 없어요(마지막 RAW 업로드: '+rawDays+'일 전, '+rawD+' 기준) - 아래 "당월 대비" 수치들이 실제 전월과 다른 달 기준으로 계산될 수 있어요. 최신 RAW 파일을 올려주세요.</div>';
+    } else {
+      rawWarn='<div style="margin-top:4px;font-size:11px;font-weight:700;color:#B01A1A">⚠ RAW 파일이 아직 한 번도 안 올라왔어요 - "당월 대비" 수치들의 기준이 정확하지 않을 수 있어요.</div>';
+    }
+  }
+  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>오늘(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
   var TH=k.threshold;
   var kpis=[
     ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
@@ -3773,10 +3899,13 @@ function renderStMRFilters(){
 function stFilterRows(){
   var r=officeRows();
   var TH=activeThreshold(todayMonthStr());
-  var p=function(c){return c.patients||0;}, pp=function(c){return c.prevPatients||0;}, ok=function(c){return !c.inactiveTr;};
+  var rawPrevMap=rawSnapshotPrevMap();
+  var p=function(c){return c.patients||0;}, pp=function(c){return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0);}; // stKpiData와 동일 기준(RAW 마감 스냅샷 우선, 없으면 prevPatients)
+  var PREV_TH=4;
+  var ok=function(c){return !(pp(c)>=PREV_TH&&!liveActive(c));}; // stKpiData의 inactiveTr과 동일 기준(카드 숫자·드릴다운 리스트 일치)
   switch(stFilter){
     case 'active': return r.filter(liveActive);
-    case 'inactive': return r.filter(function(c){return c.inactiveTr;});
+    case 'inactive': return r.filter(function(c){return pp(c)>=PREV_TH&&!liveActive(c);});
     case 'newly': return r.filter(function(c){return pp(c)===0&&p(c)>0;});
     case 'crossed': return r.filter(function(c){return (pp(c)<TH&&p(c)>=TH)||(pp(c)<40&&p(c)>=40);});
     case 'pdiff': return r.filter(function(c){return p(c)-pp(c)>0;}); // 순수 신규 증가분만(감소분 제외)
@@ -3807,7 +3936,11 @@ function clinicsListFilterRows(){
 }
 function stPill(c){
   var p=c.patients||0;
-  if(c.inactiveTr) return '<span class="pill p-red">비활성 전환</span>';
+  // "비활성 전환" 판정도 stKpiData/stFilterRows와 동일 기준(RAW 마감 스냅샷 우선, 없으면 prevPatients)으로
+  // 실시간 재계산 - RAW의 저장된 플래그만 믿으면 표 안 "구분" 뱃지와 상단 카드 숫자가 서로 어긋날 수 있음.
+  var prevSnap=(c.biz_no&&RAW_MONTHLY_SNAPSHOT.length)?rawSnapshotPrevMap()[c.biz_no]:undefined;
+  var prevVal=prevSnap!=null?prevSnap:(c.prevPatients||0);
+  if(prevVal>=4 && !liveActive(c)) return '<span class="pill p-red">비활성 전환</span>';
   if(liveActive(c)&&p<activeThreshold(todayMonthStr())) return '<span class="pill p-red">비일만사 활성</span>';
   if(p>=100) return '<span class="pill p-green">100명+</span>';
   if(p>=40) return '<span class="pill p-green">40명+</span>';
@@ -3816,9 +3949,14 @@ function stPill(c){
   return '<span class="pill p-gray">3명 이하</span>';
 }
 function clinicRowsTbodyHtml(rows, detailed){
+  // "전월" 값도 stKpiData/stPill/stFilterRows와 동일 기준(RAW 마감 스냅샷 우선, 없으면 prevPatients)으로 맞춘다.
+  // 예전엔 여기만 c.prevPatients를 직접 썼는데, 그러면 상단 KPI 카드(스냅샷 기준)와 이 표(파일 자체 전월값 기준)가
+  // 서로 다른 "전월"을 기준으로 계산돼서 같은 화면에서 숫자가 안 맞아 보이는 문제가 있었음
+  var rawPrevMap=rawSnapshotPrevMap();
   return rows.map(function(c){
     var m=getMR(c.mr);
-    var prev=c.prevPatients||0, now=c.patients||0, diff=now-prev, nonNow=c.nonPatients||0;
+    var prev=(c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0);
+    var now=c.patients||0, diff=now-prev, nonNow=c.nonPatients||0;
     var cl=clinicClaim(c);
     var nb=(prev===0&&now>0)?'<span class="newBadge">신규</span>':'';
     var idx=CLINICS.indexOf(c);
@@ -3835,8 +3973,10 @@ function clinicRowsTbodyHtml(rows, detailed){
 }
 function renderStTable(){
   var el=document.getElementById('st-table');
+  var rawPrevMapSort=rawSnapshotPrevMap();
+  var cpSort=function(c){ return (c.biz_no&&rawPrevMapSort.hasOwnProperty(c.biz_no))?rawPrevMapSort[c.biz_no]:(c.prevPatients||0); };
   var rows=stFilterRows().slice().sort(function(a,b){
-    if(stFilter==='pdiff') return ((b.patients||0)-(b.prevPatients||0))-((a.patients||0)-(a.prevPatients||0));
+    if(stFilter==='pdiff') return ((b.patients||0)-cpSort(b))-((a.patients||0)-cpSort(a));
     return (b.patients||0)-(a.patients||0)||String(a.name).localeCompare(String(b.name),'ko');
   });
   var title=stTitles()[stFilter]||'거래처 리스트';
@@ -3914,6 +4054,27 @@ function h2OfficeTarget(office, monthStr){
   var mon=(monthStr||todayMonthStr()).slice(0,7);
   var row=H2_TARGETS.find(function(r){ return r.scope==='office'&&r.office===office&&r.month.slice(0,7)===mon; });
   return row?Math.round(row.target):null;
+}
+// RAW 마감 스냅샷(사업자번호별 월 스냅샷) - 현재 사무소분만 가볍게 로드
+var RAW_MONTHLY_SNAPSHOT = [];
+function loadRawMonthlySnapshot(){
+  return db.from('raw_monthly_snapshot').select('biz_no,month,patients').eq('office', currentOffice).then(function(res){
+    if(res.error){ console.error(res.error); RAW_MONTHLY_SNAPSHOT=[]; return; }
+    RAW_MONTHLY_SNAPSHOT=res.data;
+  });
+}
+// "전월(달력상 지난달)" 문자열 'YYYY-MM' - h2OfficeTarget의 nextMonthStr/yearEndMonthStr와 짝을 이루는 헬퍼
+function prevMonthStr(){
+  var d=new Date(); var y=d.getFullYear(), cur=d.getMonth()+1, prev=cur-1;
+  if(prev<1){ prev=12; y-=1; }
+  return y+'-'+(prev<10?'0'+prev:prev);
+}
+// RAW 마감 스냅샷에서 "전월" 값을 사업자번호로 찾아 맵으로 - 없으면 stKpiData 등에서 prevPatients로 폴백
+function rawSnapshotPrevMap(){
+  var pm=prevMonthStr();
+  var map={};
+  RAW_MONTHLY_SNAPSHOT.forEach(function(r){ if(r.biz_no&&r.month.slice(0,7)===pm) map[r.biz_no]=r.patients||0; });
+  return map;
 }
 function h2MrTarget(sabun, monthStr){
   var mon=(monthStr||todayMonthStr()).slice(0,7);
