@@ -1854,13 +1854,26 @@ function commitDailyMAU(parsed, status){
   var officeCounts=parsed.officeCounts||{};
   var officeList=Object.keys(officeCounts);
   status.textContent='전국 '+officeList.length+'개 사무소 · 거래처 '+updates.length+'곳 반영 중...';
-  Promise.all(updates.map(function(u){
-    return db.from('clinics').update({
-      patients:u.patients, care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt,
-      patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt
-    }).eq('id', u.id);
-  })).then(function(results){
-    var failed=results.filter(function(r){return r.error;}).length;
+  // 예전엔 거래처 하나당 update().eq('id',...) 요청을 개별로 날려서 Promise.all로 동시에 수천 건을
+  // 쏘고 있었음 - 1000건 매칭 캡이 있을 때는 최대 1000개 요청이라 어쩌다 괜찮았지만, 그 캡을 고친
+  // 뒤로는 전사 4,600여 건이 한꺼번에 날아가서 브라우저/서버 동시 연결 한도를 넘겨 대량 실패
+  // (실제로 "1332곳 반영, 3259건 실패") 발생. office+biz_no를 키로 하는 upsert 한 번(청크당)으로
+  // 바꾸면 요청 수가 수천 건 -> 몇 건으로 줄고, upsert 페이로드에 없는 컬럼(name/mr/is_active 등)은
+  // 그대로 안 건드리므로 "활성처 판정엔 영향 없음"이라는 기존 동작도 그대로 유지됨
+  var chunks=chunkArray(updates, 500);
+  var failed=0;
+  function runChunk(i){
+    if(i>=chunks.length) return Promise.resolve();
+    var rows=chunks[i].map(function(u){
+      return {office:u.office, biz_no:u.biz_no, patients:u.patients, care_plan_cnt:u.care_plan_cnt,
+        edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
+    });
+    return db.from('clinics').upsert(rows, {onConflict:'office,biz_no'}).then(function(res){
+      if(res.error) failed+=rows.length;
+      return runChunk(i+1);
+    });
+  }
+  runChunk(0).then(function(){
     status.textContent='완료: 전국 '+officeList.length+'개 사무소 · 거래처 '+(updates.length-failed)+'곳 반영됨'+(failed?(', '+failed+'건 실패'):'')+' (활성환자수·청구건수 참고용 반영, 활성처 판정엔 영향 없음). (파일 기준일: '+asOf+', 자체 날짜 표기가 없어 업로드일로 기록)';
     logImport('daily', asOf, officeList); // 전국 매칭이라 실제로 갱신된 사무소 전부에 로그를 남겨야 함(currentOffice만 남기면 나머지 사무소는 계속 "데이터 기준일" 공백으로 남음)
     loadClinics().then(function(){
@@ -2553,6 +2566,13 @@ function fetchAllRows(table, cols){
     });
   }
   return loop(0, []);
+}
+// 배열을 size개씩 묶어서 2차원 배열로 나눔 - 수천 건짜리 upsert를 한 번에 던지면 요청 바디가 너무 커지거나
+// 실패 시 원인 파악이 어려워지므로 적당한 크기로 쪼개서 순차 처리할 때 사용
+function chunkArray(arr, size){
+  var out=[];
+  for(var i=0;i<arr.length;i+=size) out.push(arr.slice(i, i+size));
+  return out;
 }
 function openClinicMgmtModal(){
   document.getElementById('clinic-mgmt-ov').classList.add('ov-open');
