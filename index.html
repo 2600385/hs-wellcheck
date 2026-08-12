@@ -3141,7 +3141,9 @@ function buildChip(ev, isAll){
   var isLeave=ev.evType&&ev.evType!=='visit';
   var isCross=!isLeave&&!!ev.mrOffice; // 타사무소 동도(지원 방문) - 연차 등과는 별개로, 실제 방문이라 ev_type은 여전히 'visit'
   var chip=document.createElement('div');
-  chip.className='ev'+(isAll?' ev-allday':'')+(isLeave?' ev-leave':'')+(isCross?' ev-cross':'');
+  // 동도 칩은 "종일"로 잡혀도(연차처럼) ev-allday의 큰 사이즈를 안 씀 - 우리 사무소 일반 방문 칩과
+  // 똑같이 얇게 보여야 한다는 피드백이라, isCross면 종일 여부와 무관하게 항상 기본(얇은) 크기 유지
+  chip.className='ev'+(isAll&&!isCross?' ev-allday':'')+(isLeave?' ev-leave':'')+(isCross?' ev-cross':'');
   if(isLeave){
     // 거래처 외 일정(연차/학소/내근/기타)은 담당자 색과 무관하게 항상 같은 은은한 회색빛 하늘색 빗금으로 통일 -
     // 담당자 색을 그대로 쓰면(특히 담당자 미지정 일정은 경고색 노랑/빨강까지 섞여서) 너무 튀어서 차분한 고정 색으로 변경
@@ -3149,11 +3151,12 @@ function buildChip(ev, isAll){
     chip.style.color='#3D5266';
     chip.style.border='1.5px solid #8FA6BA';
   } else if(isCross){
-    // 타사무소 동도 방문: 우리 사무소 일반 방문과 헷갈리지 않게, 그 담당MR 고유 파스텔톤은 유지하되
-    // 꽉 채운 색 대신 빗금으로(연차류와 같은 "다른 느낌" 문법). 다만 테두리까지 추가하면 일반 방문
-    // 칩(테두리 없음)보다 커 보인다는 피드백이 있어서 테두리는 빼고 빗금만으로 구분되게 함(크기는 동일)
-    chip.style.backgroundImage='repeating-linear-gradient(135deg, '+m.bg+' 0px, '+m.bg+' 5px, #ffffff 5px, #ffffff 9px)';
-    chip.style.color=m.t;
+    // 타사무소 동도 방문: 담당자 고유색을 쓰면 너무 컬러풀하고 눈에 띈다는 피드백 -> 담당자 색과
+    // 무관하게 항상 같은, 아주 옅은 회색 실선 빗금(얇은 줄무늬) + 얇은 회색 테두리로 통일. 크기는
+    // 위에서 ev-allday를 안 붙여서 일반 방문 칩(자애내과의원 등)과 동일하게 얇음
+    chip.style.backgroundImage='repeating-linear-gradient(135deg, #E5E5E5 0px, #E5E5E5 1.5px, #ffffff 1.5px, #ffffff 6px)';
+    chip.style.color='#666666';
+    chip.style.border='1px solid #CCCCCC';
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
   }
