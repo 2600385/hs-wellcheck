@@ -748,14 +748,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div id="add-mr-badge" class="dm-badge" style="margin-top:4px;display:none"></div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        <!-- "동도(지원 방문)" 진입점이 예전엔 거래처명 입력칸 옆에 작은 파란 글씨 링크로만 있어서(거래처
+             일정 모드에서만 보임) 못 찾겠다는 실제 피드백이 있었음 - 모드와 무관하게 항상 보이는 버튼으로
+             올리고, 거래처 외 일정 모드에 있었으면 자동으로 거래처 일정 모드로 전환까지 해줌 -->
+        <button type="button" class="btn btn-cancel" id="cross-mr-entry-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap;color:#2F78B7;border-color:#2F78B7" onclick="openCrossOfficeFromAnywhere()">🤝 타사무소 동도 지원</button>
         <button type="button" class="btn btn-cancel" id="add-mode-toggle-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap" onclick="toggleAddMode()">📋 거래처 외 일정</button>
         <button class="modal-x" onclick="closeAdd()">✕</button>
       </div>
     </div>
     <div class="dm-fields">
       <div class="dm-field" id="mr-field">
-        <div class="dm-field-lbl">담당자</div>
+        <div class="dm-field-lbl" id="mr-field-lbl">담당자</div>
         <select id="inp-mr" onchange="loadClinicsByMR(this.value);updateAddBadge()" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
+        <!-- 타사무소 동도 거래처를 고르면 그 거래처의 실제 담당 MR(다른 사무소 소속이라 위 셀렉트엔 없음)을
+             여기에 읽기전용으로 표시. 셀렉트와 자리를 바꿔가며 토글(showCrossMr/hideCrossMr) -->
+        <div id="cross-mr-display" style="display:none;padding:4px 6px;font-size:13px;font-weight:600;color:#2F78B7"></div>
       </div>
       <div class="dm-field" id="timeslot-field">
         <div class="dm-field-lbl">시간대</div>
@@ -778,8 +785,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div id="visit-only-fields">
       <div class="fld">
-        <label>거래처명 <span style="font-weight:400;color:#2F78B7;cursor:pointer;font-size:11px" onclick="openCrossOfficeClinicSearch()">🔍 타사무소 동도(지원 방문) 거래처 검색</span></label>
-        <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요" autocomplete="off">
+        <label>거래처명</label>
+        <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요 (타사무소 동도는 위 '🤝 타사무소 동도 지원' 버튼 이용)" autocomplete="off">
         <datalist id="clinic-list"></datalist>
       </div>
       <div class="dm-fields" style="margin-top:8px">
@@ -1854,27 +1861,33 @@ function commitDailyMAU(parsed, status){
   var officeCounts=parsed.officeCounts||{};
   var officeList=Object.keys(officeCounts);
   status.textContent='전국 '+officeList.length+'개 사무소 · 거래처 '+updates.length+'곳 반영 중...';
-  // 예전엔 거래처 하나당 update().eq('id',...) 요청을 개별로 날려서 Promise.all로 동시에 수천 건을
-  // 쏘고 있었음 - 1000건 매칭 캡이 있을 때는 최대 1000개 요청이라 어쩌다 괜찮았지만, 그 캡을 고친
-  // 뒤로는 전사 4,600여 건이 한꺼번에 날아가서 브라우저/서버 동시 연결 한도를 넘겨 대량 실패
-  // (실제로 "1332곳 반영, 3259건 실패") 발생. office+biz_no를 키로 하는 upsert 한 번(청크당)으로
-  // 바꾸면 요청 수가 수천 건 -> 몇 건으로 줄고, upsert 페이로드에 없는 컬럼(name/mr/is_active 등)은
-  // 그대로 안 건드리므로 "활성처 판정엔 영향 없음"이라는 기존 동작도 그대로 유지됨
-  var chunks=chunkArray(updates, 500);
-  var failed=0;
+  // 1차: 거래처 하나당 update().eq('id',...) 요청을 개별로 Promise.all로 동시에 수천 건 쏘던 방식
+  // -> 1000건 매칭 캡이 있을 땐 최대 1000개 요청이라 어쩌다 괜찮았지만, 캡을 고친 뒤론 전사
+  // 4,600여 건이 한꺼번에 날아가서 동시 연결 한도를 넘겨 대량 실패("1332곳 반영, 3259건 실패").
+  // 2차: office+biz_no 키로 client-side upsert(ON CONFLICT DO UPDATE)로 바꿨더니 이번엔 100% 실패
+  // ("0곳 반영, 4591건 실패") - clinics.name/mr가 NOT NULL(기본값 없음)인데 upsert payload엔
+  // 그 컬럼이 없어서, postgres가 INSERT 후보 행을 만들어 제약조건 검사하는 단계(충돌 여부 판정 전)에서
+  // 매 행마다 not-null 위반으로 걸림. 게다가 name/mr을 더미값으로라도 채워 넣으면 PostgREST가 그
+  // 값까지 그대로 DO UPDATE SET에 넣어버려서 기존 거래처명/MR을 덮어써버리는 대참사가 남.
+  // 3차(현재): DB에 순수 UPDATE...FROM만 하는 apply_daily_mau(jsonb) 함수를 만들어 RPC로 호출.
+  // 신규 삽입이 전혀 없는 순수 UPDATE라 not-null 문제 자체가 없고, 청크당 요청도 1건이라 동시
+  // 연결 문제도 없음(수동으로 검증 완료한 SQL 배치 보정과 완전히 같은 패턴).
+  var chunks=chunkArray(updates, 1000);
+  var okCount=0;
   function runChunk(i){
     if(i>=chunks.length) return Promise.resolve();
     var rows=chunks[i].map(function(u){
       return {office:u.office, biz_no:u.biz_no, patients:u.patients, care_plan_cnt:u.care_plan_cnt,
         edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
     });
-    return db.from('clinics').upsert(rows, {onConflict:'office,biz_no'}).then(function(res){
-      if(res.error) failed+=rows.length;
+    return db.rpc('apply_daily_mau', {rows: rows}).then(function(res){
+      if(!res.error) okCount+=(res.data||0);
       return runChunk(i+1);
     });
   }
   runChunk(0).then(function(){
-    status.textContent='완료: 전국 '+officeList.length+'개 사무소 · 거래처 '+(updates.length-failed)+'곳 반영됨'+(failed?(', '+failed+'건 실패'):'')+' (활성환자수·청구건수 참고용 반영, 활성처 판정엔 영향 없음). (파일 기준일: '+asOf+', 자체 날짜 표기가 없어 업로드일로 기록)';
+    var failedTotal=updates.length-okCount;
+    status.textContent='완료: 전국 '+officeList.length+'개 사무소 · 거래처 '+okCount+'곳 반영됨'+(failedTotal?(', '+failedTotal+'건 실패'):'')+' (활성환자수·청구건수 참고용 반영, 활성처 판정엔 영향 없음). (파일 기준일: '+asOf+', 자체 날짜 표기가 없어 업로드일로 기록)';
     logImport('daily', asOf, officeList); // 전국 매칭이라 실제로 갱신된 사무소 전부에 로그를 남겨야 함(currentOffice만 남기면 나머지 사무소는 계속 "데이터 기준일" 공백으로 남음)
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
@@ -2245,7 +2258,7 @@ var EVENTS = {};
 var MEMO_STORE = {}; // 거래처명 → 메모 저장소 (clinic_memos 테이블과 동기화)
 
 function rowToEv(r){
-  return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, label:r.label,
+  return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, mrOffice:r.mr_office||'', label:r.label,
     time:r.time_slot, exactTime:r.exact_time||'', exactTimeEnd:r.exact_time_end||'', evType:r.ev_type, region:r.region, patients:r.patients,
     memo:r.memo||'', checked:r.checked, status:r.status};
 }
@@ -2311,7 +2324,7 @@ function rowToClinic(r){
   return {id:r.id, mr:r.mr, name:r.name, ilmansa:r.ilmansa, welcheck:r.welcheck,
     patients:r.patients, ilCnt:r.il_cnt, nonCnt:r.non_cnt, lastVisit:r.last_visit,
     edu:r.edu, device:r.device, dues:r.dues, region:r.region, visited:r.visited,
-    dh:r.dh, dh_op:r.dh_op, dh_cp:r.dh_cp, dh_sp:r.dh_sp, dh_mb:r.dh_mb,
+    dh:r.dh, dh_op:r.dh_op, dh_cp:r.dh_cp, dh_sp:r.dh_sp, dh_mb:r.dh_mb, dh_lb:r.dh_lb, dh_wd:r.dh_wd,
     note:r.note||'', biz_no:r.biz_no||'', welcheck_cnt:r.welcheck_cnt, ilmansa_cnt:r.ilmansa_cnt,
     ilmansaStart:r.ilmansa_start||'', prevPatients:r.prev_patients||0,
     isActive:!!r.is_active, inactiveTr:!!r.inactive_transition, prevActive:!!r.prev_active,
@@ -2625,18 +2638,39 @@ function renderClinicMgmtList(){
 // 일정 추가 시 "타사무소 동도(지원 방문)" 거래처를 고르기 위한 전국 검색 팝업 - 우리가 이미 "거래처관리"에서
 // 보유하고 있는 전사 거래처 데이터를 그대로 재사용(사업부/사무소 구분 없이 전 사무소 대상 검색)
 var ALL_CLINICS_CROSS=null;
+// 타사무소 거래처를 고르면 그 거래처의 실제 담당 MR도 자동으로 붙여줘야 해서(우리 사무소 MANAGERS
+// 목록엔 없는 사람이라 직접 셀렉트로 고를 수가 없음), 전사 담당자 목록도 같이 받아서 이름을 resolve함
+var ALL_MANAGERS_CROSS=null;
+// 헤더의 "🤝 타사무소 동도 지원" 버튼은 모드(거래처 일정 / 거래처 외 일정)와 무관하게 항상 눌리므로,
+// 거래처 외 일정 모드에 있었으면 먼저 거래처 일정 모드로 전환한 뒤 검색을 염(동도도 결국 실제 거래처
+// 방문이라 "거래처 외 일정" 쪽엔 애초에 해당 사항이 없음)
+function openCrossOfficeFromAnywhere(){
+  if(ADD_MODE==='leave') setAddMode('visit');
+  openCrossOfficeClinicSearch();
+}
 function openCrossOfficeClinicSearch(){
   document.getElementById('cross-clinic-ov').classList.add('ov-open');
   document.getElementById('cross-clinic-search').value='';
   document.getElementById('cross-clinic-list').innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:12px 0">불러오는 중...</div>';
-  fetchAllRows('clinics','office,name,biz_no').then(function(res){
-    if(res.error){
-      document.getElementById('cross-clinic-list').innerHTML='<div style="font-size:11px;color:#B01A1A;text-align:center;padding:12px 0">불러오기 실패: '+res.error.message+'</div>';
+  Promise.all([
+    fetchAllRows('clinics','office,name,biz_no,mr'),
+    fetchAllRows('managers','office,code,name')
+  ]).then(function(resArr){
+    var clinicsRes=resArr[0], managersRes=resArr[1];
+    if(clinicsRes.error){
+      document.getElementById('cross-clinic-list').innerHTML='<div style="font-size:11px;color:#B01A1A;text-align:center;padding:12px 0">불러오기 실패: '+clinicsRes.error.message+'</div>';
       return;
     }
-    ALL_CLINICS_CROSS=res.data;
+    ALL_CLINICS_CROSS=clinicsRes.data;
+    ALL_MANAGERS_CROSS=managersRes.error?[]:managersRes.data;
     renderCrossOfficeClinicList();
   });
+}
+// 다른 사무소 소속 담당자의 코드를 그 사무소 기준으로 실제 이름으로 변환(코드는 사무소마다
+// namespace가 달라서 우리 사무소 MR/MANAGERS로는 못 찾음)
+function resolveCrossMrName(office, code){
+  var m=(ALL_MANAGERS_CROSS||[]).find(function(x){ return x.office===office && x.code===code; });
+  return m?m.name:(code||'미지정');
 }
 function closeCrossOfficeClinicSearch(){ document.getElementById('cross-clinic-ov').classList.remove('ov-open'); }
 function renderCrossOfficeClinicList(){
@@ -2670,9 +2704,16 @@ function renderCrossOfficeClinicList(){
 function selectCrossOfficeClinic(i){
   var r=(window._crossClinicShown||[])[i];
   if(!r) return;
-  var label=r.office===currentOffice?r.name:('[타사무소 동도] '+r.name+' ('+r.office+')');
+  var isCross=r.office!==currentOffice;
+  // 라벨에 "[타사무소 동도] ...(사무소)"를 붙였더니 캘린더 칸에서 문구가 길어져 거래처명/시간이
+  // 잘리고, 어차피 캘린더 칩은 빗금 디자인으로 이미 "다른 사무소"임을 표시하므로 라벨은 그냥
+  // 거래처명 그대로(우리 사무소 일정과 동일한 형태) - 어느 사무소인지는 상세보기에서 확인
+  var label=r.name;
   document.getElementById('inp-clinic').value=label;
-  onClinicSelect();
+  onClinicSelect(); // 여기서 _crossMr을 일단 초기화하고, 아래에서 타사무소인 경우에만 다시 채움
+  if(isCross){
+    setCrossMr(resolveCrossMrName(r.office, r.mr), r.office);
+  }
   closeCrossOfficeClinicSearch();
 }
 // 거래처 필드 변경을 DB에 반영
@@ -2724,7 +2765,7 @@ var SORT_TYPES={
   region:'text', mrname:'text', name:'text',
   visited:'check', ilmansa:'check', welcheck:'check',
   patients:'num', edu:'check', dues:'check',
-  dh_op:'check', dh_cp:'check', dh_sp:'check', dh_mb:'check',
+  dh_op:'check', dh_cp:'check', dh_sp:'check', dh_mb:'check', dh_lb:'check', dh_wd:'check',
   gap:'num', cum:'num'
 };
 var CHECK_RANK={'도입':2,'예정':1,'미도입':0,'참여':1,'미참여':0,'이수완료':2,'미이수':1,'납부':2,'비납부':1,'해당없음':0};
@@ -2982,7 +3023,10 @@ function renderCalendar(){
     var cell=document.createElement('div');cell.className='dc';
     cell.style.cursor='pointer';
     (function(day){ cell.onclick=function(e){ openAdd(day,'all'); }; })(d);
-    var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||e.mr===activeMR);});
+    // 타사무소 동도 일정은 mr에 우리 사무소 코드가 아니라 그 거래처의 실제(다른 사무소) 담당자 "이름"이
+    // 들어있어서, 어쩌다 우리 사무소 담당자 코드와 문자열이 같아지는 극단적 우연이 있어도 담당자 탭에
+    // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임)
+    var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||(e.mr===activeMR&&!e.mrOffice));});
     var allEvs=dayEvs.filter(function(e){return e.time==='all';});
     var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeDesc);
     var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeDesc);
@@ -3095,14 +3139,21 @@ var EV_TYPE_ICON={off:'🌿',study:'📚',office:'🏢',etc:'📌'};
 function buildChip(ev, isAll){
   var m=getMR(ev.mr);
   var isLeave=ev.evType&&ev.evType!=='visit';
+  var isCross=!isLeave&&!!ev.mrOffice; // 타사무소 동도(지원 방문) - 연차 등과는 별개로, 실제 방문이라 ev_type은 여전히 'visit'
   var chip=document.createElement('div');
-  chip.className='ev'+(isAll?' ev-allday':'')+(isLeave?' ev-leave':'');
+  chip.className='ev'+(isAll?' ev-allday':'')+(isLeave?' ev-leave':'')+(isCross?' ev-cross':'');
   if(isLeave){
     // 거래처 외 일정(연차/학소/내근/기타)은 담당자 색과 무관하게 항상 같은 은은한 회색빛 하늘색 빗금으로 통일 -
     // 담당자 색을 그대로 쓰면(특히 담당자 미지정 일정은 경고색 노랑/빨강까지 섞여서) 너무 튀어서 차분한 고정 색으로 변경
     chip.style.backgroundImage='repeating-linear-gradient(135deg, #E9F1F7 0px, #E9F1F7 5px, #ffffff 5px, #ffffff 9px)';
     chip.style.color='#3D5266';
     chip.style.border='1.5px solid #8FA6BA';
+  } else if(isCross){
+    // 타사무소 동도 방문: 우리 사무소 일반 방문과 헷갈리지 않게, 그 담당MR 고유 파스텔톤은 유지하되
+    // 꽉 채운 색 대신 빗금으로(연차류와 같은 "다른 느낌" 문법). 다만 테두리까지 추가하면 일반 방문
+    // 칩(테두리 없음)보다 커 보인다는 피드백이 있어서 테두리는 빼고 빗금만으로 구분되게 함(크기는 동일)
+    chip.style.backgroundImage='repeating-linear-gradient(135deg, '+m.bg+' 0px, '+m.bg+' 5px, #ffffff 5px, #ffffff 9px)';
+    chip.style.color=m.t;
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
   }
@@ -3115,7 +3166,12 @@ function buildChip(ev, isAll){
     });
   };
   var txt=document.createElement('span');txt.className='ev-txt';
-  var timeStr=timeRangeLabel(ev);
+  // 캘린더 칸에서는 종료시간까지 표시하면(예: "9a~1p") 거래처명이 잘려서 시작 시간만 표시 -
+  // 종료시간은 일정 추가 폼/상세보기(dm-time)에는 그대로 남아있음, 여기 칩 표시만 축약
+  var timeStr=ev.exactTime?compactTime(ev.exactTime):'';
+  // 타사무소 동도 방문은 빗금 디자인만으로 이미 "다른 사무소"라는 게 구분되니, 문구/아이콘까지
+  // 붙이면(예: "🤝 [타사무소 동도] ...") 길어져서 정작 거래처명이나 시간이 잘림 - 그냥 우리 사무소
+  // 일정과 똑같이(아이콘 없이, 거래처명 그대로) 표시. 어느 사무소인지는 상세보기에서 확인 가능
   var iconStr=isLeave?(EV_TYPE_ICON[ev.evType]||'📌')+' ':'';
   txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+escapeHtml(ev.label);
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
@@ -3131,6 +3187,7 @@ function changeYear(d){curYear+=d;renderCalendar();}
 // ===== 일정 추가 모달 =====
 function openAdd(day, zone){
   editingId=null; addDay=day; addZone=zone;
+  clearCrossMr();
   document.getElementById('add-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 일정 추가';
   document.getElementById('inp-clinic').value='';
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
@@ -3151,8 +3208,15 @@ function openEditModal(ev){
   editingId=ev.id; addDay=ev.day;
   document.getElementById('add-title').textContent='일정 수정';
   document.getElementById('inp-clinic').value=ev.label;
-  document.getElementById('inp-mr').value=ev.mr;
-  loadClinicsByMR(ev.mr);
+  if(ev.mrOffice){
+    // 타사무소 동도 일정: ev.mr은 코드가 아니라 그 사무소 실제 담당자 "이름"이라 우리 사무소 셀렉트
+    // 옵션엔 없음 - 셀렉트에 넣지 말고 읽기전용 배지로 복원
+    setCrossMr(ev.mr, ev.mrOffice);
+  } else {
+    clearCrossMr();
+    document.getElementById('inp-mr').value=ev.mr;
+    loadClinicsByMR(ev.mr);
+  }
   document.getElementById('inp-clinic').value=ev.label;
   document.getElementById('inp-time').value=ev.time;
   document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML(ev.exactTime||'');
@@ -3187,7 +3251,11 @@ function saveEv(){
   var row={
     year:curYear, month:curMonth, day:addDay,
     office:currentOffice,
-    mr:document.getElementById('inp-mr').value,
+    // 타사무소 동도(지원 방문): mr엔 그 거래처의 실제 담당자 "이름"이 들어가고(코드가 아님 -
+    // 사무소마다 코드 namespace가 달라서 이름으로 저장해야 우리 사무소 코드와 절대 안 겹침),
+    // mr_office엔 그 담당자가 소속된(우리와 다른) 사무소를 남겨서 "이 일정은 동도 지원"임을 표시
+    mr:(!isLeave&&_crossMr)?_crossMr.name:document.getElementById('inp-mr').value,
+    mr_office:(!isLeave&&_crossMr)?_crossMr.office:null,
     label:label,
     region: isLeave ? '기타' : (function(){
       var cl=CLINICS.find(function(c){return c.name===label;});
@@ -3245,7 +3313,16 @@ function openDetail(id){
   var m=getMR(ev.mr);
   document.getElementById('dm-name').textContent=ev.label;
   var badge=document.getElementById('dm-badge');
-  badge.textContent=m.name+' MR'; badge.style.background=m.bg; badge.style.color=m.t;
+  // 연차/학소/내근/기타는 간호사 본인 일정이라 "담당 MR" 배지 자체가 의미가 없음(다른 필드들처럼
+  // 여기도 isLeave면 숨겨야 하는데 이 줄만 빠져있어서 예를 들어 "연차"에도 실제로는 그 일정을 등록한
+  // 사람과 무관한 담당자 이름이 그대로 표시되는 버그가 있었음)
+  badge.style.display=isLeave?'none':'inline-flex';
+  if(!isLeave){
+    // 타사무소 동도(지원 방문): 이 일정의 실제 담당 MR은 우리 사무소가 아닌 다른 사무소 소속일 수 있어서
+    // 배지에 소속 사무소를 같이 표기(안 그러면 같은 이름이 우리 사무소 사람인 줄 오해할 수 있음)
+    badge.textContent=m.name+' MR'+(ev.mrOffice?(' · '+ev.mrOffice):'');
+    badge.style.background=m.bg; badge.style.color=m.t;
+  }
   document.getElementById('dm-time').textContent=timeLabel(ev.time)+(ev.exactTime?' · '+timeRangeLabel(ev):'');
   // 연차/학소/내근/기타 같은 거래처 외 일정은 방문 체크·마지막 방문일·웰체크 활성도·방문 이력이 의미가 없어 숨김
   document.getElementById('dm-checked-fld').style.display=isLeave?'none':'';
@@ -3359,6 +3436,12 @@ function renderList(){
   function ecls(e){ return e==='이수완료'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
   function gcol(p){ return p>=100?'#10b981':p>=40?'#EAB308':p>=20?'#f97316':'#ef4444'; }
   function gwid(p){ return p>=100?'100%':p>=40?'80%':p>=20?'50%':'25%'; }
+  // DH품목 6종을 컬럼 하나로 합쳐봤더니(그리드+팝업) 품목명이 안 보여서 뭐가 뭔지 알 수 없다는
+  // 피드백으로 되돌림 - 다시 품목마다 컬럼을 두되(이름이 헤더에 그대로 보이게), 대신 원래 폭 문제의
+  // 진짜 원인이었던 .gtbl td/th 기본 좌우 패딩(12px)을 이 6개 컬럼에서만 훨씬 좁게 오버라이드해서
+  // (padding:6px 2px) 6컬럼 다 합쳐도 예전(패딩 그대로 둔 채 폭만 줄였던) 버전보다 확실히 좁아지게 함.
+  // display:inline-block이 빠져있으면 span에 width/height가 안 먹어서 동그라미가 찌그러짐(실제로
+  // 이 버그로 "동그라미가 이상해졌다"는 리포트가 있었음) - 원래 있던 스타일 그대로 복원.
   function dot(v,didx,field){
     var style=v==='도입'
       ?'width:11px;height:11px;border-radius:50%;background:#C4A882;display:inline-block;cursor:pointer'
@@ -3403,11 +3486,13 @@ function renderList(){
       })()
       +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
-      // DH 구역
-      +'<td style="text-align:center;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
-      +'<td style="text-align:center">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
-      +'<td style="text-align:center">'+dot(c.dh_sp,idx,'dh_sp')+'</td>'
-      +'<td style="text-align:center">'+dot(c.dh_mb,idx,'dh_mb')+'</td>'
+      // DH 구역 - 좌우 패딩을 좁게(td 기본 12px -> 2px) 오버라이드해서 6컬럼이어도 폭을 적게 차지하게 함
+      +'<td style="text-align:center;padding:8px 2px;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
+      +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
+      +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_sp,idx,'dh_sp')+'</td>'
+      +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_mb,idx,'dh_mb')+'</td>'
+      +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_lb,idx,'dh_lb')+'</td>'
+      +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_wd,idx,'dh_wd')+'</td>'
       +'</tr>';
   });
 
@@ -3420,7 +3505,7 @@ function renderList(){
     +'<tr style="background:var(--bg2)">'
     +'<th colspan="3" style="border-bottom:0.5px solid var(--bd)"></th>'
     +'<th colspan="8" style="text-align:center;font-size:10px;color:#2A7A4A;border-left:2px solid #C8D8C0;border-bottom:0.5px solid var(--bd);font-weight:700">일만사 &amp; 웰체크</th>'
-    +'<th colspan="4" style="text-align:center;font-size:10px;color:#1048A0;border-left:2px solid #B8C8D8;border-bottom:0.5px solid var(--bd);font-weight:700">DH 기기</th>'
+    +'<th colspan="6" style="text-align:center;font-size:10px;color:#1048A0;border-left:2px solid #B8C8D8;border-bottom:0.5px solid var(--bd);font-weight:700">DH품목</th>'
     +'</tr>'
     +'<tr>'
     +sth('region','지역','width:55px')
@@ -3434,10 +3519,15 @@ function renderList(){
     +sth('cum','당월청구(추정)','width:72px;text-align:right')
     +sth('edu','심화교육','width:68px;text-align:center')
     +sth('dues','의협회비','width:56px;text-align:center')
-    +sth('dh_op','옵티나&amp;위스키','width:56px;text-align:center;border-left:2px solid #B8C8D8')
-    +sth('dh_cp','카트비피','width:48px;text-align:center')
-    +sth('dh_sp','더스피로킷','width:52px;text-align:center')
-    +sth('dh_mb','모비케어','width:48px;text-align:center')
+    // DH품목 6개 헤더: .gtbl th 기본 좌우 패딩(12px)이 폭을 제일 많이 잡아먹던 원인이라 여기만 좁게
+    // 오버라이드(padding:6px 2px)하고, 긴 이름은 2줄로 접어서 폭을 최소화. sth()로 클릭 정렬도 복원
+    // (정렬 화살표 자리만큼 plain th일 때보다 폭을 살짝 더 줌)
+    +sth('dh_op','옵티나&amp;<br>위스키','width:42px;padding:6px 2px;text-align:center;border-left:2px solid #B8C8D8;font-size:9px')
+    +sth('dh_cp','카트<br>비피','width:38px;padding:6px 2px;text-align:center;font-size:9px')
+    +sth('dh_sp','더스피<br>로킷','width:38px;padding:6px 2px;text-align:center;font-size:9px')
+    +sth('dh_mb','모비<br>케어','width:38px;padding:6px 2px;text-align:center;font-size:9px')
+    +sth('dh_lb','리브레','width:36px;padding:6px 2px;text-align:center;font-size:9px')
+    +sth('dh_wd','웰다','width:34px;padding:6px 2px;text-align:center;font-size:9px')
     +'</tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
@@ -4395,7 +4485,25 @@ function loadClinicsByMR(mr) {
 }
 
 // 거래처 선택 → 일만사/환자수 자동 채우기
+// 타사무소 동도(지원 방문) 담당 MR 상태 - 거래처 선택으로만 채워지고(selectCrossOfficeClinic),
+// 다른 경로로 거래처명이 바뀌면(수기 입력 등) onClinicSelect가 항상 먼저 초기화함
+var _crossMr=null;
+function setCrossMr(name, office){
+  _crossMr={name:name, office:office};
+  document.getElementById('inp-mr').style.display='none';
+  document.getElementById('mr-field-lbl').textContent='담당 MR(타사무소)';
+  var disp=document.getElementById('cross-mr-display');
+  disp.textContent='🤝 '+name+' MR · '+office;
+  disp.style.display='block';
+}
+function clearCrossMr(){
+  _crossMr=null;
+  document.getElementById('inp-mr').style.display='';
+  document.getElementById('mr-field-lbl').textContent='담당자';
+  document.getElementById('cross-mr-display').style.display='none';
+}
 function onClinicSelect() {
+  clearCrossMr(); // 타사무소 동도 거래처가 아닌 다른 경로로 거래처명이 바뀌면 동도 MR 상태는 무효
   var name = document.getElementById('inp-clinic').value.trim();
   var found = CLINICS.find(function(c){ return c.name === name; });
   if (found) {
@@ -4779,6 +4887,9 @@ function openIlmansaPopup(idx, event){
   },100);
 }
 
+var DH_ITEM_LABELS={dh_op:'옵티나&위스키',dh_cp:'카트비피',dh_sp:'더스피로킷',dh_mb:'모비케어',dh_lb:'리브레',dh_wd:'웰다'};
+// DH품목 점을 클릭하면 6개를 한번에 토글하는 팝업으로 바꿨다가, "굳이 팝업 없이 이전처럼 그 항목 하나만
+// 있다/없다 색으로 바로 토글돼야지"라는 피드백으로 원래 방식(항목 하나씩, 미도입/도입 선택)으로 되돌림.
 function showDotPopup(el){
   var existing=document.getElementById('dot-popup');
   if(existing) existing.remove();
@@ -4786,7 +4897,6 @@ function showDotPopup(el){
   var field=el.dataset.field;
   var c=CLINICS[idx];
   var cur=c[field]||'미도입';
-  var labels={dh_op:'옵티나&위스키',dh_cp:'카트비피',dh_sp:'더스피로킷',dh_mb:'모비케어'};
   var div=document.createElement('div');
   div.id='dot-popup';
   div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid #ccc;border-radius:8px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:140px';
@@ -4795,19 +4905,19 @@ function showDotPopup(el){
   div.style.left=Math.min(rect.left-50,window.innerWidth-150)+'px';
   var title=document.createElement('div');
   title.style.cssText='font-size:11px;font-weight:700;color:var(--t1);margin-bottom:8px';
-  title.textContent=labels[field];
+  title.textContent=DH_ITEM_LABELS[field];
   div.appendChild(title);
   ['미도입','도입'].forEach(function(st){
     var btn=document.createElement('button');
     var sel=cur===st;
     btn.style.cssText='display:flex;align-items:center;gap:7px;width:100%;padding:5px 6px;font-size:11px;font-weight:'+(sel?'700':'400')+';border:none;background:'+(sel?'var(--bg2)':'white')+';cursor:pointer;border-radius:5px;text-align:left';
     var dot2=document.createElement('span');
-    dot2.style.cssText='width:10px;height:10px;border-radius:50%;flex-shrink:0;'+(st==='도입'?'background:#C4A882':'border:1.5px solid #CCC');
+    dot2.style.cssText='width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;'+(st==='도입'?'background:#C4A882':'border:1.5px solid #CCC');
     btn.appendChild(dot2);
     btn.appendChild(document.createTextNode(st));
     btn.onclick=function(){
       c[field]=st;
-      var vals=[c.dh_op,c.dh_cp,c.dh_sp,c.dh_mb];
+      var vals=[c.dh_op,c.dh_cp,c.dh_sp,c.dh_mb,c.dh_lb,c.dh_wd];
       c.dh=vals.includes('도입')?'도입':'미도입';
       var upd={dh:c.dh}; upd[field]=st;
       saveClinicField(c,upd);
@@ -4873,6 +4983,7 @@ function setAddMode(mode){
   if(addMrBadgeEl) addMrBadgeEl.style.display=isLeave?'none':addMrBadgeEl.style.display;
   if(isLeave){
     document.getElementById('inp-clinic').value='';
+    clearCrossMr(); // 연차 등은 담당MR 개념이 없으니 타사무소 동도 상태도 같이 무효화
     if(typeof activeMR!=='undefined' && activeMR && activeMR!=='all' && MR[activeMR]){
       document.getElementById('inp-mr').value=activeMR;
     }
