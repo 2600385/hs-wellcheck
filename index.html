@@ -1623,6 +1623,31 @@ function parseCurrentRaw(wb){
   var hIdx=-1;
   for(var i=0;i<rows.length;i++){ if(rows[i]&&rows[i][0]==='사업부'){ hIdx=i; break; } }
   if(hIdx<0) return {error:'"거래처별 RAW" 헤더 행을 찾을 수 없습니다.'};
+  // *** 중요: 컬럼을 고정 번호(row[17] 등)로 읽지 말고 헤더 텍스트로 찾아서 읽어야 함 ***
+  // 예전엔 row[N] 고정 인덱스로 읽었는데, 회사가 "②비일만사 MAU 4명 이상" 컬럼을 새로 추가하면서
+  // 그 뒤 모든 컬럼이 한 칸씩 밀렸음(비일만사 기준이 "7월부터 변경"됐다고 시트 설명에 명시돼 있음).
+  // 그 결과 사업자번호 자리에 "참여"/"미참여" 문자열이, 거래처명 자리에 사업자번호 숫자가 들어가는 등
+  // 실제로 전부 어긋난 걸 발견함(다행히 이 상태로 실제 반영까지 가진 않아서 DB는 무사했음).
+  // 앞으로 회사가 컬럼을 또 추가/재배치해도 안 깨지도록, 헤더 문자열로 컬럼 위치를 찾는 방식으로 전환.
+  var hRow=rows[hIdx];
+  function findCol(needle){
+    for(var c=0;c<hRow.length;c++){
+      if(hRow[c]!=null && String(hRow[c]).replace(/\s+/g,'').indexOf(needle)>=0) return c;
+    }
+    return -1;
+  }
+  var COL={
+    office: findCol('사무소'), sabun: findCol('사번'), mgr: findCol('담당자'),
+    nonFlag: findCol('②비일만사MAU'), inactiveConv: findCol('비활성처전환'),
+    hospName: findCol('병원명'), bizNo: findCol('사업자번호'),
+    lastSync: findCol('최종연동일시'), monthChecked: findCol('당월이력확인'),
+    patients: findCol('활성환자목표지표'), // 웰체크 일만사 환자수(활성 환자 목표 지표)
+    prevActive: findCol('전월활성처'), prevPatients: findCol('전월환자수(일만사)'),
+    amount: findCol('금액'), care: findCol('케어플랜'), edu: findCol('교육상담'),
+    mgmt: findCol('환자관리'), check: findCol('점검평가')
+  };
+  var missing=Object.keys(COL).filter(function(k){return COL[k]<0;});
+  if(missing.length) return {error:'"거래처별 RAW" 시트에서 다음 컬럼을 찾지 못했습니다(회사 파일 양식이 바뀌었을 수 있어요): '+missing.join(', ')};
   // asOf(파일 기준일)를 루프 시작 전에 미리 계산 - activeThreshold(월별 활성처 판정 기준: 기본 4명, 2026-07만 20명)를
   // 파일이 실제로 다루는 월 기준으로 판단하기 위해 필요함(오늘 날짜가 아니라 파일 기준월이 맞음)
   var asOf=findAsOfDate(wb, ['사업부사무소현황','거래처별 RAW'])||new Date().toISOString().slice(0,10);
@@ -1635,37 +1660,39 @@ function parseCurrentRaw(wb){
   for(var r=hIdx+1;r<rows.length;r++){
     var row=rows[r];
     if(!row) continue;
-    var rowOffice=row[1];
+    var rowOffice=row[COL.office];
     var isCur=rowOffice===currentOffice;
     var isNat=NATIONAL_OFFICES.indexOf(rowOffice)>=0&&rowOffice!==currentOffice;
     if(!isCur&&!isNat) continue;
-    var bizNo=row[11];
+    var bizNo=row[COL.bizNo];
     if(bizNo==null) continue;
     bizNo=String(bizNo).replace(/\.0$/,'');
-    // "일만사 활성환자(의사 접속이력 확인)"(row[6])와 "웰체크 일만사 환자수(활성 환자 목표 지표)"(row[17])는
-    // 서로 다른 컬럼 - row[6]은 그 회차에 의사 접속이 재확인됐는지 여부라 환자가 그대로 있어도 접속 확인이
-    // 안 되면 빈칸(0)이 됨. "활성환자수"(활성처 판정·증감 계산)는 실제 환자 수인 row[17](목표 지표 컬럼)을
-    // 써야 함 - row[6]을 쓰면 환자 수 변화가 전혀 없는데도 "0명→N명 신규 증가"로 잘못 잡힘(회사 파일
+    // "일만사 활성환자(의사 접속이력 확인)"와 "웰체크 일만사 환자수(활성 환자 목표 지표)"는
+    // 서로 다른 컬럼 - 전자는 그 회차에 의사 접속이 재확인됐는지 여부라 환자가 그대로 있어도 접속 확인이
+    // 안 되면 빈칸(0)이 됨. "활성환자수"(활성처 판정·증감 계산)는 실제 환자 수인 목표 지표 컬럼을
+    // 써야 함 - 접속확인 컬럼을 쓰면 환자 수 변화가 전혀 없는데도 "0명→N명 신규 증가"로 잘못 잡힘(회사 파일
     // 118처 중 20처에서 두 컬럼 값이 실제로 어긋나는 것을 확인, 사용자 확인 완료)
-    var patientsVal=Number(row[17])||0; // 웰체크 일만사 환자수(활성 환자 목표 지표)
-    var nonVal=Number(row[7])||0; // 비일만사 활성환자
-    var claimVal=Number(row[27])||0;
-    var careCnt=Number(row[29])||0, eduCnt=Number(row[30])||0, mgmtCnt=Number(row[31])||0, checkCnt=Number(row[32])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
-    var mrSabun=row[2]!=null?String(row[2]).replace(/\.0$/,''):null; // 담당자 사번 - 이름은 동명이인/오타 위험이 있어 사번을 우선 신뢰
+    var patientsVal=Number(row[COL.patients])||0; // 웰체크 일만사 환자수(활성 환자 목표 지표)
+    var nonVal=Number(row[COL.nonFlag])||0; // 비일만사 활성환자
+    var claimVal=Number(row[COL.amount])||0;
+    var careCnt=Number(row[COL.care])||0, eduCnt=Number(row[COL.edu])||0, mgmtCnt=Number(row[COL.mgmt])||0, checkCnt=Number(row[COL.check])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
+    var mrSabun=row[COL.sabun]!=null?String(row[COL.sabun]).replace(/\.0$/,''):null; // 담당자 사번 - 이름은 동명이인/오타 위험이 있어 사번을 우선 신뢰
+    var lastSyncVal=row[COL.lastSync]?String(row[COL.lastSync]).slice(0,10):null; // 심평원 최종연동일(YYYY-MM-DD) - "당월이력확인" 게이트 계산용
     if(isCur){
       updates.push({
         biz_no:bizNo,
-        name:row[10],
-        mr:row[3]||'-',
+        name:row[COL.hospName],
+        mr:row[COL.mgr]||'-',
         mr_sabun:mrSabun,
         patients: patientsVal,
         non_patients: nonVal,
         is_active: (patientsVal+nonVal)>=TH, // 회사 기준(일만사+비일만사 합산, activeThreshold명)으로 활성처 판정. 일만사만으로는 미달이지만 비일만사로 활성이 된 곳은 nonOnlyActive로 별도 표기
-        inactive_transition: row[8]==='해당',
-        prev_active: row[22]==='해당',
-        prev_patients: Number(row[23])||0, // 전월 환자수(일만사)
+        inactive_transition: row[COL.inactiveConv]==='해당',
+        prev_active: row[COL.prevActive]==='해당',
+        prev_patients: Number(row[COL.prevPatients])||0, // 전월 환자수(일만사)
         claim: claimVal, // 이번달(진행중) 누적 청구금액 - 마감 전이라 참고용
-        care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt
+        care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt,
+        last_sync_date: lastSyncVal
       });
     } else {
       if(!natToday[rowOffice]) natToday[rowOffice]={claim:0,patient:0,active:0,care:0,edu:0,mgmt:0,check:0};
@@ -1674,13 +1701,14 @@ function parseCurrentRaw(wb){
       natToday[rowOffice].care+=careCnt; natToday[rowOffice].edu+=eduCnt; natToday[rowOffice].mgmt+=mgmtCnt; natToday[rowOffice].check+=checkCnt;
       if((patientsVal+nonVal)>=TH) natToday[rowOffice].active++;
       natUpdates.push({
-        office:rowOffice, biz_no:bizNo, name:row[10], mr:row[3]||'-', mr_sabun:mrSabun,
+        office:rowOffice, biz_no:bizNo, name:row[COL.hospName], mr:row[COL.mgr]||'-', mr_sabun:mrSabun,
         patients: patientsVal, non_patients: nonVal,
         is_active: (patientsVal+nonVal)>=TH,
-        inactive_transition: row[8]==='해당',
-        prev_active: row[22]==='해당',
-        prev_patients: Number(row[23])||0,
-        care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt
+        inactive_transition: row[COL.inactiveConv]==='해당',
+        prev_active: row[COL.prevActive]==='해당',
+        prev_patients: Number(row[COL.prevPatients])||0,
+        care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt,
+        last_sync_date: lastSyncVal
       });
     }
   }
@@ -1759,13 +1787,15 @@ function commitCurrentRaw(parsed, status){
       var allRows=updates.map(function(u){
         return {office:currentOffice, biz_no:u.biz_no, name:u.name, mr:mrCode(currentOffice,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
-          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
+          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+          last_sync_date:u.last_sync_date};
       }).concat(natUpdates.map(function(u){
         // clinics 테이블엔 mr_sabun 컬럼이 없음 - Object.assign으로 통째로 복사하면 스키마에 없는 컬럼이
         // 섞여 들어가서 upsert 전체가 실패함(실제로 "전국 거래처 반영 실패" 에러 재현됨). 필요한 필드만 명시적으로 골라 담는다.
         return {office:u.office, biz_no:u.biz_no, name:u.name, mr:mrCode(u.office,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
-          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt};
+          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+          last_sync_date:u.last_sync_date};
       }));
       var conflictBiz={}, conflictRows=[];
       allRows.forEach(function(r){
@@ -1799,7 +1829,8 @@ function commitCurrentRaw(parsed, status){
     return db.from('clinics').update({
       patients:u.patients, non_patients:u.non_patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
       prev_active:u.prev_active, prev_patients:u.prev_patients,
-      care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt
+      care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+      last_sync_date:u.last_sync_date
     }).eq('biz_no', u.biz_no).eq('office', currentOffice).select('id');
   })).then(function(results){
     var failed=results.filter(function(r){return r.error;}).length;
@@ -1830,6 +1861,7 @@ function parseDailyMAU(wb, allClinics){
   var colEdu=header.indexOf('교육상담 청구건수');
   var colMgmt=header.indexOf('환자관리 청구건수');
   var colCheck=header.indexOf('점검평가 청구건수');
+  var colLastSync=header.indexOf('심평원 최종연동일'); // "당월이력확인" 게이트 계산용(활성처 판정에서 이 날짜의 월이 이번달인지 봄)
   if(colBiz<0||colPatients<0) return {error:'필요한 컬럼(사업자번호/웰체크가입 & 일만사 참여)을 찾을 수 없습니다.'};
   var byBiz={};
   (allClinics||[]).forEach(function(c){ if(c.biz_no) byBiz[String(c.biz_no)]=c; });
@@ -1843,14 +1875,19 @@ function parseDailyMAU(wb, allClinics){
     bizNo=String(bizNo).replace(/\.0$/,'');
     var match=byBiz[bizNo];
     if(!match) continue;
-    updates.push({
+    var upd={
       id: match.id, biz_no:bizNo, office: match.office,
       patients: Number(row[colPatients])||0,
       care_plan_cnt: colCarePlan>=0?(Number(row[colCarePlan])||0):0,
       edu_cnt: colEdu>=0?(Number(row[colEdu])||0):0,
       patient_mgmt_cnt: colMgmt>=0?(Number(row[colMgmt])||0):0,
       check_eval_cnt: colCheck>=0?(Number(row[colCheck])||0):0
-    });
+    };
+    // 이 파일 양식에 "심평원 최종연동일" 컬럼 자체가 없으면(예전 양식 등) last_sync_date를 아예 안 보내서
+    // 기존에 RAW파일 등으로 저장돼있던 값을 잘못 null로 덮어쓰지 않게 함 - 컬럼이 있는데 이 거래처 칸만
+    // 빈 경우(한 번도 연동 안 됨)는 null이 맞는 값이라 그대로 보냄
+    if(colLastSync>=0) upd.last_sync_date=row[colLastSync]?String(row[colLastSync]).slice(0,10):null;
+    updates.push(upd);
     officeCounts[match.office]=(officeCounts[match.office]||0)+1;
   }
   if(!updates.length) return {error:'등록된 거래처의 사업자번호와 일치하는 행을 파일에서 찾지 못했습니다.'};
@@ -2330,7 +2367,8 @@ function rowToClinic(r){
     isActive:!!r.is_active, inactiveTr:!!r.inactive_transition, prevActive:!!r.prev_active,
     nonPatients:r.non_patients||0,
     office:r.office||'경인1',
-    care_plan_cnt:r.care_plan_cnt||0, edu_cnt:r.edu_cnt||0, patient_mgmt_cnt:r.patient_mgmt_cnt||0, check_eval_cnt:r.check_eval_cnt||0};
+    care_plan_cnt:r.care_plan_cnt||0, edu_cnt:r.edu_cnt||0, patient_mgmt_cnt:r.patient_mgmt_cnt||0, check_eval_cnt:r.check_eval_cnt||0,
+    lastSyncDate:r.last_sync_date||null};
 }
 // ===== 사무소 선택 =====
 var currentOffice='경인1';
@@ -3808,7 +3846,26 @@ function prevMonthNum(){ var cur=new Date().getMonth()+1; return cur===1?12:cur-
 // RAW 파일이 정한 is_active(저장된 값)를 그대로 믿으면, RAW를 격주로만 올리는 지금 체제에서 "현재 활성처"가
 // 최대 2주간 그대로 멈춰있게 됨. 매일 올라오는 MAU가 patients를 갱신하므로, "활성" 판정 자체(activeThreshold 기준)는
 // 저장된 플래그 대신 매번 현재 환자수로 다시 계산해서 매일 살아 움직이게 한다(회사 공식 기준: 일만사+비일만사 합산 activeThreshold명↑).
-function liveActive(c){ return ((c.patients||0)+(c.nonPatients||0))>=activeThreshold(todayMonthStr()); }
+// RAW 파일 자체 기준 설명("1)일만사: 4명 이상 + 당월 의사 접속이력 확인되는 처 / 2)비일만사: 주1회 혈압혈당
+// 4명 이상인 처")에 따르면, "당월 의사 접속이력 확인"(=당월이력확인, RAW N열)이 안 된 거래처는 일만사
+// 환자수가 아무리 많아도 비활성처로 집계된다(실제 사례: 경인1 다남메디의원/중앙성모의원/봉정민내과/
+// 이삭가정의학과의원/삼성편한내과 5곳 - 전부 4명 이상인데 당월이력확인이 안 돼서 비활성처였음, RAW 파일로
+// 직접 검증 완료). "당월"은 실제 오늘 날짜 기준(달력상 이번달)으로 심평원 최종연동일(last_sync_date)의
+// 월이 같은지를 매번 실시간으로 비교 - 정적 플래그로 안 저장해야 달이 바뀌면 자동으로 다시 계산됨.
+// 비일만사 기준(주1회 혈압혈당 4명↑)은 당월이력확인 요건이 없으므로, 비일만사만으로 이미 기준을 채운
+// 거래처는 이 게이트를 안 거침(합산 문턱 자체는 기존 그대로 유지, 회귀 방지).
+function syncedThisMonth(c){
+  if(!c.lastSyncDate) return false;
+  var d=new Date(c.lastSyncDate+'T00:00:00');
+  if(isNaN(d.getTime())) return false;
+  var today=new Date();
+  return d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth();
+}
+function liveActive(c){
+  var TH=activeThreshold(todayMonthStr());
+  var p=c.patients||0, np=c.nonPatients||0;
+  return (p+np)>=TH && (np>=TH || syncedThisMonth(c));
+}
 // "전월" 기준 환자수는 베이스라인/clinic_claims가 아니라 RAW 파일(주 2회 갱신, "전월 환자수(일만사)"
 // 컬럼을 그 자체로 신뢰)의 prevPatients를 그대로 쓴다. 한때 clinic_claims 기준으로 바꿔봤지만, 베이스라인은
 // 그 달 실적이 다음달 말에야 확정되는 파일이라 진행 중인 달(예: 7월)의 clinic_claims 값이 아직 일부
@@ -3823,6 +3880,12 @@ function stKpiData(){
   var target=h2t!=null?h2t:((oc.length?oc[oc.length-1].target:0)||120);
   var TH=activeThreshold(todayMonthStr());
   var active=r.filter(liveActive).length;
+  // "4명 이상인데 당월이력확인이 안 돼서 비활성처로 집계된" 거래처 수 - 카드 하단에 별도 표기용
+  // (합산 문턱은 넘겼고 비일만사 단독으로도 기준 미달이라 이 게이트 때문에 제외된 경우만 셈)
+  var noSyncExcluded=r.filter(function(c){
+    var p=c.patients||0, np=c.nonPatients||0;
+    return (p+np)>=TH && np<TH && !syncedThisMonth(c);
+  }).length;
   // "전월" 비교 기준: raw_monthly_snapshot에 그 거래처의 지난달 스냅샷(그 달 마지막으로 올라온 RAW의
   // "이번회차" 값)이 있으면 그걸 우선 쓰고(사업자번호로 매칭), 없으면(이 기능 도입 전이거나 그 달에 RAW가
   // 한 번도 안 올라온 경우) clinics.prevPatients로 폴백한다.
@@ -3843,7 +3906,7 @@ function stKpiData(){
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievement>=80?'A':achievement>=60?'B':'C';
   var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
-  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,inactiveTr:inactiveTr,thresholdMet:thresholdMet,thresholdMetInactive:thresholdMetInactive,nonOnlyActive:nonOnlyActive,prevActiveCount:prevActiveCount,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH};
+  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,inactiveTr:inactiveTr,thresholdMet:thresholdMet,thresholdMetInactive:thresholdMetInactive,nonOnlyActive:nonOnlyActive,prevActiveCount:prevActiveCount,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
 }
 function renderStKPI(){
   var k=stKpiData();
@@ -3874,7 +3937,7 @@ function renderStKPI(){
   document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>오늘(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
   var TH=k.threshold;
   var kpis=[
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':'')+(k.noSyncExcluded?'<br><span style="color:#B01A1A;font-weight:700">당월이력미확인: '+k.noSyncExcluded+'처로 비활성처 집계</span>':''),'active'],
     ['redCard','당월 비활성 전환',k.inactiveTr+'처','전월 마감 활성처수 '+k.prevActiveCount+'처','inactive'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','전월 마감 대비 '+TH+'명, 40명 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
