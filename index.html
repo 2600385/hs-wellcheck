@@ -490,11 +490,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="sub-item wch-sub-item sub-active" id="wch-sub-cal" onclick="switchView('cal')">① 캘린더</div>
       <div class="wch-sub-div"></div>
       <div class="sub-item wch-sub-item" id="wch-sub-list" onclick="switchView('list')">② 거래처현황판</div>
-      <!-- 데이터 업로드(간소화): 거래처현황판만 갱신하는 용도 - RAW/MAU만, 누가 올리든 청구현황판은 절대 안 건드림
-           웰체크 현황판 카테고리에 속한 버튼이라 이 하위 메뉴가 접히면 같이 접히도록 여기 안에 둠 -->
-      <div id="data-import-btn" style="padding:8px 14px 2px;display:none">
-        <button onclick="openImportModal('simple')" style="width:100%;padding:6px;font-size:11px;font-weight:600;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📥 데이터 업로드</button>
-      </div>
+      <!-- "사무소 1곳만 반영"하는 간소화 업로드 버튼은 제거함(요청) - 전국 사업부 현황의 "데이터 업로드
+           (전체)" 하나로 통일. openImportModal('simple') 관련 내부 로직은 이제 어디서도 호출되지 않지만
+           (다른 값들을 건드릴 위험이 있어) 그대로 남겨둠, 진입점(이 버튼)만 없앰. -->
     </div>
 
     <!-- 거래처 하위 -->
@@ -1814,6 +1812,16 @@ function commitCurrentRaw(parsed, status){
         var touchedOffices=Object.keys(safeRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
         logImport('current', asOf, touchedOffices);
         saveRawMonthlySnapshot(safeRows, asOf);
+        // "📅 업데이트 이력" 모달(data_snapshots)이 베이스라인 업로드 때만 기록되고 RAW/MAU 업로드 땐 전혀
+        // 안 남아서, RAW를 여러 번 새로 올려도 이력 화면이 마지막 베이스라인 날짜(예: 7/20)에 계속 멈춰있는
+        // 것처럼 보이는 문제가 있었음(실제 데이터는 정상 갱신되고 있었음) - RAW 커밋 때도 현재 사무소 기준
+        // 스냅샷을 남겨서 이력이 실제 업로드 시점대로 움직이게 함
+        var curOfficeRows=safeRows.filter(function(r){ return r.office===currentOffice; });
+        if(curOfficeRows.length) saveSnapshot('current', {
+          office: currentOffice,
+          active_count: curOfficeRows.filter(function(r){return r.is_active;}).length,
+          patient: curOfficeRows.reduce(function(s,r){return s+(r.patients||0);},0)
+        });
         // RAW 파일은 거래처현황판(clinics 테이블)만 갱신함 - 청구현황지표(office_claims/clinic_claims)는
         // 이제 오직 "청구현황 베이스라인(월마감)" 파일만 갱신한다(당월 진행중·잠정 반영 없앰).
         loadClinics().then(function(){
@@ -1926,6 +1934,14 @@ function commitDailyMAU(parsed, status){
     var failedTotal=updates.length-okCount;
     status.textContent='완료: 전국 '+officeList.length+'개 사무소 · 거래처 '+okCount+'곳 반영됨'+(failedTotal?(', '+failedTotal+'건 실패'):'')+' (활성환자수·청구건수 참고용 반영, 활성처 판정엔 영향 없음). (파일 기준일: '+asOf+', 자체 날짜 표기가 없어 업로드일로 기록)';
     logImport('daily', asOf, officeList); // 전국 매칭이라 실제로 갱신된 사무소 전부에 로그를 남겨야 함(currentOffice만 남기면 나머지 사무소는 계속 "데이터 기준일" 공백으로 남음)
+    // "📅 업데이트 이력" 모달이 베이스라인 업로드 때만 기록되던 문제(RAW와 동일) - MAU 커밋 때도
+    // 현재 사무소 기준 스냅샷을 남김(활성처 판정에는 MAU가 영향을 안 주므로 active_count는 생략,
+    // 환자수 참고치만 기록)
+    var curOfficeMauRows=updates.filter(function(u){ return u.office===currentOffice; });
+    if(curOfficeMauRows.length) saveSnapshot('daily', {
+      office: currentOffice,
+      patient: curOfficeMauRows.reduce(function(s,u){return s+(u.patients||0);},0)
+    });
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
@@ -3930,7 +3946,9 @@ function renderStKPI(){
       rawWarn='<div style="margin-top:4px;font-size:11px;font-weight:700;color:#B01A1A">⚠ RAW 파일이 아직 한 번도 안 올라왔어요 - "당월 대비" 수치들의 기준이 정확하지 않을 수 있어요.</div>';
     }
   }
-  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>오늘(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
+  // "오늘(실시간)"이라고만 쓰면 정확히 며칠 기준인지 안 보여서, 실제 오늘 날짜(M/D)를 그대로 표기
+  var todayDateStr=(function(){ var d=new Date(); return (d.getMonth()+1)+'/'+d.getDate(); })();
+  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>'+todayDateStr+'(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
   var TH=k.threshold;
   var kpis=[
     ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
