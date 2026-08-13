@@ -1748,6 +1748,34 @@ function saveRawMonthlySnapshot(rows, asOf){
     if(res.error) console.error('raw_monthly_snapshot 저장 실패:', res.error);
   });
 }
+// 청구현황지표(office_claims)는 원래 "청구현황 베이스라인(월마감)" 파일로만 갱신했는데, 마감 파일이
+// 나오기까지 시차가 있어서(예: 8월인데 아직 6월 마감분까지만 있음) 그 사이 달(예: 7·8월)은 화면에
+// 아무 것도 안 보이는 문제가 있었음. RAW 파일에도 이번 회차 누적 청구금액·유형별 건수·환자수·활성처수가
+// 있으므로, "아직 그 달의 공식 마감(eval_clinic_cnt 있는 행)이 없는 경우에 한해" RAW 값으로 "진행중(추정)"
+// office_claims 행을 채워넣는다. eval_clinic_cnt/eval_score/claim_clinic_cnt/claim_ilmansa_amt(회사가
+// 평가-청구 시트에서 별도로 계산해서 베이스라인에만 실어주는 값)는 RAW로는 절대 못 채우므로 일부러 비워둠 -
+// 그래야 latestOfficeRows(onlyOfficial=true)/stEvalConversion이 "공식 마감 아님"으로 정확히 구분해서
+// 청구전환율 카드 등은 계속 베이스라인만 기다리고, 이 추정치를 확정치인 것처럼 잘못 보여주지 않는다.
+// 이미 그 달의 공식 마감이 있으면(=베이스라인이 이미 반영됨) 절대 덮어쓰지 않고 조용히 건너뜀.
+function saveCurrentMonthClaims(office, business, agg, asOf){
+  if(!office||!agg) return Promise.resolve();
+  var month=String(asOf||'').slice(0,7)+'-01';
+  var existing=OFFICE_CLAIMS.find(function(r){ return r.office===office && r.month===month; });
+  if(existing && existing.eval_clinic_cnt) return Promise.resolve(); // 이미 공식 마감된 달이면 보호
+  var prevRows=OFFICE_CLAIMS.filter(function(r){ return r.office===office; });
+  var target=(existing&&existing.target)||(prevRows.length?prevRows[prevRows.length-1].target:0)||0;
+  var row={
+    office:office, business:business||'', month:month, target:target,
+    active_count:agg.active||0, patient:agg.patient||0,
+    cum_patient:agg.patient||0, claim:agg.claim||0, cum_claim:agg.claim||0,
+    care_cnt:agg.care||0, edu_cnt:agg.edu||0, mgmt_cnt:agg.mgmt||0, check_cnt:agg.check||0,
+    care_amt:(agg.care||0)*CLAIM_UNIT_PRICE.care, edu_amt:(agg.edu||0)*CLAIM_UNIT_PRICE.edu,
+    mgmt_amt:(agg.mgmt||0)*CLAIM_UNIT_PRICE.mgmt, check_amt:(agg.check||0)*CLAIM_UNIT_PRICE.check
+  };
+  return db.from('office_claims').upsert([row], {onConflict:'office,month'}).then(function(res){
+    if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
+  });
+}
 function commitCurrentRaw(parsed, status){
   var updates=parsed.updates, asOf=parsed.asOf;
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
@@ -1757,6 +1785,7 @@ function commitCurrentRaw(parsed, status){
     // (아래 update()-only 경로는 이미 등록된 거래처만 갱신되고 신규 거래처는 전부 "미매칭"으로 빠지는데,
     // 그러면 아직 거래처가 하나도 없는 사무소는 이 경로로 부트스트랩(최초 등록)할 수가 없었음)
     var natUpdates=parsed.natUpdates||[];
+    var natToday=parsed.natToday||{}, natBusiness=parsed.natBusiness||{};
     // 사무소 배정 보호: 파일마다 같은 사업자번호를 다른 사무소로 표기하는 경우가 있어서(예: 경인1<->폴라리스1 오락가락),
     // 파일 하나 잘못 올리면 조용히 사무소가 바뀌고 활성환자수가 엉뚱하게 합산되는 사고가 반복됐음. 그래서 이미 DB에
     // 등록된 사무소와 이 파일이 말하는 사무소가 다른 사업자번호는, 이 파일 값을 무시하고 기존 배정을 그대로 지킴
@@ -1822,12 +1851,32 @@ function commitCurrentRaw(parsed, status){
           active_count: curOfficeRows.filter(function(r){return r.is_active;}).length,
           patient: curOfficeRows.reduce(function(s,r){return s+(r.patients||0);},0)
         });
-        // RAW 파일은 거래처현황판(clinics 테이블)만 갱신함 - 청구현황지표(office_claims/clinic_claims)는
-        // 이제 오직 "청구현황 베이스라인(월마감)" 파일만 갱신한다(당월 진행중·잠정 반영 없앰).
+        // RAW 파일은 거래처현황판(clinics 테이블)뿐 아니라, 그 달의 공식 베이스라인이 아직 없는 경우에
+        // 한해 청구현황지표(office_claims)도 "진행중(추정)"으로 같이 갱신한다(이미 마감된 달은 안 건드림).
+        // 주의: saveCurrentMonthClaims의 "이미 공식 마감이면 보호" 판단은 메모리상 OFFICE_CLAIMS를 보고
+        // 하는데, 이 세션에서 아직 청구현황/전략판 화면을 한 번도 안 열었으면 OFFICE_CLAIMS가 빈 배열이라
+        // 보호 검사가 무력화됨(이미 마감된 달인데도 진행중(추정)으로 잘못 덮어쓸 위험) - 저장하기 전에
+        // 항상 최신 office_claims를 먼저 다시 불러와서 보호 검사가 그 화면 방문 여부와 무관하게 항상 정확하게 함
+        var curAgg={claim:0,patient:0,active:0,care:0,edu:0,mgmt:0,check:0};
+        safeUpdates.forEach(function(u){
+          curAgg.claim+=u.claim||0; curAgg.patient+=u.patients||0; if(u.is_active) curAgg.active++;
+          curAgg.care+=u.care_plan_cnt||0; curAgg.edu+=u.edu_cnt||0; curAgg.mgmt+=u.patient_mgmt_cnt||0; curAgg.check+=u.check_eval_cnt||0;
+        });
+        loadOfficeClaims().then(function(){
+          var claimSaves=[saveCurrentMonthClaims(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf)];
+          Object.keys(natToday).forEach(function(o){
+            // 사무소 배정 불일치로 clinics 반영 자체가 보호돼서 건너뛴 사무소는 청구현황도 같이 건너뜀(일관성 유지)
+            if(touchedOffices.indexOf(o)>=0) claimSaves.push(saveCurrentMonthClaims(o, natBusiness[o], natToday[o], asOf));
+          });
+          return Promise.all(claimSaves);
+        }).then(function(){ return loadOfficeClaims(); }).then(function(){
+          if(document.getElementById('view-claim')&&document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
+          if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+        });
         loadClinics().then(function(){
           if(document.getElementById('view-list').classList.contains('v-active')) renderList();
           if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
-          status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictCount+'건(기존 배정 유지)'):'')+' 청구현황지표는 이 파일로 갱신되지 않습니다(베이스라인 파일 전용).';
+          status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictCount+'건(기존 배정 유지)'):'')+' 청구현황지표도 그 달 공식 베이스라인이 아직 없으면 진행중(추정)으로 같이 갱신됩니다.';
         });
       });
     });
@@ -4447,7 +4496,10 @@ function renderClaimTable(){
     +'<th class="metricCols">'+mi.label+' 구간</th><th class="companySep">해석</th></tr></thead><tbody>'
     +sorted.map(function(o,i){
       var key=bucketKey(o);
-      return '<tr class="'+bucketClassByKey(key)+'" onclick="openOfficeCompareModal(\''+o.office+'\')"><td class="companyCols">'+(i+1)+'</td><td class="companyCols">'+(o.business||'-')+'</td><td class="companyCols"><b>'+o.office+'</b></td><td class="companyCols">'+(o.target||'-')+'</td><td class="companyCols"><b>'+o.achievement+'%</b></td><td class="companyCols">'+bucketPillByBucket(o.companyBucket)+'</td><td class="companyCols">'+o.patientSum.toLocaleString()+'</td><td class="metricCols metricSep">'+money(o.cumClaim)+'</td><td class="metricCols">'+money(o.claimPerPatient)+'</td><td class="metricCols">'+money(o.claimPerClinic)+'</td><td class="metricCols">'+bucketPillByBucket(o.metricBucket[claimMetric])+'</td><td class="companySep">'+claimInsight(o)+'</td></tr>';
+      // eval_clinic_cnt가 없다는 건 그 달 공식 베이스라인이 아직 안 올라와서 RAW로 채운 "진행중(추정)"
+      // 행이라는 뜻 - 확정치와 헷갈리지 않게 사무소명 옆에 배지로 표시
+      var provisionalBadge=o.evalClinicCnt?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 6px;vertical-align:middle" title="'+o.month.slice(0,7)+' 공식 베이스라인이 아직 없어 RAW 파일 누적치로 추정한 값입니다">진행중(추정)</span>';
+      return '<tr class="'+bucketClassByKey(key)+'" onclick="openOfficeCompareModal(\''+o.office+'\')"><td class="companyCols">'+(i+1)+'</td><td class="companyCols">'+(o.business||'-')+'</td><td class="companyCols"><b>'+o.office+'</b>'+provisionalBadge+'</td><td class="companyCols">'+(o.target||'-')+'</td><td class="companyCols"><b>'+o.achievement+'%</b></td><td class="companyCols">'+bucketPillByBucket(o.companyBucket)+'</td><td class="companyCols">'+o.patientSum.toLocaleString()+'</td><td class="metricCols metricSep">'+money(o.cumClaim)+'</td><td class="metricCols">'+money(o.claimPerPatient)+'</td><td class="metricCols">'+money(o.claimPerClinic)+'</td><td class="metricCols">'+bucketPillByBucket(o.metricBucket[claimMetric])+'</td><td class="companySep">'+claimInsight(o)+'</td></tr>';
     }).join('')+'</tbody></table></div>';
 }
 // 사무소 하나를 클릭했을 때 전사 평균 대비 환자당/처당 청구액을 비교해서 보여줌
@@ -4460,7 +4512,8 @@ function openOfficeCompareModal(office){
   var diffPatient=avgPerPatient?Math.round((o.claimPerPatient-avgPerPatient)/avgPerPatient*100):0;
   var diffClinic=avgPerClinic?Math.round((o.claimPerClinic-avgPerClinic)/avgPerClinic*100):0;
   var diffCum=avgCum?Math.round((o.cumClaim-avgCum)/avgCum*100):0;
-  document.getElementById('ocm-name').textContent=office;
+  var ocmProvisional=o.evalClinicCnt?'':' <span style="font-size:10px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:2px 7px;vertical-align:middle" title="'+o.month.slice(0,7)+' 공식 베이스라인이 아직 없어 RAW 파일 누적치로 추정한 값입니다">진행중(추정)</span>';
+  document.getElementById('ocm-name').innerHTML=escapeHtml(office)+ocmProvisional;
   document.getElementById('ocm-badge').textContent=(o.business||'-')+' · 청구전환율 '+o.achievement+'%(전사평균 '+avgAchievement+'%) · 활성처 '+o.activeCount+'처 · 활성환자 '+o.patientSum.toLocaleString()+'명';
   var rows2=[
     ['누적청구금액', o.cumClaim, avgCum, diffCum],
