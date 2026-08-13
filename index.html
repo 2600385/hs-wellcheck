@@ -3190,11 +3190,11 @@ function buildChip(ev, isAll){
     chip.style.border='1.5px solid #8FA6BA';
   } else if(isCross){
     // 타사무소 동도 방문: 담당자 고유색을 쓰면 너무 컬러풀하고 눈에 띈다는 피드백 -> 담당자 색과
-    // 무관하게 항상 같은, 아주 옅은 회색 실선 빗금(얇은 줄무늬) + 얇은 회색 테두리로 통일. 크기는
-    // 위에서 ev-allday를 안 붙여서 일반 방문 칩(자애내과의원 등)과 동일하게 얇음
+    // 무관하게 항상 같은, 아주 옅은 회색 실선 빗금(얇은 줄무늬)으로 통일. 테두리는 뺌 - auto 크기
+    // 박스에서는 border-box를 써도 테두리 두께(1px)만큼 세로가 실제로 더 늘어나서, 일반 방문 칩
+    // (자애내과의원 등, 테두리 없음)보다 미세하게 더 길어 보인다는 피드백이 있었음 - 빗금만으로 구분
     chip.style.backgroundImage='repeating-linear-gradient(135deg, #E5E5E5 0px, #E5E5E5 1.5px, #ffffff 1.5px, #ffffff 6px)';
     chip.style.color='#666666';
-    chip.style.border='1px solid #CCCCCC';
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
   }
@@ -3847,13 +3847,13 @@ function prevMonthNum(){ var cur=new Date().getMonth()+1; return cur===1?12:cur-
 // 최대 2주간 그대로 멈춰있게 됨. 매일 올라오는 MAU가 patients를 갱신하므로, "활성" 판정 자체(activeThreshold 기준)는
 // 저장된 플래그 대신 매번 현재 환자수로 다시 계산해서 매일 살아 움직이게 한다(회사 공식 기준: 일만사+비일만사 합산 activeThreshold명↑).
 // RAW 파일 자체 기준 설명("1)일만사: 4명 이상 + 당월 의사 접속이력 확인되는 처 / 2)비일만사: 주1회 혈압혈당
-// 4명 이상인 처")에 따르면, "당월 의사 접속이력 확인"(=당월이력확인, RAW N열)이 안 된 거래처는 일만사
-// 환자수가 아무리 많아도 비활성처로 집계된다(실제 사례: 경인1 다남메디의원/중앙성모의원/봉정민내과/
-// 이삭가정의학과의원/삼성편한내과 5곳 - 전부 4명 이상인데 당월이력확인이 안 돼서 비활성처였음, RAW 파일로
-// 직접 검증 완료). "당월"은 실제 오늘 날짜 기준(달력상 이번달)으로 심평원 최종연동일(last_sync_date)의
-// 월이 같은지를 매번 실시간으로 비교 - 정적 플래그로 안 저장해야 달이 바뀌면 자동으로 다시 계산됨.
-// 비일만사 기준(주1회 혈압혈당 4명↑)은 당월이력확인 요건이 없으므로, 비일만사만으로 이미 기준을 채운
-// 거래처는 이 게이트를 안 거침(합산 문턱 자체는 기존 그대로 유지, 회귀 방지).
+// 4명 이상인 처")대로면 "당월 의사 접속이력 확인"(=당월이력확인)이 안 된 거래처는 활성처에서 빠져야 하는데,
+// 처음 반영해봤더니 last_sync_date가 기존 거래처 대부분에 아직 채워지지 않은 상태(이 컬럼 자체가 이번에
+// 새로 생겨서, 최근에 RAW/MAU를 다시 안 올린 거래처는 전부 null)라 "활성처가 2처밖에 안 됨"이라는
+// 실사고가 남 - 데이터가 아직 안 채워진 상태에서 판정 기준으로 바로 쓰면 위험하다는 판단으로, 일단
+// 활성처 판정 자체(=현재 활성처 카드/liveActive)에서는 이 게이트를 도로 뺌(합산 문턱 판정만 유지).
+// "당월이력없음" 정보는 syncedThisMonth()로 계속 계산해서 "당월 비활성 전환" 카드에 참고용으로만 표시
+// (stKpiData의 noSyncExcluded) - 실제로 활성처에서 빼는 검증/전환은 나중에 다시 논의하기로 함(사용자 확인).
 function syncedThisMonth(c){
   if(!c.lastSyncDate) return false;
   var d=new Date(c.lastSyncDate+'T00:00:00');
@@ -3861,11 +3861,7 @@ function syncedThisMonth(c){
   var today=new Date();
   return d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth();
 }
-function liveActive(c){
-  var TH=activeThreshold(todayMonthStr());
-  var p=c.patients||0, np=c.nonPatients||0;
-  return (p+np)>=TH && (np>=TH || syncedThisMonth(c));
-}
+function liveActive(c){ return ((c.patients||0)+(c.nonPatients||0))>=activeThreshold(todayMonthStr()); }
 // "전월" 기준 환자수는 베이스라인/clinic_claims가 아니라 RAW 파일(주 2회 갱신, "전월 환자수(일만사)"
 // 컬럼을 그 자체로 신뢰)의 prevPatients를 그대로 쓴다. 한때 clinic_claims 기준으로 바꿔봤지만, 베이스라인은
 // 그 달 실적이 다음달 말에야 확정되는 파일이라 진행 중인 달(예: 7월)의 clinic_claims 값이 아직 일부
@@ -3937,8 +3933,10 @@ function renderStKPI(){
   document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>오늘(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
   var TH=k.threshold;
   var kpis=[
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':'')+(k.noSyncExcluded?'<br><span style="color:#B01A1A;font-weight:700">당월이력미확인: '+k.noSyncExcluded+'처로 비활성처 집계</span>':''),'active'],
-    ['redCard','당월 비활성 전환',k.inactiveTr+'처','전월 마감 활성처수 '+k.prevActiveCount+'처','inactive'],
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
+    // "당월이력없음"(당월 심평원 연동 이력 미확인)은 아직 활성처 판정에서 실제로 빼진 않고(검증은 추후) 참고
+    // 정보로만 이 카드에 같이 표기 - 전월엔 활성 기준을 채웠는데 당월 들어 4명 미만으로 떨어진 거래처 수와 나란히 보여줌
+    ['redCard','당월 비활성 전환',k.inactiveTr+'처','전월 마감 활성처수 '+k.prevActiveCount+'처'+(k.noSyncExcluded?'<br><span style="color:#B01A1A;font-weight:700">당월이력없음 '+k.noSyncExcluded+'처</span>':''),'inactive'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','전월 마감 대비 '+TH+'명, 40명 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
     ['newKpi','신규 거래처',k.newly+'처','당월 신규처 확보','newly']
