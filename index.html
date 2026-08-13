@@ -3946,7 +3946,9 @@ function renderStKPI(){
       rawWarn='<div style="margin-top:4px;font-size:11px;font-weight:700;color:#B01A1A">⚠ RAW 파일이 아직 한 번도 안 올라왔어요 - "당월 대비" 수치들의 기준이 정확하지 않을 수 있어요.</div>';
     }
   }
-  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>오늘(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
+  // "오늘(실시간)"이라고만 쓰면 정확히 며칠 기준인지 안 보여서, 실제 오늘 날짜(M/D)를 그대로 표기
+  var todayDateStr=(function(){ var d=new Date(); return (d.getMonth()+1)+'/'+d.getDate(); })();
+  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>'+todayDateStr+'(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
   var TH=k.threshold;
   var kpis=[
     ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
