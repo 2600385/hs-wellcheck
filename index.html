@@ -1735,17 +1735,36 @@ function parseCurrentRaw(wb){
   }
   return {updates:updates, natToday:natToday, natBusiness:natBusiness, natUpdates:natUpdates, asOf: asOf};
 }
+// 'YYYY-MM-01' 문자열을 delta개월만큼 이동 (Date 객체 대신 순수 문자열 연산 - 타임존 영향 없음)
+function shiftMonthStr(monthStr, delta){
+  var y=parseInt(monthStr.slice(0,4),10), m=parseInt(monthStr.slice(5,7),10)+delta;
+  while(m<1){ m+=12; y--; }
+  while(m>12){ m-=12; y++; }
+  return y+'-'+(m<10?'0'+m:m)+'-01';
+}
 // RAW가 올라올 때마다 그 시점 "이번회차" 환자수를 (사무소,사업자번호,월) 단위로 스냅샷 저장해둔다.
 // 같은 달 안에서는 최신 값으로 계속 덮어써지다가, 달이 바뀌어 다음 RAW가 새 달로 올라오는 순간부터는
 // 그 값이 그대로 "그 달의 마감(RAW 기준)"으로 남는다 - 청구현황 베이스라인이 다음달 중순~말일에야
 // 나오는 것과 무관하게, 전략판 KPI 카드의 "전월 대비" 계산에 거래처 단위로 정확한 기준점을 제공하기 위함.
 // office_claims/clinic_claims(그래프·청구현황지표 전용)와는 완전히 분리된 테이블이라 그쪽엔 영향 없음.
+//
+// 전월 스냅샷 자가복구(중요): 위의 "이번회차" 저장만으로는, 그 달의 마지막 RAW 파일이 정확히 "말일 마감"
+// 시점에 안 올라오고(예: 7/20자가 그 달의 마지막 파일이었고 곧바로 8/12자 파일로 넘어간 경우) 그 사이에
+// 회사가 별도로 마감 수치를 보정했으면, raw_monthly_snapshot에 남은 그 달 값이 실제 마감보다 낮은
+// "월중 스냅샷"에 계속 멈춰있게 된다(실제 사고 재현: 7월 스냅샷이 7/20자 값에 멈춰있어 8월 파일의
+// "전월 환자수" 컬럼과 최대 수십 명씩 어긋나서, "전월"/"증감" 표시가 파일마다 다르게 보임). 매 파일에는
+// "전월 환자수" 컬럼(그 시점 회사가 직접 보고하는 전월 마감 수치)이 항상 같이 있으므로, 이걸로 전월
+// 스냅샷도 같이 upsert해서 새 파일이 올라올 때마다 전월 값이 더 최신(더 신뢰할 수 있는) 보고치로
+// 스스로 갱신되게 한다.
 function saveRawMonthlySnapshot(rows, asOf){
   var month=String(asOf||'').slice(0,7)+'-01';
+  var prevMonth=shiftMonthStr(month,-1);
   var payload=(rows||[]).filter(function(r){return r.biz_no;}).map(function(r){ return {office:r.office, biz_no:r.biz_no, month:month, patients:r.patients||0}; });
-  if(!payload.length) return Promise.resolve();
-  return db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}).then(function(res){
-    if(res.error) console.error('raw_monthly_snapshot 저장 실패:', res.error);
+  var prevPayload=(rows||[]).filter(function(r){return r.biz_no&&r.prev_patients!=null;}).map(function(r){ return {office:r.office, biz_no:r.biz_no, month:prevMonth, patients:r.prev_patients||0}; });
+  var p1=payload.length?db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}):Promise.resolve({error:null});
+  var p2=prevPayload.length?db.from('raw_monthly_snapshot').upsert(prevPayload, {onConflict:'office,biz_no,month'}):Promise.resolve({error:null});
+  return Promise.all([p1,p2]).then(function(resArr){
+    resArr.forEach(function(res){ if(res&&res.error) console.error('raw_monthly_snapshot 저장 실패:', res.error); });
   });
 }
 // 청구현황지표(office_claims)는 원래 "청구현황 베이스라인(월마감)" 파일로만 갱신했는데, 마감 파일이
@@ -1895,7 +1914,7 @@ function commitCurrentRaw(parsed, status){
     var unmatched=updates.filter(function(u,i){ return !results[i].error&&(!results[i].data||!results[i].data.length); });
     if(unmatched.length) saveUnmatchedClinics(unmatched, 'current');
     logImport('current', asOf);
-    saveRawMonthlySnapshot(updates.map(function(u){ return {office:currentOffice, biz_no:u.biz_no, patients:u.patients}; }), asOf);
+    saveRawMonthlySnapshot(updates.map(function(u){ return {office:currentOffice, biz_no:u.biz_no, patients:u.patients, prev_patients:u.prev_patients}; }), asOf);
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
