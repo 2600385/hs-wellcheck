@@ -1783,13 +1783,20 @@ function saveCurrentMonthClaims(office, business, agg, asOf){
   if(existing && existing.eval_clinic_cnt) return Promise.resolve(); // 이미 공식 마감된 달이면 보호
   var prevRows=OFFICE_CLAIMS.filter(function(r){ return r.office===office; });
   var target=(existing&&existing.target)||(prevRows.length?prevRows[prevRows.length-1].target:0)||0;
+  // 청구금액(claim/cum_claim)은 RAW 파일 자체의 "금액" 컬럼(회사 쪽에서 아직 정산 전에 실어두는 참고용
+  // 숫자라 유형별 실제 청구건수와 안 맞을 수 있음) 대신, 케어플랜/교육상담/환자관리/점검평가 건수 × 수가를
+  // 그대로 합산해서 씀 - 마감 파일이 몇 주씩 안 나올 때도 "건수×수가" 방식이 회사가 실제 마감 때 쓰는
+  // 계산법과 같아서 더 믿을 수 있고, 사무소 리스트의 총액과 유형별 내역(care_amt 등)이 항상 정확히
+  // 일치함(따로 더해도 어긋날 일이 없음).
+  var care_amt=(agg.care||0)*CLAIM_UNIT_PRICE.care, edu_amt=(agg.edu||0)*CLAIM_UNIT_PRICE.edu,
+    mgmt_amt=(agg.mgmt||0)*CLAIM_UNIT_PRICE.mgmt, check_amt=(agg.check||0)*CLAIM_UNIT_PRICE.check;
+  var claimTotal=care_amt+edu_amt+mgmt_amt+check_amt;
   var row={
     office:office, business:business||'', month:month, target:target,
     active_count:agg.active||0, patient:agg.patient||0,
-    cum_patient:agg.patient||0, claim:agg.claim||0, cum_claim:agg.claim||0,
+    cum_patient:agg.patient||0, claim:claimTotal, cum_claim:claimTotal,
     care_cnt:agg.care||0, edu_cnt:agg.edu||0, mgmt_cnt:agg.mgmt||0, check_cnt:agg.check||0,
-    care_amt:(agg.care||0)*CLAIM_UNIT_PRICE.care, edu_amt:(agg.edu||0)*CLAIM_UNIT_PRICE.edu,
-    mgmt_amt:(agg.mgmt||0)*CLAIM_UNIT_PRICE.mgmt, check_amt:(agg.check||0)*CLAIM_UNIT_PRICE.check
+    care_amt:care_amt, edu_amt:edu_amt, mgmt_amt:mgmt_amt, check_amt:check_amt
   };
   return db.from('office_claims').upsert([row], {onConflict:'office,month'}).then(function(res){
     if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
@@ -1812,8 +1819,16 @@ function commitCurrentRaw(parsed, status){
     // db.from('clinics').select() 그대로 쓰면 PostgREST 기본 한도(1000건)에 걸려 전사 4,600여 건 중
     // 뒤쪽 사무소 거래처는 existingOffice에 안 잡혀서 사무소 배정 보호 검사를 조용히 건너뛰게 됨 -
     // fetchAllRows로 전체를 다 받아야 함
-    Promise.all([fetchAllRows('clinics','biz_no,office'), db.from('managers').select('office,code,name,emp_no')]).then(function(resArr){
-      var exRes=resArr[0], mgrRes=resArr[1];
+    Promise.all([fetchAllRows('clinics','biz_no,office'), db.from('managers').select('office,code,name,emp_no'), db.from('import_log').select('office,source_date').eq('import_type','current')]).then(function(resArr){
+      var exRes=resArr[0], mgrRes=resArr[1], logRes=resArr[2];
+      // 이 파일이 이미 반영된 최신 데이터보다 과거 시점(예: 8월 데이터가 이미 반영된 상태에서 7/31자
+      // 마감 파일을 뒤늦게 올리는 경우)이면, 그 사무소의 "현재"(clinics) 상태는 절대 안 건드리고 이
+      // 파일이 말하는 그 달(예: 7월)의 마감 스냅샷·청구현황만 확정해서 채워넣는다 - 안 그러면 오늘자
+      // 실시간 활성처/활성환자수가 과거 파일 값으로 롤백돼버리는 사고가 남(실제 요청 계기: 청구금액
+      // 마감 파일이 2주 넘게 안 나와서, 이미 반영된 최신 RAW보다 오래된 "7/31 기준" 파일로 7월
+      // 마감치만 뒤늦게 확정하고 싶다는 요구).
+      var staleOffices={};
+      if(!logRes.error) logRes.data.forEach(function(r){ if(r.source_date && asOf && r.source_date>asOf) staleOffices[r.office]=r.source_date; });
       var existingOffice={};
       if(!exRes.error) exRes.data.forEach(function(r){ if(r.biz_no) existingOffice[r.biz_no]=r.office; });
       // RAW 파일의 담당자 칸은 실명(예: "강태경")인데 managers.code는 짧은 코드(예: "gang")라, 그대로 저장하면
@@ -1852,19 +1867,31 @@ function commitCurrentRaw(parsed, status){
       var safeRows=allRows.filter(function(r){ return !conflictBiz[r.biz_no]; });
       var safeUpdates=updates.filter(function(u){ return !conflictBiz[u.biz_no]; });
       if(conflictRows.length) saveOfficeConflicts(conflictRows);
-      db.from('clinics').upsert(safeRows, {onConflict:'office,biz_no'}).then(function(res){
+      // safeRows/safeUpdates는 "현재"에 반영해도 되는(liveRows) 것과, 이미 더 최신 데이터가 있어 "현재"는
+      // 그대로 두고 그 달 마감 스냅샷·청구현황만 채워야 하는(staleRows) 것으로 나눈다.
+      var liveRows=safeRows.filter(function(r){ return !staleOffices[r.office]; });
+      var staleRows=safeRows.filter(function(r){ return staleOffices[r.office]; });
+      var staleOfficeNames=Object.keys(staleRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
+      var clinicsUpsertP=liveRows.length?db.from('clinics').upsert(liveRows, {onConflict:'office,biz_no'}):Promise.resolve({error:null});
+      clinicsUpsertP.then(function(res){
         if(res.error){ status.textContent='전국 거래처 반영 실패: '+res.error.message; return; }
-        // safeRows에 실제로 반영된 사무소 전부에 로그를 남김 - currentOffice만 남기면(예전 버그)
+        // liveRows에 실제로 반영된 사무소 전부에 로그를 남김 - currentOffice만 남기면(예전 버그)
         // 다른 사무소는 clinics는 최신인데 import_log만 영영 안 남아서 "데이터 기준일" 표시·오래된
-        // 파일 재업로드 경고가 그 사무소들에서 계속 공백/미작동 상태가 됨
-        var touchedOffices=Object.keys(safeRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
-        logImport('current', asOf, touchedOffices);
+        // 파일 재업로드 경고가 그 사무소들에서 계속 공백/미작동 상태가 됨. staleOffices는 "현재"를
+        // 안 건드렸으니 import_log의 최신 기준일도 그대로 둬야 함(여기서 갱신하면 더 최신 날짜가
+        // 과거 날짜로 덮어써져서 다음 파일 업로드 때 신선도 비교가 망가짐).
+        var touchedOffices=Object.keys(liveRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
+        if(touchedOffices.length) logImport('current', asOf, touchedOffices);
+        // raw_monthly_snapshot·office_claims는 staleRows도 포함한 safeRows 전체로 채운다 - 이 두 테이블은
+        // 항상 "그 파일이 말하는 달(asOf)" 기준으로 채우는 거라, 과거 파일이어도 정확히 그 과거 달의
+        // 마감 스냅샷·청구현황을 확정하는 게 목적 그 자체다("현재"만 안 건드리면 됨).
         saveRawMonthlySnapshot(safeRows, asOf);
         // "📅 업데이트 이력" 모달(data_snapshots)이 베이스라인 업로드 때만 기록되고 RAW/MAU 업로드 땐 전혀
         // 안 남아서, RAW를 여러 번 새로 올려도 이력 화면이 마지막 베이스라인 날짜(예: 7/20)에 계속 멈춰있는
         // 것처럼 보이는 문제가 있었음(실제 데이터는 정상 갱신되고 있었음) - RAW 커밋 때도 현재 사무소 기준
-        // 스냅샷을 남겨서 이력이 실제 업로드 시점대로 움직이게 함
-        var curOfficeRows=safeRows.filter(function(r){ return r.office===currentOffice; });
+        // 스냅샷을 남겨서 이력이 실제 업로드 시점대로 움직이게 함(현재 사무소가 stale이면 "현재"가 실제로
+        // 안 바뀌었으니 스냅샷도 안 남김)
+        var curOfficeRows=liveRows.filter(function(r){ return r.office===currentOffice; });
         if(curOfficeRows.length) saveSnapshot('current', {
           office: currentOffice,
           active_count: curOfficeRows.filter(function(r){return r.is_active;}).length,
@@ -1876,6 +1903,7 @@ function commitCurrentRaw(parsed, status){
         // 하는데, 이 세션에서 아직 청구현황/전략판 화면을 한 번도 안 열었으면 OFFICE_CLAIMS가 빈 배열이라
         // 보호 검사가 무력화됨(이미 마감된 달인데도 진행중(추정)으로 잘못 덮어쓸 위험) - 저장하기 전에
         // 항상 최신 office_claims를 먼저 다시 불러와서 보호 검사가 그 화면 방문 여부와 무관하게 항상 정확하게 함
+        var allTouchedOffices=Object.keys(safeRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
         var curAgg={claim:0,patient:0,active:0,care:0,edu:0,mgmt:0,check:0};
         safeUpdates.forEach(function(u){
           curAgg.claim+=u.claim||0; curAgg.patient+=u.patients||0; if(u.is_active) curAgg.active++;
@@ -1884,8 +1912,9 @@ function commitCurrentRaw(parsed, status){
         loadOfficeClaims().then(function(){
           var claimSaves=[saveCurrentMonthClaims(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf)];
           Object.keys(natToday).forEach(function(o){
-            // 사무소 배정 불일치로 clinics 반영 자체가 보호돼서 건너뛴 사무소는 청구현황도 같이 건너뜀(일관성 유지)
-            if(touchedOffices.indexOf(o)>=0) claimSaves.push(saveCurrentMonthClaims(o, natBusiness[o], natToday[o], asOf));
+            // 사무소 배정 불일치로 clinics 반영 자체가 보호돼서 건너뛴 사무소는 청구현황도 같이 건너뜀(일관성 유지).
+            // stale 사무소는 "현재"만 안 건드리는 거라 청구현황(그 과거 달 몫)은 정상적으로 반영해야 함
+            if(allTouchedOffices.indexOf(o)>=0) claimSaves.push(saveCurrentMonthClaims(o, natBusiness[o], natToday[o], asOf));
           });
           return Promise.all(claimSaves);
         }).then(function(){ return loadOfficeClaims(); }).then(function(){
@@ -1895,7 +1924,8 @@ function commitCurrentRaw(parsed, status){
         loadClinics().then(function(){
           if(document.getElementById('view-list').classList.contains('v-active')) renderList();
           if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
-          status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictCount+'건(기존 배정 유지)'):'')+' 청구현황지표도 그 달 공식 베이스라인이 아직 없으면 진행중(추정)으로 같이 갱신됩니다.';
+          var staleMsg=staleOfficeNames.length?(' · '+staleOfficeNames.length+'개 사무소('+staleOfficeNames.slice(0,3).join(',')+(staleOfficeNames.length>3?' 외':'')+')는 이미 더 최신 데이터가 있어 "현재" 상태는 그대로 두고 '+asOf.slice(0,7)+' 마감 스냅샷·청구현황만 반영함'):'';
+          status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictCount+'건(기존 배정 유지)'):'')+staleMsg+' 청구현황지표도 그 달 공식 베이스라인이 아직 없으면 진행중(추정)으로 같이 갱신됩니다.';
         });
       });
     });
