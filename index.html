@@ -476,6 +476,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <div class="sb-scroll">
+    <!-- 홈 - 로고 클릭과 동일한 goHome()이지만, 로고 클릭만으로는 "홈"이라는 게 잘 안 보여서 메뉴에도 명시적으로 둠 -->
+    <div class="cat-btn" id="cat-home" onclick="goHome()">
+      <div class="cat-icon" style="background:#F3F1EC">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A7A5C" stroke-width="2.2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      </div>
+      홈
+    </div>
+
     <!-- 웰체크 현황판 (캘린더 + 거래처현황판) -->
     <div class="cat-btn" id="cat-welcheckhub" onclick="switchView('welcheckhub')">
       <div class="cat-icon">
@@ -2340,7 +2348,12 @@ function commitBaseline(parsed, status){
       if(err){ status.textContent='저장 실패: '+err.error.message; return; }
       var asOf=sortedMonths[sortedMonths.length-1]; // 파일이 다루는 가장 최신 월(마감월)을 기준일로 기록
       status.textContent='완료: 거래처 '+new Set(clinicClaimRecords.map(function(x){return x.clinic_name;})).size+'곳 · '+sortedMonths.length+'개월 반영됨'+(target?(' (목표 '+target+'처 확인됨)'):'')+'. (파일 기준월: '+asOf+')'+(nationalRecords.length?(' · 전국 '+(new Set(nationalRecords.map(function(x){return x.office;}))).size+'개 사무소 비교 데이터도 갱신됨'):'')+(conflictRows.length?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictRows.length+'건(기존 배정 유지)'):'')+(lockedCount?(' · 이미 마감 확정된 '+lockedCount+'개 사무소·월 데이터는 보호되어 건드리지 않음'):'');
-      logImport('baseline', asOf);
+      // logImport에 offices를 안 넘기면 currentOffice 하나만 남아서, 베이스라인 파일 하나로 전국 37개
+      // 사무소가 다 갱신됐는데도 다른 사무소들은 사이드바 "데이터 기준일: 베이스라인" 표시가 예전 날짜에
+      // 계속 멈춰있는 문제가 있었음(RAW/MAU 커밋 때 이미 고쳤던 것과 같은 종류의 버그) - officeRecords/
+      // nationalRecords에 실제로 반영된 사무소 전부에 로그를 남긴다
+      var touchedOffices=Array.from(new Set(officeRecords.concat(nationalRecords).map(function(r){return r.office;})));
+      if(touchedOffices.length) logImport('baseline', asOf, touchedOffices);
       if(officeRecords.length) saveSnapshot('baseline', officeRecords[officeRecords.length-1]);
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
       if(document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
