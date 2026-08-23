@@ -644,6 +644,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
 
+      <div class="pnl">
+        <div class="pnl-title">🎓 <span style="color:#1048A0">일만사 운영자격 현황</span>
+          <span style="font-weight:400;color:var(--t3);font-size:9px">(회비납부+교육이수 → 그다음해 12/31까지 유효)</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">
+          <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('all',event)">
+            <div style="font-size:15px;font-weight:700;color:var(--t1)" id="lic-total">—</div>
+            <div style="font-size:9px;color:var(--t2)">총 대상</div>
+          </div>
+          <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('valid',event)">
+            <div style="font-size:15px;font-weight:700;color:#145C38" id="lic-valid">—</div>
+            <div style="font-size:9px;color:#145C38">유효</div>
+          </div>
+          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('soon',event)">
+            <div style="font-size:15px;font-weight:700;color:#B26A00" id="lic-soon">—</div>
+            <div style="font-size:9px;color:#B26A00">만료임박</div>
+          </div>
+          <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('expired',event)">
+            <div style="font-size:15px;font-weight:700;color:#B01A1A" id="lic-expired">—</div>
+            <div style="font-size:9px;color:#B01A1A">만료</div>
+          </div>
+        </div>
+      </div>
+
       <div class="pnl" id="req-pnl">
         <div class="pnl-title">📬 <span style="color:#1048A0">신규 일정 요청</span>
           <span id="req-badge" style="display:none;background:#ef4444;color:white;border-radius:999px;font-size:9px;padding:1px 6px;margin-left:4px;font-weight:700"></span>
@@ -2482,7 +2506,32 @@ function rowToClinic(r){
     nonPatients:r.non_patients||0,
     office:r.office||'경인1',
     care_plan_cnt:r.care_plan_cnt||0, edu_cnt:r.edu_cnt||0, patient_mgmt_cnt:r.patient_mgmt_cnt||0, check_eval_cnt:r.check_eval_cnt||0,
-    lastSyncDate:r.last_sync_date||null};
+    lastSyncDate:r.last_sync_date||null,
+    eduDate:r.edu_completed_date||null, duesDate:r.dues_paid_date||null};
+}
+// 일만사 운영 자격: 의협회비 납부가 심화교육 이수의 전제조건이고(회비를 내야 교육을 들을 자격이 생김),
+// 교육을 이수하면 그 다음해 12월 31일까지 자격이 유지됨(회사 규정, 사용자 확인 완료) - 그래서 만료일은
+// 회비납부일이 아니라 "교육이수일"의 연도 기준으로만 계산한다(같은 해 안에 둘 다 처리되는 게 보통이라
+// 회비납부일 자체는 전제조건 충족 여부 표시용으로만 쓰고 만료일 계산엔 관여하지 않음).
+function ilmansaLicenseExpiry(c){
+  if(!c||!c.eduDate) return null;
+  var y=parseInt(String(c.eduDate).slice(0,4),10);
+  if(!y) return null;
+  return (y+1)+'-12-31';
+}
+// 'valid'(유효)/'soon'(60일 이내 만료 임박)/'expired'(만료)/null(교육이수일 자체가 없어 판단 불가)
+function ilmansaLicenseStatus(c){
+  var exp=ilmansaLicenseExpiry(c);
+  if(!exp) return null;
+  var todayStr=new Date().toISOString().slice(0,10);
+  if(exp<todayStr) return 'expired';
+  var diffDays=Math.floor((new Date(exp+'T00:00:00')-new Date())/86400000);
+  return diffDays<=60?'soon':'valid';
+}
+function licenseExpiryLabel(c){
+  var exp=ilmansaLicenseExpiry(c);
+  if(!exp) return '';
+  return exp.slice(2,4)+'.'+exp.slice(5,7)+'.'+exp.slice(8,10);
 }
 // ===== 사무소 선택 =====
 var currentOffice='경인1';
@@ -3639,7 +3688,12 @@ function renderList(){
         var monthlyEst=clinicMonthlyClaimEstimate(c);
         return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 항목별 건수·단가 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
       })()
-      +'<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span></span></td>'
+      +(function(){
+        var lStatus=ilmansaLicenseStatus(c);
+        var lColor=lStatus==='expired'?'#B01A1A':lStatus==='soon'?'#B26A00':'#888';
+        var lSub=lStatus?'<br><span style="font-size:9px;color:'+lColor+';font-weight:700" title="일만사 운영 자격 유효기한(교육이수일 기준 다음해 12/31)">'+(lStatus==='expired'?'자격만료 ':lStatus==='soon'?'만료임박 ':'~')+licenseExpiryLabel(c)+'</span>':'';
+        return '<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span>'+lSub+'</span></td>';
+      })()
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
       // DH 구역 - 좌우 패딩을 좁게(td 기본 12px -> 2px) 오버라이드해서 6컬럼이어도 폭을 적게 차지하게 함
       +'<td style="text-align:center;padding:8px 2px;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
@@ -4132,13 +4186,24 @@ function renderStTrend(){
   // clinic_name이 아니라 clinic_id로 묶어야 함 - 이름이 같은 서로 다른 거래처가 있을 수 있고(예: 서부2
   // "연세송내과" 2곳), clinic_id가 없는(다른 사무소로 잘못 매칭된 과거 오염) 행은 아예 제외한다.
   var ccByClinic={};
+  // clinic_claims(거래처별)는 오직 "청구현황 베이스라인(월마감)" 파일로만 채워짐 - RAW 기반 "진행중(추정)"
+  // 달(예: 7월)은 office_claims엔 사무소 합계만 있고 거래처별 데이터가 아예 없음. officialMonths로
+  // "거래처별 정밀 계산이 실제로 가능한 달"을 구분해서, 없는 달은 밑에서 사무소 합계 근사로 대체한다.
+  var officialMonths={};
   CLINIC_CLAIMS.filter(function(c){return c.office===currentOffice&&c.clinic_id;}).forEach(function(c){
     if(!ccByClinic[c.clinic_id]) ccByClinic[c.clinic_id]={};
     ccByClinic[c.clinic_id][c.month]=c.patient||0;
+    officialMonths[c.month]=true;
   });
   var newSeries=oc.map(function(o,i){
     if(i===0) return 0;
     var prevMonth=oc[i-1].month;
+    // 이번 달과 전월 둘 다 거래처별(clinic_claims) 데이터가 있어야 "거래처별로 늘어난 만큼만 합산"하는
+    // 정밀 계산이 성립함 - 하나라도 RAW 기반 진행중(추정) 달이면 거래처별 데이터 자체가 없어서(전부 0으로
+    // 잡혀서) "증가분"이 사실상 "그 거래처 전체 환자수"로 뻥튀기되는 사고가 남(실제 재현: 7월이 진행중
+    // 추정으로 채워지면서 신규 증가가 314명대로 잘못 튐). 그럴 땐 사무소 합계(cum_patient) 증가분으로
+    // 근사한다(감소는 0 처리 - 기존과 동일한 원칙 유지).
+    if(!officialMonths[o.month]||!officialMonths[prevMonth]) return Math.max(0,(o.cum_patient||0)-(oc[i-1].cum_patient||0));
     var gain=0;
     Object.keys(ccByClinic).forEach(function(id){
       var cur=ccByClinic[id][o.month]||0;
@@ -4165,14 +4230,12 @@ function renderStTrend(){
   if(lastMonth!==todayMonthStr()){
     var liveRows=officeRows();
     var livePatientSum=liveRows.reduce(function(s,c){return s+(c.patients||0);},0);
-    var liveGain=0;
-    Object.keys(ccByClinic).forEach(function(id){
-      var c=liveRows.find(function(x){return String(x.id)===String(id);});
-      if(!c) return;
-      var prev=ccByClinic[id][oc[oc.length-1].month]||0;
-      var d=(c.patients||0)-prev;
-      if(d>0) liveGain+=d;
-    });
+    // "오늘(진행중)" 포인트의 증가분은, 위 oc 배열의 마지막 행(예: 7월 진행중 추정)을 기준으로 다시
+    // 거래처별 diff를 시도하면 그 달에 clinic_claims가 없어서 또 같은 뻥튀기 사고가 남 - 대신 "현재
+    // 활성처" KPI 카드(당월 신규 활성환자)가 이미 쓰는 정확한 계산(raw_monthly_snapshot의 전월 마감
+    // 스냅샷 기준 거래처별 순수 증가분 합산)을 그대로 재사용해서, 카드와 그래프 숫자가 항상 정확히
+    // 일치하게 한다.
+    var liveGain=stKpiData().newPatientsGain||0;
     labels.push(parseInt(todayMonthStr().slice(5,7))+'월(진행중)');
     newSeries.push(liveGain);
     cumPatientSeries.push(livePatientSum);
@@ -4806,6 +4869,18 @@ function updateEduStats(){
   if(du) du.textContent=dU+'곳';
   if(en) en.textContent=notyet+'곳';
 
+  // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수완료가 아니면(=이수일이 없으면)
+  // 판단 자체가 불가하니 총 대상에서도 제외한다("총 대상"이 유효+임박+만료 합과 항상 일치해야 함)
+  var licRows=rows.filter(function(c){ return c.ilmansa==='참여' && ilmansaLicenseStatus(c)!=null; });
+  var lTotal=licRows.length;
+  var lValid=licRows.filter(function(c){ return ilmansaLicenseStatus(c)==='valid'; }).length;
+  var lSoon=licRows.filter(function(c){ return ilmansaLicenseStatus(c)==='soon'; }).length;
+  var lExpired=licRows.filter(function(c){ return ilmansaLicenseStatus(c)==='expired'; }).length;
+  var lt=document.getElementById('lic-total'), lv=document.getElementById('lic-valid'), ls=document.getElementById('lic-soon'), le=document.getElementById('lic-expired');
+  if(lt) lt.textContent=lTotal+'곳';
+  if(lv) lv.textContent=lValid+'곳';
+  if(ls) ls.textContent=lSoon+'곳';
+  if(le) le.textContent=lExpired+'곳';
 }
 
 // ===== 초기화 =====
@@ -4879,15 +4954,21 @@ function showEduPopup(el){
   div.style.top=(rect.bottom+6)+'px';
   div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
   var isTarget=current!=='해당없음';
+  var todayIso=new Date().toISOString().slice(0,10);
+  var dateVal=(c&&c.eduDate)||todayIso;
+  var duesOk=!!(c&&c.duesDate);
   div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">심화교육 현황</div>'
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +(isTarget
-      ?'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
-        +'<div>이수 기한: <b style="color:#B01A1A">2026년 12월 31일</b></div>'
-        +'<div style="margin-top:6px">현재: <b style="color:'+(current==='이수완료'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+      ?(!duesOk?'<div style="background:#FFF1DB;border-radius:8px;padding:8px 10px;font-size:11px;color:#8A6800;margin-bottom:8px">⚠ 의협회비 납부일이 아직 없어요 - 회비 납부가 교육이수 자격의 전제조건입니다.</div>':'')
+        +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수완료'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+        +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">교육이수일</label>'
+        +'<input type="date" id="edu-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
+        +'<div id="edu-expiry-preview" style="margin-top:6px;font-size:11px"></div>'
         +'</div>'
         +'<div style="display:flex;gap:6px">'
-        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수완료</button>'
+        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수완료로 저장</button>'
         +'<button id="edu-yet-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">미이수</button>'
         +'<button onclick="closeEduPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
         +'</div>'
@@ -4897,7 +4978,21 @@ function showEduPopup(el){
   document.body.appendChild(div);
   clampPopupVertical(div, rect);
   if(isTarget){
-    document.getElementById('edu-done-btn').onclick=function(){ if(c){c.edu='이수완료';saveClinicField(c,{edu:'이수완료'});renderList();updateEduStats();} div.remove(); };
+    var dateInput=document.getElementById('edu-date-input');
+    var preview=document.getElementById('edu-expiry-preview');
+    function updatePreview(){
+      var v=dateInput.value;
+      if(!v){ preview.textContent=''; return; }
+      var y=parseInt(v.slice(0,4),10);
+      preview.innerHTML='이 날짜로 저장하면 일만사 운영 자격 유효기한: <b style="color:#B01A1A">'+(y+1)+'년 12월 31일</b>까지';
+    }
+    updatePreview();
+    dateInput.addEventListener('input', updatePreview);
+    document.getElementById('edu-done-btn').onclick=function(){
+      var v=dateInput.value||todayIso;
+      if(c){c.edu='이수완료';c.eduDate=v;saveClinicField(c,{edu:'이수완료',edu_completed_date:v});renderList();updateEduStats();}
+      div.remove();
+    };
     document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';saveClinicField(c,{edu:'미이수'});renderList();updateEduStats();} div.remove(); };
   }
   setTimeout(function(){
@@ -4920,19 +5015,27 @@ function showDuesPopup(el){
   var rect=el.getBoundingClientRect();
   div.style.top=(rect.bottom+6)+'px';
   div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
+  var todayIso=new Date().toISOString().slice(0,10);
+  var dateVal=(c&&c.duesDate)||todayIso;
   div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">의협회비 납부 현황</div>'
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
-    +'현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b>'
+    +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b></div>'
+    +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (심화교육 이수 자격의 전제조건)</label>'
+    +'<input type="date" id="dues-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
     +'</div>'
     +'<div style="display:flex;gap:6px">'
-    +'<button id="dues-paid-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">납부</button>'
+    +'<button id="dues-paid-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">납부로 저장</button>'
     +'<button id="dues-unpaid-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">비납부</button>'
     +'<button onclick="closeDuesPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
     +'</div>';
   document.body.appendChild(div);
   clampPopupVertical(div, rect);
-  document.getElementById('dues-paid-btn').onclick=function(){ if(c){c.dues='납부';saveClinicField(c,{dues:'납부'});renderList();} div.remove(); };
+  document.getElementById('dues-paid-btn').onclick=function(){
+    var v=document.getElementById('dues-date-input').value||todayIso;
+    if(c){c.dues='납부';c.duesDate=v;saveClinicField(c,{dues:'납부',dues_paid_date:v});renderList();}
+    div.remove();
+  };
   document.getElementById('dues-unpaid-btn').onclick=function(){ if(c){c.dues='비납부';saveClinicField(c,{dues:'비납부'});renderList();} div.remove(); };
   setTimeout(function(){
     document.addEventListener('click',function handler(e){
@@ -5017,6 +5120,48 @@ function showDuesList(type, event) {
   document.body.appendChild(popup);
   document.addEventListener('click',function handler(e){
     var p=document.getElementById('dues-list-popup');
+    if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener('click',handler); }
+  });
+}
+
+function closeLicenseList(){ var p=document.getElementById('lic-list-popup'); if(p) p.remove(); }
+function showLicenseList(type, event) {
+  if(event) event.stopPropagation();
+  var existing=document.getElementById('lic-list-popup');
+  if(existing){ existing.remove(); return; }
+  var filtered=CLINICS.filter(function(c){ return c.ilmansa==='참여' && ilmansaLicenseStatus(c)!=null; });
+  if(type!=='all') filtered=filtered.filter(function(c){ return ilmansaLicenseStatus(c)===type; });
+  var titleHtml=type==='valid'
+    ?'<span style="color:#145C38">✅ 유효 거래처</span>'
+    :type==='soon'
+    ?'<span style="color:#B26A00">⏰ 만료임박(60일 이내) 거래처</span>'
+    :type==='expired'
+    ?'<span style="color:#B01A1A">❗ 만료된 거래처</span>'
+    :'일만사 운영자격 대상 전체';
+  var popup=document.createElement('div');
+  popup.id='lic-list-popup';
+  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--white);border:0.5px solid var(--bd2);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);width:320px;max-height:420px;display:flex;flex-direction:column';
+  var rows=filtered.slice().sort(function(a,b){ return (ilmansaLicenseExpiry(a)||'').localeCompare(ilmansaLicenseExpiry(b)||''); }).map(function(c){
+    var m=getMR(c.mr);
+    var dc=getRegionStyle(c.region).color;
+    var st=ilmansaLicenseStatus(c);
+    var stColor=st==='expired'?'#B01A1A':st==='soon'?'#B26A00':'#145C38';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--bd);font-size:11px">'
+      +'<span style="width:6px;height:6px;border-radius:50%;background:'+dc+';flex-shrink:0"></span>'
+      +'<span style="color:var(--t2);width:30px;flex-shrink:0">'+c.region+'</span>'
+      +'<span style="background:'+(m.bg||'#eee')+';color:'+(m.t||'#666')+';padding:1px 6px;border-radius:999px;font-size:10px;flex-shrink:0">'+(m.name||c.mr)+'</span>'
+      +'<span style="font-weight:600;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</span>'
+      +'<span style="color:'+stColor+';font-weight:700;font-size:10px;flex-shrink:0">~'+licenseExpiryLabel(c)+'</span>'
+      +'</div>';
+  }).join('');
+  popup.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'
+    +'<span style="font-size:13px;font-weight:700">'+titleHtml+' ('+filtered.length+'곳)</span>'
+    +'<button onclick="closeLicenseList()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t2);font-family:inherit;line-height:1">✕</button>'
+    +'</div>'
+    +'<div style="overflow-y:auto;flex:1">'+(rows||'<div style="color:var(--t3);font-size:12px;padding:16px 0;text-align:center">해당 거래처 없음</div>')+'</div>';
+  document.body.appendChild(popup);
+  document.addEventListener('click',function handler(e){
+    var p=document.getElementById('lic-list-popup');
     if(p&&!p.contains(e.target)){ p.remove(); document.removeEventListener('click',handler); }
   });
 }
@@ -5258,6 +5403,8 @@ function openAddClinic(){
   document.getElementById('ca-icnt').value='0';
   document.getElementById('ca-edu').value='해당없음';
   document.getElementById('ca-dues').value='해당없음';
+  document.getElementById('ca-edu-date').value='';
+  document.getElementById('ca-dues-date').value='';
   document.getElementById('ca-lastvisit').value='';
   document.getElementById('ca-bizno').value='';
   document.getElementById('ca-memo').value='';
@@ -5279,6 +5426,8 @@ function openEditClinic(idx){
   document.getElementById('ca-icnt').value=c.ilmansa_cnt||0;
   document.getElementById('ca-edu').value=c.edu||'해당없음';
   document.getElementById('ca-dues').value=c.dues||'해당없음';
+  document.getElementById('ca-edu-date').value=c.eduDate||'';
+  document.getElementById('ca-dues-date').value=c.duesDate||'';
   document.getElementById('ca-lastvisit').value=c.lastVisit==='-'?'':(c.lastVisit||'');
   document.getElementById('ca-bizno').value=c.biz_no||'';
   document.getElementById('ca-memo').value=c.note||'';
@@ -5303,6 +5452,8 @@ function saveAddClinic(){
     ilmansa_cnt:parseInt(document.getElementById('ca-icnt').value)||0,
     edu:document.getElementById('ca-edu').value,
     dues:document.getElementById('ca-dues').value,
+    edu_completed_date:document.getElementById('ca-edu-date').value||null,
+    dues_paid_date:document.getElementById('ca-dues-date').value||null,
     last_visit:document.getElementById('ca-lastvisit').value.trim()||'-',
     biz_no:document.getElementById('ca-bizno').value.trim(),
     note:document.getElementById('ca-memo').value
@@ -5617,6 +5768,14 @@ function closeClinicChart(){
           <option value="납부">납부</option>
           <option value="비납부">비납부</option>
         </select>
+      </div>
+    </div>
+    <div class="fld-2">
+      <div class="fld"><label>교육이수일 <span style="font-weight:400;color:var(--t3)">(다음해 12/31까지 자격 유지)</span></label>
+        <input type="date" id="ca-edu-date">
+      </div>
+      <div class="fld"><label>의협회비 납부일</label>
+        <input type="date" id="ca-dues-date">
       </div>
     </div>
     <div class="fld-2">
