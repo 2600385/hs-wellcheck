@@ -462,12 +462,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div id="login-error" style="color:#e53e3e;font-size:12px;margin:-4px 0 10px;display:none">사번/사무소명을 찾을 수 없습니다. 담당자에게 문의해주세요.</div>
     <button class="btn btn-save" style="width:100%;padding:10px" onclick="doLogin()">로그인</button>
-    <div class="login-hint">사번을 모르시면 사무소명(예: 경인1)을 그대로 입력해 조회 전용으로 입장할 수 있어요. 업로드 등 관리 기능은 사용할 수 없어요.</div>
-    <div class="login-hint" style="margin-top:6px;padding-top:10px;border-top:0.5px solid var(--bd)">
-      아직 직원 명단을 등록 전이신가요?<br>
-      <span class="sb-logout" style="font-size:11px" onclick="guestLogin()">임시로 전체 권한으로 입장 (직원 관리에서 등록)</span>
-    </div>
-    <div class="login-hint" style="margin-top:10px"><span class="sb-logout" onclick="openInstallGuide()">📱 모바일 홈 화면에 앱처럼 설치하기</span></div>
+    <div class="login-hint">사번 조회가 안되면 사무소명 입력 후 접속 가능 (예: 경인1)</div>
   </div>
 </div>
 
@@ -4022,7 +4017,12 @@ function showSimpleModal(title, bodyHtml){
 }
 // 회사 스프레드시트 관행(단위: 천 원)대로 축약 표기 - 원 단위 그대로 쓰면 자릿수가 너무 길어서 한눈에 안 들어옴
 function companyMoney(v){ return Math.round((v||0)/1000).toLocaleString(); }
-function companyMoneyHtml(v){ return companyMoney(v)+' <span style="font-weight:400;color:var(--t3);font-size:13px">(천원)</span>'; }
+// "(천원)" 단위만 있으면 원 단위인 줄 알고 "이 큰 회사에서 이 작은 금액이 말이 되나" 오해가 생길 수 있어서
+// (실사례: 45,701(천원) = 4,570만원인데 45,701원으로 착각) 실제 감이 오는 "약 OO만원"도 같이 표기
+function companyMoneyHtml(v){
+  var man=Math.round((v||0)/10000);
+  return companyMoney(v)+' <span style="font-weight:400;color:var(--t3);font-size:13px">(천원 · 약 '+man.toLocaleString()+'만원)</span>';
+}
 // 표 셀에 단위를 직접 붙여서(헤더만 보고 착각하지 않게) 천원 단위 그대로 노출
 function moneyK(v){ return companyMoney(v)+'천원'; }
 // 일만사 평가 실적/청구는 원래 "청구현황 베이스라인" 파일의 "평가-청구(사무소)" 시트에 회사가 이미 계산해둔
@@ -4209,7 +4209,7 @@ function renderStKPI(){
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
     // 숫자)로 이 값을 보여주고, 하단엔 "TH명 이상 전체 처수 중 → 당월이력없음 처수"로 몇 처 중 몇 처가
     // 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
-    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처 중 → 당월이력없음 '+k.noSyncExcluded+'처','nosync'],
+    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처 중 → <span style="color:#B01A1A;font-weight:700">당월이력없음 '+k.noSyncExcluded+'처</span>','nosync'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','전월 마감 대비 '+TH+'명, 40명 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
     ['newKpi','신규 거래처',k.newly+'처','당월 신규처 확보','newly']
