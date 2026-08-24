@@ -768,7 +768,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="claim-board-badge"></div>
   </div>
   <div class="list-content" style="padding:16px">
-    <div class="sub" style="margin-bottom:8px">사무소 청구전환율 기준으로 정렬하고, 누적 환자당 청구 지표를 함께 비교</div>
+    <div class="sub" style="margin-bottom:8px" id="claim-basis-note">사무소 청구전환율 기준으로 정렬하고, 누적 환자당 청구 지표를 함께 비교</div>
     <div class="stFilters" id="claim-metric-toggle"></div>
     <div class="claimLegend" id="claim-legend"></div>
     <div class="card chartBox" style="position:relative">
@@ -4546,7 +4546,24 @@ function renderClaimView(){
     renderClaimMetricToggle();
     renderClaimScatter();
     renderClaimTable();
+    renderClaimBasisNote();
   });
+}
+// 전사 비교표·산점도·사무소 클릭 팝업 전부 공식 마감(eval_clinic_cnt 있는) 데이터만 쓰도록 바꾼 뒤
+// (RAW 진행중(추정)을 섞으면 사무소마다 서로 다른 달을 비교하게 되는 위험 때문), 지금 보고 있는 게
+// 몇 월 마감 기준인지 화면에 명시 - 사무소마다 마감 시점이 다를 수 있어(예: 이번 달 막 마감된 곳과
+// 아직 지난달 마감인 곳이 섞일 수 있음) 가장 오래된 마감월을 "최소 기준"으로 보여준다.
+function renderClaimBasisNote(){
+  var el=document.getElementById('claim-basis-note');
+  if(!el) return;
+  var rows=latestOfficeRows(true);
+  if(!rows.length){ el.textContent='사무소 청구전환율 기준으로 정렬하고, 누적 환자당 청구 지표를 함께 비교'; return; }
+  var minMonth=rows.reduce(function(m,r){ return (!m||r.month<m)?r.month:m; }, null);
+  var maxMonth=rows.reduce(function(m,r){ return (!m||r.month>m)?r.month:m; }, null);
+  var basisTxt=minMonth===maxMonth
+    ? (parseInt(minMonth.slice(5,7),10)+'월 마감 기준')
+    : (parseInt(minMonth.slice(5,7),10)+'~'+parseInt(maxMonth.slice(5,7),10)+'월 마감 기준 - 사무소마다 최신 마감월이 달라요');
+  el.innerHTML='사무소 청구전환율 기준으로 정렬하고, 누적 환자당 청구 지표를 함께 비교 · <b style="color:#2F78B7">📌 '+basisTxt+'</b> <span style="color:#8e857c">(RAW 진행중(추정)은 제외 - 거래처현황판의 "당월청구(추정)"에서 별도 확인)</span>';
 }
 function setClaimMetric(m){
   claimMetric=m;
@@ -4646,7 +4663,10 @@ function renderClaimScatter(){
   var ctx=document.getElementById('claimScatter');
   if(!ctx||!window.Chart) return;
   if(claimChart){ claimChart.destroy(); claimChart=null; }
-  var rows=latestOfficeRows().sort(function(a,b){return b.achievement-a.achievement;});
+  // 전사 사무소 비교(산점도)는 반드시 "공식 마감" 데이터끼리만 비교해야 한다 - RAW 기반 진행중(추정)이
+  // 섞이면 어떤 사무소는 이번달(진행중) 실시간치, 다른 사무소는 지난달 확정치를 서로 비교하게 돼서
+  // 청구 순위·버킷 판정이 왜곡된다(오늘 발견한 그래프 신규 증가 314명대 뻥튀기 사고와 같은 종류의 위험).
+  var rows=latestOfficeRows(true).sort(function(a,b){return b.achievement-a.achievement;});
   if(!rows.length) return;
   var mi=metricInfo(claimMetric);
   var colors={top:'#8CC6A3',mid:'#D8C16D',low:'#D99A9A'};
@@ -4697,7 +4717,8 @@ function renderClaimScatter(){
 }
 function renderClaimTable(){
   var col=CLAIM_TABLE_SORT.col, dir=CLAIM_TABLE_SORT.dir;
-  var sorted=latestOfficeRows().sort(function(a,b){
+  // 이 표도 전사 순위/버킷 비교표라 산점도와 동일하게 공식 마감 데이터만 사용(위 renderClaimScatter 주석 참고)
+  var sorted=latestOfficeRows(true).sort(function(a,b){
     var av=a[col], bv=b[col];
     if(typeof av==='string') return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
     return dir==='asc'?av-bv:bv-av;
@@ -4723,7 +4744,11 @@ function renderClaimTable(){
 }
 // 사무소 하나를 클릭했을 때 전사 평균 대비 환자당/처당 청구액을 비교해서 보여줌
 function openOfficeCompareModal(office){
-  var rows=latestOfficeRows();
+  // 사무소 하나를 클릭했을 때 뜨는 팝업 - 전사 평균과 비교하는 화면이라 공식 마감 데이터만 써야 한다.
+  // RAW 기반 진행중(추정)을 섞으면 이 사무소는 이번달(진행중) 실시간치, 비교 대상 전사평균은 다른
+  // 사무소들의 확정치가 섞인 값이 돼서 비교 자체가 왜곡된다(사용자 확인: 청구금액처럼 민감한 숫자에서
+  // 위험 부담이 크다고 판단, "진행중(추정)"은 거래처현황판의 당월청구(추정) 표기로만 별도 제공).
+  var rows=latestOfficeRows(true);
   var o=rows.find(function(x){return x.office===office;});
   if(!o) return;
   var avg=function(key){ return rows.length?Math.round(rows.reduce(function(s,x){return s+x[key];},0)/rows.length):0; };
