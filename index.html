@@ -294,7 +294,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .diffKpi .kval{color:#15803d}
 .newKpi{background:#F3FAFF!important;border:2px solid #CBE3F6!important}
 .newKpi .kval{color:#2F78B7}
-.miniGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.miniGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
 .miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px}
 .miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
 .miniCard b{display:block;font-size:26px;margin:3px 0}
@@ -304,9 +304,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.q4{border-top:4px solid #99cfb1}
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
+/* 9~12월 목표 카드(m9~m12)는 전부 같은 파란 톤(익월/월별 목표라는 같은 성격) */
+.miniCard[class*="m9"],.miniCard[class*="m10"],.miniCard[class*="m11"],.miniCard[class*="m12"]{border-top:4px solid #8fb8e8}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+/* 거래처 리스트 퀵필터 색상 구분(예전 화면 참고): 신규거래처=하늘색, 20/40명 전환후보=핑크/연두,
+   인원수 구간(10명미만~100명이상)은 구간이 올라갈수록 점점 진해지는 갈색 파스텔톤. 나머지(전체/현재
+   활성처/당월이력없음/비활성처 전환/당월 활성처/당월 증감)는 기존처럼 무채색 유지. */
+.stFilters button.f-newly{background:#EAF4FC;border-color:#B8DCF3;color:#2F78B7}
+.stFilters button.f-cand20{background:#FCEEF3;border-color:#E9B9C9;color:#B0527A}
+.stFilters button.f-cand40{background:#EFFAF3;border-color:#B7E0C4;color:#3E8F5D}
+.stFilters button.f-q3long{background:#FBF3EA;border-color:#E9D5BE;color:#A9895F}
+.stFilters button.f-lt20{background:#F7E9D8;border-color:#DDBD90;color:#8C6836}
+.stFilters button.f-q3{background:#F0DBC0;border-color:#CBA06A;color:#7C5A2C}
+.stFilters button.f-q4{background:#E3C69A;border-color:#B47F3C;color:#5E3F17}
+.stFilters button.f-q100{background:#D2AA71;border-color:#93611C;color:#3C260F}
 .stFilters button.active{border-color:#f47920;border-width:2px;color:#4f4035;background:#fffaf6;box-shadow:0 0 0 3px rgba(244,121,32,.08)}
 .newBadge{margin-left:6px;background:#EAF5FF;color:#2f6f9f;border-radius:99px;padding:2px 7px;font-size:10px;font-weight:900}
 .diffUp{color:#15803d;font-weight:900}
@@ -1666,9 +1679,26 @@ function parseCurrentRaw(wb){
     }
     return -1;
   }
+  // '활성처'는 부분일치로 찾으면 '비활성처전환(전월대비)', '전월활성처' 컬럼에도 그 글자가 들어있어
+  // 잘못 걸릴 수 있어서(우연히 지금은 '활성처' 컬럼이 더 앞쪽이라 안 걸렸지만, 회사가 컬럼 순서를
+  // 또 바꾸면 사고날 수 있음) 정확히 그 이름 하나뿐인 컬럼은 완전일치로 찾는다.
+  function findColExact(needle){
+    for(var c=0;c<hRow.length;c++){
+      if(hRow[c]!=null && String(hRow[c]).replace(/\s+/g,'')===needle) return c;
+    }
+    return -1;
+  }
   var COL={
     office: findCol('사무소'), sabun: findCol('사번'), mgr: findCol('담당자'),
-    nonFlag: findCol('②비일만사MAU'), inactiveConv: findCol('비활성처전환'),
+    // active(활성처): 회사가 직접 산정해서 내려주는 공식 활성처 판정 컬럼('해당'/공백) - ①일만사(4명이상
+    // +당월 의사접촉이력 확인) 또는 ②비일만사(MAU 4명이상) 중 하나라도 충족하면 '해당'으로 채워져 있음.
+    // 우리가 patients(활성환자목표지표)+비일만사 값을 따로 합산해서 재계산하지 말고 이 컬럼을 그대로
+    // 신뢰해야 회사의 8월 현황표("8월현황=35=①33+②2")와 앱의 "현재 활성처" 카드가 정확히 일치한다
+    // (실제로 재현/검증: 이전엔 ②컬럼이 0/1 플래그인데 그걸 헤드카운트처럼 더해서 42처로 잘못 집계됐었음).
+    active: findColExact('활성처'),
+    nonFlag: findCol('②비일만사MAU'), // ②비일만사 MAU 4명이상 플래그(0/1) - 우리가 독자적으로 검증 불가, 참고용으로만 보관
+    nonWau: findCol('비일만사WAU'), // 비일만사 실제 헤드카운트(주1회 앱 혈압혈당입력) - 화면에 "비일만사 N명"으로 보여줄 실제 인원수(위 nonFlag는 0/1이라 인원수 표시엔 못 씀)
+    inactiveConv: findCol('비활성처전환'),
     hospName: findCol('병원명'), bizNo: findCol('사업자번호'),
     lastSync: findCol('최종연동일시'), monthChecked: findCol('당월이력확인'),
     patients: findCol('활성환자목표지표'), // 웰체크 일만사 환자수(활성 환자 목표 지표)
@@ -1678,10 +1708,11 @@ function parseCurrentRaw(wb){
   };
   var missing=Object.keys(COL).filter(function(k){return COL[k]<0;});
   if(missing.length) return {error:'"거래처별 RAW" 시트에서 다음 컬럼을 찾지 못했습니다(회사 파일 양식이 바뀌었을 수 있어요): '+missing.join(', ')};
-  // asOf(파일 기준일)를 루프 시작 전에 미리 계산 - activeThreshold(월별 활성처 판정 기준: 기본 4명, 2026-07만 20명)를
-  // 파일이 실제로 다루는 월 기준으로 판단하기 위해 필요함(오늘 날짜가 아니라 파일 기준월이 맞음)
+  // asOf(파일 기준일) - "당월이력확인" 등 이번 회차가 다루는 월을 판단할 때 오늘 날짜가 아니라
+  // 파일 자체의 기준일을 써야 하므로 루프 시작 전에 미리 계산해둔다.
+  // (활성처 판정 자체는 이제 activeThreshold로 문턱을 다시 계산하지 않고, 회사가 파일에 내려주는
+  // "활성처" 컬럼을 그대로 신뢰하므로 여기선 TH가 더 필요 없음)
   var asOf=findAsOfDate(wb, ['사업부사무소현황','거래처별 RAW'])||new Date().toISOString().slice(0,10);
-  var TH=activeThreshold(asOf);
   var updates=[];
   // 이 시트도 전사 거래처가 다 들어있는 시트라, 같은 패스에서 전국 사무소별 당일 현황(집계)과
   // 개별 거래처 단위 데이터(natUpdates, 관리자가 전체 업로드할 때만 다른 사무소 clinics 테이블에 반영)를 같이 뽑음
@@ -1703,7 +1734,8 @@ function parseCurrentRaw(wb){
     // 써야 함 - 접속확인 컬럼을 쓰면 환자 수 변화가 전혀 없는데도 "0명→N명 신규 증가"로 잘못 잡힘(회사 파일
     // 118처 중 20처에서 두 컬럼 값이 실제로 어긋나는 것을 확인, 사용자 확인 완료)
     var patientsVal=Number(row[COL.patients])||0; // 웰체크 일만사 환자수(활성 환자 목표 지표)
-    var nonVal=Number(row[COL.nonFlag])||0; // 비일만사 활성환자
+    var nonWauVal=Number(row[COL.nonWau])||0; // 비일만사 실제 헤드카운트(WAU) - 화면 표시용
+    var activeFlag=row[COL.active]==='해당'; // 회사 공식 활성처 판정(①/② 게이트 포함) - 그대로 신뢰
     var claimVal=Number(row[COL.amount])||0;
     var careCnt=Number(row[COL.care])||0, eduCnt=Number(row[COL.edu])||0, mgmtCnt=Number(row[COL.mgmt])||0, checkCnt=Number(row[COL.check])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
     var mrSabun=row[COL.sabun]!=null?String(row[COL.sabun]).replace(/\.0$/,''):null; // 담당자 사번 - 이름은 동명이인/오타 위험이 있어 사번을 우선 신뢰
@@ -1715,8 +1747,8 @@ function parseCurrentRaw(wb){
         mr:row[COL.mgr]||'-',
         mr_sabun:mrSabun,
         patients: patientsVal,
-        non_patients: nonVal,
-        is_active: (patientsVal+nonVal)>=TH, // 회사 기준(일만사+비일만사 합산, activeThreshold명)으로 활성처 판정. 일만사만으로는 미달이지만 비일만사로 활성이 된 곳은 nonOnlyActive로 별도 표기
+        non_patients: nonWauVal,
+        is_active: activeFlag, // 회사가 내려주는 공식 활성처 컬럼을 그대로 신뢰(①/②/당월이력확인 게이트 전부 포함됨)
         inactive_transition: row[COL.inactiveConv]==='해당',
         prev_active: row[COL.prevActive]==='해당',
         prev_patients: Number(row[COL.prevPatients])||0, // 전월 환자수(일만사)
@@ -1729,11 +1761,11 @@ function parseCurrentRaw(wb){
       natToday[rowOffice].claim+=claimVal;
       natToday[rowOffice].patient+=patientsVal;
       natToday[rowOffice].care+=careCnt; natToday[rowOffice].edu+=eduCnt; natToday[rowOffice].mgmt+=mgmtCnt; natToday[rowOffice].check+=checkCnt;
-      if((patientsVal+nonVal)>=TH) natToday[rowOffice].active++;
+      if(activeFlag) natToday[rowOffice].active++;
       natUpdates.push({
         office:rowOffice, biz_no:bizNo, name:row[COL.hospName], mr:row[COL.mgr]||'-', mr_sabun:mrSabun,
-        patients: patientsVal, non_patients: nonVal,
-        is_active: (patientsVal+nonVal)>=TH,
+        patients: patientsVal, non_patients: nonWauVal,
+        is_active: activeFlag,
         inactive_transition: row[COL.inactiveConv]==='해당',
         prev_active: row[COL.prevActive]==='해당',
         prev_patients: Number(row[COL.prevPatients])||0,
@@ -4073,30 +4105,23 @@ function cumTypeAt(office, uptoMonth){
 // (monthStr 인자는 과거 시기별 예외를 두던 흔적으로 시그니처만 남겨둠 - 지금은 항상 4를 반환)
 function activeThreshold(monthStr){ return 4; }
 function todayMonthStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1<10?'0'+(d.getMonth()+1):(d.getMonth()+1)); }
-// "평가기준 대응" 카드용: 익월(다음달)과 12월(연말) 목표 월을 항상 오늘 날짜 기준으로 다시 계산
+// "평가기준 대응" 카드용: 익월(다음달) 목표 월을 항상 오늘 날짜 기준으로 다시 계산
 function nextMonthStr(){ var d=new Date(); var y=d.getFullYear(), m=d.getMonth()+2; if(m>12){ m-=12; y+=1; } return y+'-'+(m<10?'0'+m:m); }
-function yearEndMonthStr(){ return (new Date().getFullYear())+'-12'; }
 // "전월(N월)" 표기용 - 1월이면 전년 12월로 넘어가는 건 화면 표기상 큰 의미 없어 12로 고정 처리
 function prevMonthNum(){ var cur=new Date().getMonth()+1; return cur===1?12:cur-1; }
-// RAW 파일이 정한 is_active(저장된 값)를 그대로 믿으면, RAW를 격주로만 올리는 지금 체제에서 "현재 활성처"가
-// 최대 2주간 그대로 멈춰있게 됨. 매일 올라오는 MAU가 patients를 갱신하므로, "활성" 판정 자체(activeThreshold 기준)는
-// 저장된 플래그 대신 매번 현재 환자수로 다시 계산해서 매일 살아 움직이게 한다(회사 공식 기준: 일만사+비일만사 합산 activeThreshold명↑).
-// RAW 파일 자체 기준 설명("1)일만사: 4명 이상 + 당월 의사 접속이력 확인되는 처 / 2)비일만사: 주1회 혈압혈당
-// 4명 이상인 처")대로면 "당월 의사 접속이력 확인"(=당월이력확인)이 안 된 거래처는 활성처에서 빠져야 하는데,
-// 처음 반영해봤더니 last_sync_date가 기존 거래처 대부분에 아직 채워지지 않은 상태(이 컬럼 자체가 이번에
-// 새로 생겨서, 최근에 RAW/MAU를 다시 안 올린 거래처는 전부 null)라 "활성처가 2처밖에 안 됨"이라는
-// 실사고가 남 - 데이터가 아직 안 채워진 상태에서 판정 기준으로 바로 쓰면 위험하다는 판단으로, 일단
-// 활성처 판정 자체(=현재 활성처 카드/liveActive)에서는 이 게이트를 도로 뺌(합산 문턱 판정만 유지).
-// "당월이력없음" 정보는 syncedThisMonth()로 계속 계산해서 "당월 비활성 전환" 카드에 참고용으로만 표시
-// (stKpiData의 noSyncExcluded) - 실제로 활성처에서 빼는 검증/전환은 나중에 다시 논의하기로 함(사용자 확인).
-function syncedThisMonth(c){
-  if(!c.lastSyncDate) return false;
-  var d=new Date(c.lastSyncDate+'T00:00:00');
-  if(isNaN(d.getTime())) return false;
-  var today=new Date();
-  return d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth();
-}
-function liveActive(c){ return ((c.patients||0)+(c.nonPatients||0))>=activeThreshold(todayMonthStr()); }
+// [수정 이력] 예전엔 저장된 is_active를 안 믿고 매번 (일만사환자수+비일만사값)>=문턱으로 직접 재계산했다 -
+// RAW를 격주로만 올리는 체제에서 "현재 활성처"가 최대 2주간 멈춰있는 걸 막으려던 의도였는데, 비일만사
+// 쪽 값(당시엔 ②비일만사MAU 4명이상 여부를 나타내는 0/1 플래그였음)을 인원수처럼 그냥 더해버려서
+// "일만사 4명 이상인 거래처 수"(단순 문턱 통과 카운트, 8월 경인1 기준 42처)와 회사가 실제로 발표하는
+// 공식 활성처 수(35처=①일만사33+②비일만사2)가 어긋나는 사고가 있었다. 회사 파일의 "활성처" 컬럼은
+// 이미 ①(일만사 4명이상+당월 의사접촉이력 확인)/②(비일만사 MAU 4명이상) 게이트를 전부 반영해서
+// 매 회차 내려주는 공식 판정값이라, 그걸 저장한 clinics.is_active를 그대로 신뢰하는 게 맞다(경인1
+// 8월 RAW로 직접 검증: 42처 중 33처는 ①로, 1처는 ②로 구제, 남은 8처만 "4명 이상인데 당월이력없음"
+// 으로 실제 제외됨 - 회사 표의 35처와 정확히 일치). 그 대신 이 활성처 판정 자체는 격주 RAW가 새로
+// 올라올 때만 갱신된다(매일 올라오는 MAU는 patients/청구건수만 갱신하고 활성처 판정은 건드리지 않음 -
+// parseDailyMAU 주석 참고). "4명 이상인데 공식 활성처가 아닌"(=당월이력없음) 거래처 수는 stKpiData의
+// noSyncExcluded로 별도 집계해서 카드에 표시한다.
+function liveActive(c){ return !!c.isActive; }
 // "전월" 기준 환자수는 베이스라인/clinic_claims가 아니라 RAW 파일(주 2회 갱신, "전월 환자수(일만사)"
 // 컬럼을 그 자체로 신뢰)의 prevPatients를 그대로 쓴다. 한때 clinic_claims 기준으로 바꿔봤지만, 베이스라인은
 // 그 달 실적이 다음달 말에야 확정되는 파일이라 진행 중인 달(예: 7월)의 clinic_claims 값이 아직 일부
@@ -4111,33 +4136,31 @@ function stKpiData(){
   var target=h2t!=null?h2t:((oc.length?oc[oc.length-1].target:0)||120);
   var TH=activeThreshold(todayMonthStr());
   var active=r.filter(liveActive).length;
-  // "4명 이상인데 당월이력확인이 안 돼서 비활성처로 집계된" 거래처 수 - 카드 하단에 별도 표기용
-  // (합산 문턱은 넘겼고 비일만사 단독으로도 기준 미달이라 이 게이트 때문에 제외된 경우만 셈)
-  var noSyncExcluded=r.filter(function(c){
-    var p=c.patients||0, np=c.nonPatients||0;
-    return (p+np)>=TH && np<TH && !syncedThisMonth(c);
-  }).length;
+  var thresholdMet=r.filter(function(c){return (c.patients||0)>=TH;}).length; // 일만사 환자수만으로 문턱(TH명)을 넘긴 거래처 수(=회사가 흔히 "42처"라 부르는 단순 카운트)
+  // "당월이력없음": 일만사 환자수는 문턱(TH명)을 넘겼는데도 회사 공식 활성처 판정(is_active)엔 못 든
+  // 거래처 - ①(당월 의사접촉이력 미확인)이나 ②(비일만사로도 구제 안 됨) 어느 쪽으로도 못 걸려서 실제로
+  // 활성처에서 빠진 곳만 정확히 셈(경인1 8월 RAW로 검증: 42-8=34가 아니라, thresholdMet 42처 중
+  // 8처만 여기 해당하고 나머지 34처는 is_active - 이 중 33처는 thresholdMet과 겹치는 ①구제,
+  // 나머지 1처는 thresholdMet엔 없지만(일만사 환자수 미달) ②로 구제된 별도 거래처라 active 총계는
+  // 35처로 thresholdMet 42처와 다른 집합임)
+  var noSyncExcluded=r.filter(function(c){ return (c.patients||0)>=TH && !c.isActive; }).length;
   // "전월" 비교 기준: raw_monthly_snapshot에 그 거래처의 지난달 스냅샷(그 달 마지막으로 올라온 RAW의
   // "이번회차" 값)이 있으면 그걸 우선 쓰고(사업자번호로 매칭), 없으면(이 기능 도입 전이거나 그 달에 RAW가
   // 한 번도 안 올라온 경우) clinics.prevPatients로 폴백한다.
   var rawPrevMap=rawSnapshotPrevMap();
   var cp=function(c){ return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0); };
-  // "당월 비활성 전환": 전월엔 활성 기준(4명)을 채웠는데, 당월 들어 실시간 환자수가 기준 미만으로 떨어진
-  // 거래처 - RAW의 저장된 플래그(inactive_transition) 대신, cp(전월 스냅샷/prevPatients)와 오늘자
-  // liveActive를 직접 비교해서 MAU가 갱신할 때마다 매일 정확하게 움직이게 한다.
   var PREV_TH=4; // 전월 마감 판정 기준은 4명 고정(사용자 확인)
-  var inactiveTr=r.filter(function(c){ return cp(c)>=PREV_TH && !liveActive(c); }).length;
-  var thresholdMet=r.filter(function(c){return (c.patients||0)>=TH;}).length;
-  var thresholdMetInactive=r.filter(function(c){return (c.patients||0)>=TH && cp(c)>=PREV_TH && !liveActive(c);}).length;
+  // liveActive가 파일의 공식 활성처 판정을 그대로 쓰게 되면서(위 [수정 이력] 참고), 일만사 환자수만으로는
+  // 문턱 미달인데(예: 조은미래의원처럼 patients=0) ②비일만사로 구제돼서 공식 활성처인 거래처가 생긴다 -
+  // 그런 곳을 "비일만사 활성"으로 별도 표기하기 위한 값(현재 활성처 카드 하단 경고용).
   var nonOnlyActive=r.filter(function(c){return liveActive(c)&&(c.patients||0)<TH;}).length;
-  var prevActiveCount=r.filter(function(c){return cp(c)>=PREV_TH;}).length;
   var newly=r.filter(function(c){return cp(c)===0&&(c.patients||0)>0;}).length;
   var crossed=r.filter(function(c){var p=cp(c),n=c.patients||0;return (p<TH&&n>=TH)||(p<40&&n>=40);}).length;
   var newPatientsGain=r.reduce(function(s,c){var d=(c.patients||0)-cp(c); return s+(d>0?d:0);},0);
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievement>=80?'A':achievement>=60?'B':'C';
   var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
-  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,inactiveTr:inactiveTr,thresholdMet:thresholdMet,thresholdMetInactive:thresholdMetInactive,nonOnlyActive:nonOnlyActive,prevActiveCount:prevActiveCount,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
+  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,thresholdMet:thresholdMet,nonOnlyActive:nonOnlyActive,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
 }
 function renderStKPI(){
   var k=stKpiData();
@@ -4170,10 +4193,14 @@ function renderStKPI(){
   document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>'+todayDateStr+'(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
   var TH=k.threshold;
   var kpis=[
+    // "현재 활성처"는 이제 일만사 환자수 문턱(TH명) 단순 카운트가 아니라, 회사 파일의 공식 활성처
+    // 컬럼을 그대로 반영한 값(경인1 8월 검증: 35처=①33+②2) - 하단엔 참고용으로 "일만사&웰체크 TH명
+    // 이상"인 단순 카운트(thresholdMet, 42처)를 같이 보여준다.
     ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
-    // "당월이력없음"(당월 심평원 연동 이력 미확인)은 아직 활성처 판정에서 실제로 빼진 않고(검증은 추후) 참고
-    // 정보로만 이 카드에 같이 표기 - 전월엔 활성 기준을 채웠는데 당월 들어 4명 미만으로 떨어진 거래처 수와 나란히 보여줌
-    ['redCard','당월 비활성 전환',k.inactiveTr+'처','전월 마감 활성처수 '+k.prevActiveCount+'처'+(k.noSyncExcluded?'<br><span style="color:#B01A1A;font-weight:700">당월이력없음 '+k.noSyncExcluded+'처</span>':''),'inactive'],
+    // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
+    // 숫자)로 이 값을 보여주고, 하단에 "TH명 이상 전체 처수"와 "당월이력없음 처수"를 나란히 다시 표기해서
+    // 어느 만큼 중 어느 만큼이 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
+    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처<br>당월이력없음 '+k.noSyncExcluded+'처','nosync'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','전월 마감 대비 '+TH+'명, 40명 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
     ['newKpi','신규 거래처',k.newly+'처','당월 신규처 확보','newly']
@@ -4182,18 +4209,27 @@ function renderStKPI(){
     return '<div class="kcard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><div class="kval">'+x[2]+'</div><div class="khint">'+x[3]+'</div></div>';
   }).join('');
   var r=officeRows();
-  // "평가기준 대응": 분기 개념 대신 하반기 목표 파일(h2_targets)의 익월/12월(연말) 사무소별 목표 대비
-  // 현재 활성처 달성률을 그대로 보여준다 - 사무소마다 다른 실제 숫자로 자동 치환됨
-  var nextTh=h2OfficeTarget(currentOffice, nextMonthStr());
-  var decTh=h2OfficeTarget(currentOffice, yearEndMonthStr());
-  var nextPct=nextTh?Math.round(k.active/nextTh*100):null;
-  var decPct=decTh?Math.round(k.active/decTh*100):null;
-  var minis=[
-    ['q3','익월 기준',k.active+'/'+(nextTh!=null?nextTh:'-')+'처',nextTh!=null?('달성률 '+nextPct+'%'):'익월 목표 데이터 없음','active'],
-    ['q4','12월 목표 기준',k.active+'/'+(decTh!=null?decTh:'-')+'처',decTh!=null?('달성률 '+decPct+'%'):'12월 목표 데이터 없음','active'],
+  // "평가기준 대응": 예전엔 익월/12월 딱 2개만 보여줬는데, 연말까지 남은 달(9·10·11·12월)별 목표
+  // 대비 현재 달성률을 한 번에 보고 싶다는 요청으로 4개월치를 각각 카드로 펼침 - 사무소마다 다른
+  // 실제 목표(h2_targets)로 자동 치환됨. "이번달"이 9월 이후로 넘어가면 이미 지난 달 카드는 자연히
+  // 사라지도록, nextMonthStr()부터 12월까지만 표시한다(예: 10월이 되면 10·11·12월 3개만 남음).
+  var thisYear=new Date().getFullYear();
+  var nextStr=nextMonthStr(); // 'YYYY-MM' - 항상 "익월"부터 시작
+  var nextYear=parseInt(nextStr.slice(0,4),10), startMonth=parseInt(nextStr.slice(5,7),10);
+  var monthMinis=[];
+  // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
+  if(nextYear===thisYear){
+    for(var mm=startMonth;mm<=12;mm++){
+      var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
+      var mTh=h2OfficeTarget(currentOffice, mStr);
+      var mPct=mTh?Math.round(k.active/mTh*100):null;
+      monthMinis.push(['m'+mm, mm+'월 목표', k.active+'/'+(mTh!=null?mTh:'-')+'처', mTh!=null?('달성률 '+mPct+'%'):(mm+'월 목표 데이터 없음'), 'active']);
+    }
+  }
+  var minis=monthMinis.concat([
     ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
     ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=35&&p<=39;}).length+'처','일만사&웰체크 35~39명처','cand40']
-  ];
+  ]);
   document.getElementById('st-mini').innerHTML=minis.map(function(x){
     return '<div class="miniCard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
@@ -4289,20 +4325,22 @@ function renderStTrend(){
 function stFilterDefs(){
   var TH=activeThreshold(todayMonthStr());
   return [
-    ['all','전체'],['active','현재 활성처'],['inactive','비활성처 전환'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
+    ['all','전체'],['active','현재 활성처'],['nosync','당월이력없음'],['inactive','비활성처 전환'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
     ['cand20','20명 전환후보'],['cand40','40명 전환후보'],['q3long','10명 미만'],['lt20',TH+'명 미만'],['q3',TH+'명 이상'],['q4','40명 이상'],['q100','100명 이상']
   ];
 }
 function stTitles(){
   var TH=activeThreshold(todayMonthStr());
-  return {all:'전체 거래처',active:'현재 활성처',inactive:'비활성처 전환 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 신규 활성환자',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3long:'10명 미만 거래처',lt20:TH+'명 미만 거래처',q3:TH+'명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
+  return {all:'전체 거래처',active:'현재 활성처',nosync:'당월이력없음 거래처',inactive:'비활성처 전환 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 신규 활성환자',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3long:'10명 미만 거래처',lt20:TH+'명 미만 거래처',q3:TH+'명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
 }
 var stMR='all'; // 거래처 리스트(담당자별) 탭의 담당자 필터
 function setStFilter(f){ stFilter=f; renderStFilters(); renderStTable(); var t=document.getElementById('st-table'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }
 function setStMR(mr){ stMR=mr; renderStMRFilters(); renderClinicsListTable(); }
 function renderStFilters(){
+  // 필터별 색상은 CSS의 .stFilters button.f-<필터키>로 지정(신규거래처=하늘색, 20/40명 전환후보=핑크/연두,
+  // 인원수 구간(10명미만~100명이상)은 구간이 올라갈수록 점점 진해지는 갈색 파스텔톤 - 예전 화면 참고해 재구현)
   document.getElementById('st-filters').innerHTML=stFilterDefs().map(function(x){
-    return '<button class="'+(stFilter===x[0]?'active':'')+'" onclick="setStFilter(\''+x[0]+'\')">'+x[1]+'</button>';
+    return '<button class="f-'+x[0]+' '+(stFilter===x[0]?'active':'')+'" onclick="setStFilter(\''+x[0]+'\')">'+x[1]+'</button>';
   }).join('');
 }
 function renderStMRFilters(){
@@ -4322,9 +4360,11 @@ function stFilterRows(){
   var rawPrevMap=rawSnapshotPrevMap();
   var p=function(c){return c.patients||0;}, pp=function(c){return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0);}; // stKpiData와 동일 기준(RAW 마감 스냅샷 우선, 없으면 prevPatients)
   var PREV_TH=4;
-  var ok=function(c){return !(pp(c)>=PREV_TH&&!liveActive(c));}; // stKpiData의 inactiveTr과 동일 기준(카드 숫자·드릴다운 리스트 일치)
+  var ok=function(c){return !(pp(c)>=PREV_TH&&!liveActive(c));}; // "비활성처 전환"(전월엔 활성이었는데 지금은 아닌 곳)은 문턱 카드 집계에서 제외
   switch(stFilter){
     case 'active': return r.filter(liveActive);
+    // "당월이력없음": 일만사&웰체크 문턱(TH명)은 넘겼는데 공식 활성처가 아닌 거래처(빨간 카드 클릭 시 리스트) - stKpiData의 noSyncExcluded와 동일 기준
+    case 'nosync': return r.filter(function(c){ return p(c)>=TH && !c.isActive; });
     case 'inactive': return r.filter(function(c){return pp(c)>=PREV_TH&&!liveActive(c);});
     case 'newly': return r.filter(function(c){return pp(c)===0&&p(c)>0;});
     case 'crossed': return r.filter(function(c){return (pp(c)<TH&&p(c)>=TH)||(pp(c)<40&&p(c)>=40);});
@@ -4483,7 +4523,7 @@ function loadRawMonthlySnapshot(){
     RAW_MONTHLY_SNAPSHOT=res.data;
   });
 }
-// "전월(달력상 지난달)" 문자열 'YYYY-MM' - h2OfficeTarget의 nextMonthStr/yearEndMonthStr와 짝을 이루는 헬퍼
+// "전월(달력상 지난달)" 문자열 'YYYY-MM' - h2OfficeTarget의 nextMonthStr와 짝을 이루는 헬퍼
 function prevMonthStr(){
   var d=new Date(); var y=d.getFullYear(), cur=d.getMonth()+1, prev=cur-1;
   if(prev<1){ prev=12; y-=1; }
