@@ -304,8 +304,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.q4{border-top:4px solid #99cfb1}
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
-/* 9~12월 목표 카드(m9~m12)는 전부 같은 파란 톤(익월/월별 목표라는 같은 성격) */
-.miniCard[class*="m9"],.miniCard[class*="m10"],.miniCard[class*="m11"],.miniCard[class*="m12"]{border-top:4px solid #8fb8e8}
+/* 9~12월 목표 카드(m9~m12) - 전부 같은 파란 톤이라 단조롭다는 지적이 있어서, 연말(12월)이 가까워질수록
+   차갑던 색이 점점 따뜻해지는 그러데이션으로 구분(9월=파랑 -> 10월=인디고 -> 11월=보라 -> 12월=주황,
+   12월이 최종 마감이라는 의미도 자연히 담김) */
+.miniCard.m9{border-top:4px solid #8fb8e8}
+.miniCard.m10{border-top:4px solid #93a0e0}
+.miniCard.m11{border-top:4px solid #c39bdb}
+.miniCard.m12{border-top:4px solid #f0a15b}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
@@ -4196,11 +4201,14 @@ function renderStKPI(){
     // "현재 활성처"는 이제 일만사 환자수 문턱(TH명) 단순 카운트가 아니라, 회사 파일의 공식 활성처
     // 컬럼을 그대로 반영한 값(경인1 8월 검증: 35처=①33+②2) - 하단엔 참고용으로 "일만사&웰체크 TH명
     // 이상"인 단순 카운트(thresholdMet, 42처)를 같이 보여준다.
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br>일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처'+(k.nonOnlyActive?'<br><span style="color:#B01A1A;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>':''),'active'],
+    // "일만사&웰체크 TH명 이상 NN처"는 이제 바로 옆 빨간 카드(당월이력없음)에서 "OO처 중" 형태로 이미
+    // 보여주므로 여기서는 중복 표기하지 않고, 이 카드에서만 알 수 있는 정보(②비일만사로 구제된 거래처 수)만
+    // 표기한다 - 이제 항상(0이어도) 보여주고, 부정적 신호가 아니라 참고 정보라 파란색으로 표기.
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>','active'],
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
-    // 숫자)로 이 값을 보여주고, 하단에 "TH명 이상 전체 처수"와 "당월이력없음 처수"를 나란히 다시 표기해서
-    // 어느 만큼 중 어느 만큼이 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
-    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처<br>당월이력없음 '+k.noSyncExcluded+'처','nosync'],
+    // 숫자)로 이 값을 보여주고, 하단엔 "TH명 이상 전체 처수 중 → 당월이력없음 처수"로 몇 처 중 몇 처가
+    // 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
+    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처 중 → 당월이력없음 '+k.noSyncExcluded+'처','nosync'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','전월 마감 대비 '+TH+'명, 40명 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
     ['newKpi','신규 거래처',k.newly+'처','당월 신규처 확보','newly']
