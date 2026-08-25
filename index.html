@@ -87,6 +87,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sub-item:hover{background:var(--bg2);color:var(--t1)}
 .sub-item.sub-active{background:var(--bg2);color:var(--t1);font-weight:600}
 .sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* "전체 현황"도 옆의 "담당자별/지역별 현황"(acc-hd, 항상 굵게 표시되는 부제목)처럼 무게감을 갖도록 -
+   접고 펼 하위 항목이 없어서 아코디언 화살표는 안 붙이고 폰트 굵기만 맞춤 */
+.sub-item.sub-title{font-weight:600}
 
 /* 아코디언 */
 .acc-hd{display:flex;align-items:center;gap:6px;padding:7px 14px 7px 24px;font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;transition:.12s;user-select:none;border-radius:0 var(--r) var(--r) 0;margin:1px 6px 1px 0}
@@ -304,27 +307,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.q4{border-top:4px solid #99cfb1}
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
-/* 9~12월 목표 카드(m9~m12) - 전부 같은 파란 톤이라 단조롭다는 지적이 있어서, 연말(12월)이 가까워질수록
-   차갑던 색이 점점 따뜻해지는 그러데이션으로 구분(9월=파랑 -> 10월=인디고 -> 11월=보라 -> 12월=주황,
-   12월이 최종 마감이라는 의미도 자연히 담김) */
-.miniCard.m9{border-top:4px solid #8fb8e8}
-.miniCard.m10{border-top:4px solid #93a0e0}
-.miniCard.m11{border-top:4px solid #c39bdb}
-.miniCard.m12{border-top:4px solid #f0a15b}
+/* 9~12월 목표 카드(m9~m12) - 색을 4개 다 다르게 했더니 오히려 산만하다는 지적이 있어서, 가장 가까운
+   다음달(9월)만 눈에 띄게 주황으로 구분하고 나머지(10~12월)는 하나의 파란 톤으로 통일 */
+.miniCard.m9{border-top:4px solid #F47920}
+.miniCard.m10,.miniCard.m11,.miniCard.m12{border-top:4px solid #8fb8e8}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
 /* 거래처 리스트 퀵필터 색상 구분(예전 화면 참고): 신규거래처=하늘색, 20/40명 전환후보=핑크/연두,
-   인원수 구간(10명미만~100명이상)은 구간이 올라갈수록 점점 진해지는 갈색 파스텔톤. 나머지(전체/현재
-   활성처/당월이력없음/비활성처 전환/당월 활성처/당월 증감)는 기존처럼 무채색 유지. */
+   당월이력없음=옅은 빨강(부정적 신호), 인원수 구간(4명미만/4명이상/40명이상/100명이상)만 구간이
+   올라갈수록 점점 진해지는 갈색 톤 - 처음엔 너무 진하다는 지적이 있어서 전체적으로 채도를 낮춰
+   더 옅은 파스텔로 다시 조정. 10명미만(q3long)은 위 4단계와 겹치는 구간이라 색 없이 기본 버튼 유지.
+   나머지(전체/현재 활성처/당월 활성처/당월 증감)도 기존처럼 무채색 유지. */
 .stFilters button.f-newly{background:#EAF4FC;border-color:#B8DCF3;color:#2F78B7}
+.stFilters button.f-nosync{background:#FCEEEE;border-color:#EFC4C4;color:#B0524F}
 .stFilters button.f-cand20{background:#FCEEF3;border-color:#E9B9C9;color:#B0527A}
 .stFilters button.f-cand40{background:#EFFAF3;border-color:#B7E0C4;color:#3E8F5D}
-.stFilters button.f-q3long{background:#FBF3EA;border-color:#E9D5BE;color:#A9895F}
-.stFilters button.f-lt20{background:#F7E9D8;border-color:#DDBD90;color:#8C6836}
-.stFilters button.f-q3{background:#F0DBC0;border-color:#CBA06A;color:#7C5A2C}
-.stFilters button.f-q4{background:#E3C69A;border-color:#B47F3C;color:#5E3F17}
-.stFilters button.f-q100{background:#D2AA71;border-color:#93611C;color:#3C260F}
+.stFilters button.f-lt20{background:#FBF4EC;border-color:#E9DCC7;color:#A6906F}
+.stFilters button.f-q3{background:#F6EBDC;border-color:#DFCBAD;color:#93805F}
+.stFilters button.f-q4{background:#EFDFC6;border-color:#D0B389;color:#7C6440}
+.stFilters button.f-q100{background:#E6D0AA;border-color:#BE9C6C;color:#63502C}
 .stFilters button.active{border-color:#f47920;border-width:2px;color:#4f4035;background:#fffaf6;box-shadow:0 0 0 3px rgba(244,121,32,.08)}
 .newBadge{margin-left:6px;background:#EAF5FF;color:#2f6f9f;border-radius:99px;padding:2px 7px;font-size:10px;font-weight:900}
 .diffUp{color:#15803d;font-weight:900}
@@ -463,12 +465,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div id="login-error" style="color:#e53e3e;font-size:12px;margin:-4px 0 10px;display:none">사번/사무소명을 찾을 수 없습니다. 담당자에게 문의해주세요.</div>
     <button class="btn btn-save" style="width:100%;padding:10px" onclick="doLogin()">로그인</button>
-    <div class="login-hint">사번을 모르시면 사무소명(예: 경인1)을 그대로 입력해 조회 전용으로 입장할 수 있어요. 업로드 등 관리 기능은 사용할 수 없어요.</div>
-    <div class="login-hint" style="margin-top:6px;padding-top:10px;border-top:0.5px solid var(--bd)">
-      아직 직원 명단을 등록 전이신가요?<br>
-      <span class="sb-logout" style="font-size:11px" onclick="guestLogin()">임시로 전체 권한으로 입장 (직원 관리에서 등록)</span>
-    </div>
-    <div class="login-hint" style="margin-top:10px"><span class="sb-logout" onclick="openInstallGuide()">📱 모바일 홈 화면에 앱처럼 설치하기</span></div>
+    <div class="login-hint">사번 조회가 안되면 사무소명 입력 후 접속 가능 (예: 경인1)</div>
   </div>
 </div>
 
@@ -523,7 +520,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- 거래처 하위 -->
     <div id="list-sub" style="display:none">
-      <div class="sub-item list-sub-hd sub-active" id="sub-all" onclick="setSubNav(this);listFilter('all','all')">전체 현황</div>
+      <div class="sub-item list-sub-hd sub-title sub-active" id="sub-all" onclick="setSubNav(this);listFilter('all','all')">전체 현황</div>
       <div class="acc-hd list-sub-hd open" onclick="toggleAcc(this)">담당자별 현황 <span onclick="event.stopPropagation();openMgrModal()" title="담당자 추가/수정/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
       <div class="acc-body open" id="sb-mr-list"></div>
       <div class="acc-hd list-sub-hd open" onclick="toggleAcc(this)">지역별 현황 <span onclick="event.stopPropagation();openRegModal()" title="지역 추가/삭제" style="cursor:pointer;opacity:.55">⚙</span><span class="cv">▾</span></div>
@@ -4023,7 +4020,12 @@ function showSimpleModal(title, bodyHtml){
 }
 // 회사 스프레드시트 관행(단위: 천 원)대로 축약 표기 - 원 단위 그대로 쓰면 자릿수가 너무 길어서 한눈에 안 들어옴
 function companyMoney(v){ return Math.round((v||0)/1000).toLocaleString(); }
-function companyMoneyHtml(v){ return companyMoney(v)+' <span style="font-weight:400;color:var(--t3);font-size:13px">(천원)</span>'; }
+// "(천원)" 단위만 있으면 원 단위인 줄 알고 "이 큰 회사에서 이 작은 금액이 말이 되나" 오해가 생길 수 있어서
+// (실사례: 45,701(천원) = 4,570만원인데 45,701원으로 착각) 실제 감이 오는 "약 OO만원"도 같이 표기
+function companyMoneyHtml(v){
+  var man=Math.round((v||0)/10000);
+  return companyMoney(v)+' <span style="font-weight:400;color:var(--t3);font-size:13px">(천원 · 약 '+man.toLocaleString()+'만원)</span>';
+}
 // 표 셀에 단위를 직접 붙여서(헤더만 보고 착각하지 않게) 천원 단위 그대로 노출
 function moneyK(v){ return companyMoney(v)+'천원'; }
 // 일만사 평가 실적/청구는 원래 "청구현황 베이스라인" 파일의 "평가-청구(사무소)" 시트에 회사가 이미 계산해둔
@@ -4109,6 +4111,8 @@ function cumTypeAt(office, uptoMonth){
 // 4명으로 원복된 적이 있었지만, 사용자 확인 결과 데이터 집계는 7월 포함 전체 기간 4명 기준으로 통일한다.
 // (monthStr 인자는 과거 시기별 예외를 두던 흔적으로 시그니처만 남겨둠 - 지금은 항상 4를 반환)
 function activeThreshold(monthStr){ return 4; }
+// 달성률(%) -> S/A/B/C 등급 변환 - 회사 평가 기준(사용자 확인): S 100%↑ / A 80%↑ / B 60%↑ / C 60%미만
+function achievementGrade(pct){ return pct>=100?'S':pct>=80?'A':pct>=60?'B':'C'; }
 function todayMonthStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1<10?'0'+(d.getMonth()+1):(d.getMonth()+1)); }
 // "평가기준 대응" 카드용: 익월(다음달) 목표 월을 항상 오늘 날짜 기준으로 다시 계산
 function nextMonthStr(){ var d=new Date(); var y=d.getFullYear(), m=d.getMonth()+2; if(m>12){ m-=12; y+=1; } return y+'-'+(m<10?'0'+m:m); }
@@ -4163,7 +4167,7 @@ function stKpiData(){
   var crossed=r.filter(function(c){var p=cp(c),n=c.patients||0;return (p<TH&&n>=TH)||(p<40&&n>=40);}).length;
   var newPatientsGain=r.reduce(function(s,c){var d=(c.patients||0)-cp(c); return s+(d>0?d:0);},0);
   var achievement=target?Math.round(active/target*100):0;
-  var grade=achievement>=80?'A':achievement>=60?'B':'C';
+  var grade=achievementGrade(achievement);
   var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
   return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,thresholdMet:thresholdMet,nonOnlyActive:nonOnlyActive,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
 }
@@ -4208,7 +4212,7 @@ function renderStKPI(){
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
     // 숫자)로 이 값을 보여주고, 하단엔 "TH명 이상 전체 처수 중 → 당월이력없음 처수"로 몇 처 중 몇 처가
     // 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
-    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처 중 → 당월이력없음 '+k.noSyncExcluded+'처','nosync'],
+    ['redCard','당월이력없음',k.noSyncExcluded+'처','일만사&웰체크 '+TH+'명 이상 '+k.thresholdMet+'처 중 → <span style="color:#B01A1A;font-weight:700">당월이력없음 '+k.noSyncExcluded+'처</span>','nosync'],
     ['diffKpi','당월 활성처 증감','+'+k.crossed+'처','전월 마감 대비 '+TH+'명, 40명 달성처','crossed'],
     ['diffKpi','당월 신규 활성환자','+'+k.newPatientsGain+'명','당월 순수 신규 가입 환자수','pdiff'],
     ['newKpi','신규 거래처',k.newly+'처','당월 신규처 확보','newly']
@@ -4231,7 +4235,9 @@ function renderStKPI(){
       var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
       var mTh=h2OfficeTarget(currentOffice, mStr);
       var mPct=mTh?Math.round(k.active/mTh*100):null;
-      monthMinis.push(['m'+mm, mm+'월 목표', k.active+'/'+(mTh!=null?mTh:'-')+'처', mTh!=null?('달성률 '+mPct+'%'):(mm+'월 목표 데이터 없음'), 'active']);
+      // 달성률을 회사 등급 기준(S/A/B/C)으로도 같이 보여줌(사용자 확인: S 100%↑/A 80%↑/B 60%↑/C 60%미만)
+      var mHint=mTh!=null?('달성률 '+mPct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(mPct)+'등급</span>'):(mm+'월 목표 데이터 없음');
+      monthMinis.push(['m'+mm, mm+'월 목표', k.active+'/'+(mTh!=null?mTh:'-')+'처', mHint, 'active']);
     }
   }
   var minis=monthMinis.concat([
@@ -4330,16 +4336,20 @@ function renderStTrend(){
   });
 }
 // q3/lt20은 실제 활성 판정 기준(activeThreshold)과 직결되는 라벨이라 매번 현재 기준으로 다시 만든다.
+// "비활성처 전환"(전월엔 활성이었는데 당월엔 4명 미만으로 떨어진 곳)은 "당월이력없음"과 결국 같은 결과로
+// 수렴한다 - 당월 이력이 없으면 4명 이상이어도 활성처에서 빠지므로, 둘 다 있을 필요 없이 더 근본적인
+// 기준인 "당월이력없음" 버튼 하나로 통일(사용자 확인). q3long("10명 미만")은 4명미만/4명이상/40명이상/
+// 100명이상 4단계 갈색 톤 구간에서 빠지는 대신(중복 구간이라), 색 없이 기본 버튼으로만 남겨둔다.
 function stFilterDefs(){
   var TH=activeThreshold(todayMonthStr());
   return [
-    ['all','전체'],['active','현재 활성처'],['nosync','당월이력없음'],['inactive','비활성처 전환'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
+    ['all','전체'],['active','현재 활성처'],['nosync','당월이력없음'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
     ['cand20','20명 전환후보'],['cand40','40명 전환후보'],['q3long','10명 미만'],['lt20',TH+'명 미만'],['q3',TH+'명 이상'],['q4','40명 이상'],['q100','100명 이상']
   ];
 }
 function stTitles(){
   var TH=activeThreshold(todayMonthStr());
-  return {all:'전체 거래처',active:'현재 활성처',nosync:'당월이력없음 거래처',inactive:'비활성처 전환 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 신규 활성환자',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3long:'10명 미만 거래처',lt20:TH+'명 미만 거래처',q3:TH+'명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
+  return {all:'전체 거래처',active:'현재 활성처',nosync:'당월이력없음 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 신규 활성환자',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3long:'10명 미만 거래처',lt20:TH+'명 미만 거래처',q3:TH+'명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
 }
 var stMR='all'; // 거래처 리스트(담당자별) 탭의 담당자 필터
 function setStFilter(f){ stFilter=f; renderStFilters(); renderStTable(); var t=document.getElementById('st-table'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }
@@ -4373,7 +4383,6 @@ function stFilterRows(){
     case 'active': return r.filter(liveActive);
     // "당월이력없음": 일만사&웰체크 문턱(TH명)은 넘겼는데 공식 활성처가 아닌 거래처(빨간 카드 클릭 시 리스트) - stKpiData의 noSyncExcluded와 동일 기준
     case 'nosync': return r.filter(function(c){ return p(c)>=TH && !c.isActive; });
-    case 'inactive': return r.filter(function(c){return pp(c)>=PREV_TH&&!liveActive(c);});
     case 'newly': return r.filter(function(c){return pp(c)===0&&p(c)>0;});
     case 'crossed': return r.filter(function(c){return (pp(c)<TH&&p(c)>=TH)||(pp(c)<40&&p(c)>=40);});
     case 'pdiff': return r.filter(function(c){return p(c)-pp(c)>0;}); // 순수 신규 증가분만(감소분 제외)
