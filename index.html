@@ -2501,12 +2501,13 @@ function timeOptionsHTML(selected){
   }
   return html;
 }
-// 시간 지정 이벤트를 늦은 시간부터 먼저 정렬, 시간 미지정은 맨 뒤로
-function byExactTimeDesc(a,b){
+// 시간 지정 이벤트를 이른 시간부터 먼저 정렬(하루 일정을 읽는 자연스러운 순서), 시간 미지정은 맨 뒤로.
+// 예전엔 반대(늦은 시간부터)로 정렬돼 있어서 오전 영역에 11시반이 8시반보다 위에 뜨는 문제가 있었음.
+function byExactTimeAsc(a,b){
   if(!a.exactTime&&!b.exactTime) return 0;
   if(!a.exactTime) return 1;
   if(!b.exactTime) return -1;
-  return b.exactTime.localeCompare(a.exactTime);
+  return a.exactTime.localeCompare(b.exactTime);
 }
 function loadSchedules(){
   // 예전엔 전 사무소 일정을 다 받아온 뒤 담당자(mr)로 짐작해서 걸러냈는데, mr이 비어있거나
@@ -3287,8 +3288,8 @@ function renderCalendar(){
     // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임)
     var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||(e.mr===activeMR&&!e.mrOffice));});
     var allEvs=dayEvs.filter(function(e){return e.time==='all';});
-    var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeDesc);
-    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeDesc);
+    var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeAsc);
+    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeAsc);
 
     // 날짜 헤더
     var top=document.createElement('div');top.className='dc-top';
@@ -3374,7 +3375,7 @@ function openDayList(day, zone, evsList){
   document.getElementById('daylist-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 · '+ZONE_LABEL[zone]+' ('+evsList.length+'건)';
   var body=document.getElementById('daylist-body');
   body.innerHTML='';
-  evsList.slice().sort(byExactTimeDesc).forEach(function(ev){
+  evsList.slice().sort(byExactTimeAsc).forEach(function(ev){
     var m=getMR(ev.mr);
     var row=document.createElement('div');
     row.className='dl-row';
@@ -5839,6 +5840,7 @@ function closeClinicChart(){
           <option value="false">미가입</option>
           <option value="true">가입</option>
         </select>
+        <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ '가입'으로 설정해야 캘린더에서 이 거래처로 일정을 등록할 수 있어요.</div>
       </div>
     </div>
     <div class="fld-2">
