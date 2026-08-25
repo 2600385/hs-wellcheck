@@ -1442,20 +1442,65 @@ function openUnmatchedModal(){
     if(!rows.length){ el.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px 0">미매칭 거래처가 없습니다.</div>'; return; }
     el.innerHTML=rows.map(function(r){
       var isConflict=r.raw_data&&r.raw_data.existing_office;
+      // 수기로 등록해둘 때 사업자번호를 못 채워놨던 거래처(메모 등은 이미 그 거래처 행에 들어있음)와
+      // 이 미매칭 행이 사실 같은 곳일 수 있어서, "신규로 추가"(=완전히 새 행 생성, 수기 정보와 분리됨)
+      // 말고 "기존과 연결"(=사업자번호 없는 기존 거래처를 골라서 그 행에 사업자번호만 채워넣음, 메모
+      // 등 기존 정보는 그대로 유지)을 먼저 시도할 수 있게 함
       var actions=isConflict
         ? '<button class="btn btn-save" style="padding:4px 10px;font-size:11px" onclick="resolveOfficeConflict('+r.id+')">"'+r.raw_data.new_office+'"로 재배정</button>'
           +'<button class="btn btn-cancel" style="padding:4px 10px;font-size:11px" onclick="ignoreUnmatched('+r.id+')">"'+r.raw_data.existing_office+'" 유지</button>'
-        : '<button class="btn btn-save" style="padding:4px 10px;font-size:11px" onclick="resolveUnmatchedAsNew('+r.id+')">+ 신규 거래처로 추가</button>'
-          +'<button class="btn btn-cancel" style="padding:4px 10px;font-size:11px" onclick="ignoreUnmatched('+r.id+')">무시</button>';
+        : '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+          +'<select id="link-sel-'+r.id+'" style="font-size:11px;padding:3px 4px;max-width:150px;border-radius:6px">'+linkOptionsHtml(r.clinic_name)+'</select>'
+          +'<button class="btn btn-cancel" style="padding:4px 8px;font-size:11px" onclick="resolveUnmatchedAsMerge('+r.id+', document.getElementById(\'link-sel-'+r.id+'\').value)">기존과 연결</button>'
+          +'<button class="btn btn-save" style="padding:4px 10px;font-size:11px" onclick="resolveUnmatchedAsNew('+r.id+')">+ 신규 거래처로 추가</button>'
+          +'<button class="btn btn-cancel" style="padding:4px 10px;font-size:11px" onclick="ignoreUnmatched('+r.id+')">무시</button>'
+          +'</div>';
       return '<div style="padding:8px 4px;border-bottom:0.5px solid var(--bd)">'
         +'<div style="display:flex;justify-content:space-between;gap:8px"><b>'+(r.clinic_name||'(이름없음)')+'</b><span style="color:var(--t3);font-size:11px">사업자번호 '+(r.biz_no||'-')+'</span></div>'
         +'<div style="color:var(--t2);font-size:11px;margin-top:2px">'+(r.note||'')+'</div>'
-        +'<div style="display:flex;gap:6px;margin-top:6px">'+actions+'</div></div>';
+        +'<div style="margin-top:6px">'+actions+'</div></div>';
     }).join('');
   });
   document.getElementById('unmatched-ov').classList.add('ov-open');
 }
 function closeUnmatchedModal(){ document.getElementById('unmatched-ov').classList.remove('ov-open'); }
+// "기존과 연결" 드롭다운 후보: 사업자번호가 아직 없는(=수기 등록 때 채워넣지 못했을 가능성이 있는)
+// 이 사무소 거래처만 대상으로 하고, 미매칭 행의 거래처명과 이름이 겹치는 후보를 위로 올림
+function linkOptionsHtml(hintName){
+  var candidates=CLINICS.filter(function(c){ return !c.biz_no; });
+  candidates.sort(function(a,b){
+    var an=(hintName&&(a.name.indexOf(hintName)>=0||hintName.indexOf(a.name)>=0))?0:1;
+    var bn=(hintName&&(b.name.indexOf(hintName)>=0||hintName.indexOf(b.name)>=0))?0:1;
+    if(an!==bn) return an-bn;
+    return a.name.localeCompare(b.name);
+  });
+  var html='<option value="">기존 거래처 선택...</option>';
+  candidates.forEach(function(c){ html+='<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>'; });
+  return html;
+}
+// 수기 등록 때 사업자번호를 못 채웠던 기존 거래처에 이 미매칭 행의 사업자번호를 그대로 채워넣는다 -
+// insert가 아니라 update라서 메모/DH품목 등 그 거래처에 이미 있던 정보는 전혀 안 건드리고 그대로 남고,
+// 이번 회차 파일이 알려준 활성환자수(raw_data)만 같이 반영해서 "매칭 안 돼서 이번 건만 놓친" 상태도 복구
+function resolveUnmatchedAsMerge(id, clinicId){
+  if(!clinicId){ alert('연결할 기존 거래처를 먼저 선택해주세요.'); return; }
+  clinicId=Number(clinicId); // <select> value는 문자열이라, id 비교/저장 전에 숫자로 통일
+  db.from('unmatched_clinics').select('*').eq('id',id).then(function(res){
+    var row=res.data&&res.data[0];
+    if(!row) return;
+    var target=CLINICS.find(function(c){ return c.id===clinicId; });
+    if(target&&target.biz_no&&target.biz_no!==row.biz_no){
+      alert('선택한 거래처엔 이미 다른 사업자번호("'+target.biz_no+'")가 등록돼 있어요. 잘못 고르신 게 아닌지 확인해주세요.');
+      return;
+    }
+    var rd=row.raw_data||{};
+    db.from('clinics').update({biz_no:row.biz_no, patients:rd.patients||0, non_patients:rd.non_patients||0}).eq('id',clinicId).then(function(res2){
+      if(res2.error){ alert('연결 실패: '+res2.error.message); return; }
+      db.from('unmatched_clinics').update({status:'confirmed_new', matched_clinic_id:clinicId, resolved_at:new Date().toISOString()}).eq('id',id).then(function(){
+        loadClinics().then(function(){ openUnmatchedModal(); refreshUnmatchedBadge(); });
+      });
+    });
+  });
+}
 function resolveUnmatchedAsNew(id){
   db.from('unmatched_clinics').select('*').eq('id',id).then(function(res){
     var row=res.data&&res.data[0];
