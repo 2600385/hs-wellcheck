@@ -632,7 +632,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div><!-- /cal-left -->
     <div class="bot-panels">
       <div class="pnl">
-        <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 심화교육 현황</span></div>
+        <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 교육이수 현황</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
           <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('all',event)">
             <div style="font-size:16px;font-weight:700;color:var(--t1)" id="edu-total">—</div>
@@ -640,7 +640,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
           <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('done',event)">
             <div style="font-size:16px;font-weight:700;color:#145C38" id="edu-done">—</div>
-            <div style="font-size:9px;color:#145C38">이수완료</div>
+            <div style="font-size:9px;color:#145C38">이수</div>
           </div>
           <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('notyet',event)">
             <div style="font-size:16px;font-weight:700;color:#B01A1A" id="edu-notyet">—</div>
@@ -2602,7 +2602,7 @@ function rowToClinic(r){
     lastSyncDate:r.last_sync_date||null,
     eduDate:r.edu_completed_date||null, duesDate:r.dues_paid_date||null};
 }
-// 일만사 운영 자격: 의협회비 납부가 심화교육 이수의 전제조건이고(회비를 내야 교육을 들을 자격이 생김),
+// 일만사 운영 자격: 의협회비 납부가 교육이수의 전제조건이고(회비를 내야 교육을 들을 자격이 생김),
 // 교육을 이수하면 그 다음해 12월 31일까지 자격이 유지됨(회사 규정, 사용자 확인 완료) - 그래서 만료일은
 // 회비납부일이 아니라 "교육이수일"의 연도 기준으로만 계산한다(같은 해 안에 둘 다 처리되는 게 보통이라
 // 회비납부일 자체는 전제조건 충족 여부 표시용으로만 쓰고 만료일 계산엔 관여하지 않음).
@@ -3073,7 +3073,7 @@ var SORT_TYPES={
   dh_op:'check', dh_cp:'check', dh_sp:'check', dh_mb:'check', dh_lb:'check', dh_wd:'check',
   gap:'num', cum:'num'
 };
-var CHECK_RANK={'도입':2,'예정':1,'미도입':0,'참여':1,'미참여':0,'이수완료':2,'미이수':1,'납부':2,'비납부':1,'해당없음':0};
+var CHECK_RANK={'도입':2,'예정':1,'미도입':0,'참여':1,'미참여':0,'이수':2,'미이수':1,'납부':2,'비납부':1,'해당없음':0};
 function charRank(s){
   var ch=(s||'').charAt(0);
   if(/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch)) return 0;
@@ -3505,7 +3505,7 @@ function openAdd(day, zone){
   document.getElementById('inp-patients').value='';
   document.getElementById('inp-ilmansa').value='참여';
   document.getElementById('inp-device').value='미도입';
-  document.getElementById('inp-edu').value='이수완료';
+  document.getElementById('inp-edu').value='이수';
   document.getElementById('inp-memo').value='';
   document.getElementById('inp-etc-label').value='';
   document.getElementById('del-btn').style.display='none';
@@ -3741,7 +3741,7 @@ function renderList(){
       return r*sortDir;
     });
   }
-  function ecls(e){ return e==='이수완료'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
+  function ecls(e){ return e==='이수'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
   function gcol(p){ return p>=100?'#10b981':p>=40?'#EAB308':p>=20?'#f97316':'#ef4444'; }
   function gwid(p){ return p>=100?'100%':p>=40?'80%':p>=20?'50%':'25%'; }
   // DH품목 6종을 컬럼 하나로 합쳐봤더니(그리드+팝업) 품목명이 안 보여서 뭐가 뭔지 알 수 없다는
@@ -3830,7 +3830,7 @@ function renderList(){
     +sth('patients','일만사&amp;웰체크 환자수','width:150px;text-align:center')
     +sth('gap','평가청구GAP','width:72px;text-align:right')
     +sth('cum','당월청구(추정)','width:72px;text-align:right')
-    +sth('edu','심화교육','width:68px;text-align:center')
+    +sth('edu','교육이수','width:68px;text-align:center')
     +sth('dues','의협회비','width:56px;text-align:center')
     // DH품목 6개 헤더: .gtbl th 기본 좌우 패딩(12px)이 폭을 제일 많이 잡아먹던 원인이라 여기만 좁게
     // 오버라이드(padding:6px 2px)하고, 긴 이름은 2줄로 접어서 폭을 최소화. sth()로 클릭 정렬도 복원
@@ -4996,12 +4996,12 @@ function onClinicSelect() {
   }
 }
 
-// ===== 심화교육 현황 계산 =====
+// ===== 교육이수 현황 계산 =====
 function updateEduStats(){
   if(!window.CLINICS||!CLINICS.length) return;
   var rows=officeRows(); // 전국 CLINICS 전체가 아니라 현재 사무소 것만 집계해야 함
   var total = rows.filter(function(c){ return c.ilmansa==='참여'; }).length;
-  var done  = rows.filter(function(c){ return c.ilmansa==='참여' && c.edu==='이수완료'; }).length;
+  var done  = rows.filter(function(c){ return c.ilmansa==='참여' && c.edu==='이수'; }).length;
   var notyet= rows.filter(function(c){ return c.ilmansa==='참여' && c.edu==='미이수'; }).length;
 
   var et=document.getElementById('edu-total');
@@ -5021,7 +5021,7 @@ function updateEduStats(){
   if(du) du.textContent=dU+'곳';
   if(en) en.textContent=notyet+'곳';
 
-  // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수완료가 아니면(=이수일이 없으면)
+  // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수가 아니면(=이수일이 없으면)
   // 판단 자체가 불가하니 총 대상에서도 제외한다("총 대상"이 유효+임박+만료 합과 항상 일치해야 함)
   var licRows=rows.filter(function(c){ return c.ilmansa==='참여' && ilmansaLicenseStatus(c)!=null; });
   var lTotal=licRows.length;
@@ -5091,7 +5091,7 @@ function showDHPopup(el){
   },100);
 }
 
-// 심화교육 팝업
+// 교육이수 팝업
 function showEduPopup(el){
   var idx=parseInt(el.dataset.idx);
   var c=CLINICS[idx];
@@ -5105,22 +5105,27 @@ function showEduPopup(el){
   var rect=el.getBoundingClientRect();
   div.style.top=(rect.bottom+6)+'px';
   div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-  var isTarget=current!=='해당없음';
+  // [버그 수정] 예전엔 "현재 상태값이 해당없음이 아니면"으로 판정해서, edu가 아직 한 번도
+  // 기록된 적 없는(=해당없음 기본값인) 거래처는 전부 편집 폼 자체가 안 뜨고 "일만사 미참여"
+  // 안내만 뜨는 사고가 있었음 - 실제로 프로덕션 전체 거래처가 edu='해당없음' 기본값이라 이 팝업으로
+  // 교육이수 상태를 처음 기록하는 게 원천적으로 불가능했음. "교육이수 추적 대상인지"는 edu 값이
+  // 아니라 일만사 참여 여부(ilmansa)로 판단해야 맞음(showEduList/updateEduStats와 동일 기준).
+  var isTarget=!!(c&&c.ilmansa==='참여');
   var todayIso=new Date().toISOString().slice(0,10);
   var dateVal=(c&&c.eduDate)||todayIso;
   var duesOk=!!(c&&c.duesDate);
-  div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">심화교육 현황</div>'
+  div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">교육이수 현황</div>'
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +(isTarget
       ?(!duesOk?'<div style="background:#FFF1DB;border-radius:8px;padding:8px 10px;font-size:11px;color:#8A6800;margin-bottom:8px">⚠ 의협회비 납부일이 아직 없어요 - 회비 납부가 교육이수 자격의 전제조건입니다.</div>':'')
         +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
-        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수완료'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
         +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">교육이수일</label>'
         +'<input type="date" id="edu-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
         +'<div id="edu-expiry-preview" style="margin-top:6px;font-size:11px"></div>'
         +'</div>'
         +'<div style="display:flex;gap:6px">'
-        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수완료로 저장</button>'
+        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수로 저장</button>'
         +'<button id="edu-yet-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">미이수</button>'
         +'<button onclick="closeEduPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
         +'</div>'
@@ -5142,7 +5147,7 @@ function showEduPopup(el){
     dateInput.addEventListener('input', updatePreview);
     document.getElementById('edu-done-btn').onclick=function(){
       var v=dateInput.value||todayIso;
-      if(c){c.edu='이수완료';c.eduDate=v;saveClinicField(c,{edu:'이수완료',edu_completed_date:v});renderList();updateEduStats();}
+      if(c){c.edu='이수';c.eduDate=v;saveClinicField(c,{edu:'이수',edu_completed_date:v});renderList();updateEduStats();}
       div.remove();
     };
     document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';saveClinicField(c,{edu:'미이수'});renderList();updateEduStats();} div.remove(); };
@@ -5173,7 +5178,7 @@ function showDuesPopup(el){
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
     +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b></div>'
-    +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (심화교육 이수 자격의 전제조건)</label>'
+    +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (교육이수 자격의 전제조건)</label>'
     +'<input type="date" id="dues-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
     +'</div>'
     +'<div style="display:flex;gap:6px">'
@@ -5206,13 +5211,13 @@ function showEduList(type, event) {
   var existing=document.getElementById('edu-list-popup');
   if(existing){ existing.remove(); return; }
   var filtered=CLINICS.filter(function(c){ return c.ilmansa==='참여'; });
-  if(type==='done') filtered=filtered.filter(function(c){ return c.edu==='이수완료'; });
+  if(type==='done') filtered=filtered.filter(function(c){ return c.edu==='이수'; });
   if(type==='notyet') filtered=filtered.filter(function(c){ return c.edu==='미이수'; });
   var titleHtml=type==='done'
-    ?'<span style="color:#145C38">✅ 이수완료 거래처</span>'
+    ?'<span style="color:#145C38">✅ 이수 거래처</span>'
     :type==='notyet'
     ?'<span style="color:#B01A1A">❗ 미이수 거래처</span>'
-    :'심화교육 대상 전체';
+    :'교육이수 대상 전체';
   var popup=document.createElement('div');
   popup.id='edu-list-popup';
   popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--white);border:0.5px solid var(--bd2);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);width:320px;max-height:420px;display:flex;flex-direction:column';
@@ -5912,11 +5917,11 @@ function closeClinicChart(){
       </div>
     </div>
     <div class="fld-2">
-      <div class="fld"><label>심화교육</label>
+      <div class="fld"><label>교육이수</label>
         <select id="ca-edu">
           <option value="해당없음">해당없음</option>
           <option value="미이수">미이수</option>
-          <option value="이수완료">이수완료</option>
+          <option value="이수">이수</option>
         </select>
       </div>
       <div class="fld"><label>의협회비</label>
