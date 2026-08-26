@@ -5607,7 +5607,11 @@ function saveAddClinic(){
     edu_completed_date:document.getElementById('ca-edu-date').value||null,
     dues_paid_date:document.getElementById('ca-dues-date').value||null,
     last_visit:document.getElementById('ca-lastvisit').value.trim()||'-',
-    biz_no:document.getElementById('ca-bizno').value.trim(),
+    // 빈 문자열('')로 저장하면 (office,biz_no) 유니크 제약 때문에 그 사무소에 사업자번호를 안 채운
+    // 거래처가 2곳째부터 "duplicate key" 에러로 저장 자체가 안 됐음(둘 다 ''라 충돌) - null은 유니크
+    // 제약에서 서로 다른 값으로 취급되므로, 비어있으면 null로 보내 여러 거래처가 동시에 "사업자번호
+    // 미확인" 상태로 존재할 수 있게 함
+    biz_no:document.getElementById('ca-bizno').value.trim()||null,
     note:document.getElementById('ca-memo').value
   };
   var q=editingClinicId
