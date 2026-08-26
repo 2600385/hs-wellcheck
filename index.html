@@ -632,7 +632,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div><!-- /cal-left -->
     <div class="bot-panels">
       <div class="pnl">
-        <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 심화교육 현황</span></div>
+        <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 교육이수 현황</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
           <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('all',event)">
             <div style="font-size:16px;font-weight:700;color:var(--t1)" id="edu-total">—</div>
@@ -640,7 +640,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
           <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('done',event)">
             <div style="font-size:16px;font-weight:700;color:#145C38" id="edu-done">—</div>
-            <div style="font-size:9px;color:#145C38">이수완료</div>
+            <div style="font-size:9px;color:#145C38">이수</div>
           </div>
           <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('notyet',event)">
             <div style="font-size:16px;font-weight:700;color:#B01A1A" id="edu-notyet">—</div>
@@ -1442,20 +1442,65 @@ function openUnmatchedModal(){
     if(!rows.length){ el.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px 0">미매칭 거래처가 없습니다.</div>'; return; }
     el.innerHTML=rows.map(function(r){
       var isConflict=r.raw_data&&r.raw_data.existing_office;
+      // 수기로 등록해둘 때 사업자번호를 못 채워놨던 거래처(메모 등은 이미 그 거래처 행에 들어있음)와
+      // 이 미매칭 행이 사실 같은 곳일 수 있어서, "신규로 추가"(=완전히 새 행 생성, 수기 정보와 분리됨)
+      // 말고 "기존과 연결"(=사업자번호 없는 기존 거래처를 골라서 그 행에 사업자번호만 채워넣음, 메모
+      // 등 기존 정보는 그대로 유지)을 먼저 시도할 수 있게 함
       var actions=isConflict
         ? '<button class="btn btn-save" style="padding:4px 10px;font-size:11px" onclick="resolveOfficeConflict('+r.id+')">"'+r.raw_data.new_office+'"로 재배정</button>'
           +'<button class="btn btn-cancel" style="padding:4px 10px;font-size:11px" onclick="ignoreUnmatched('+r.id+')">"'+r.raw_data.existing_office+'" 유지</button>'
-        : '<button class="btn btn-save" style="padding:4px 10px;font-size:11px" onclick="resolveUnmatchedAsNew('+r.id+')">+ 신규 거래처로 추가</button>'
-          +'<button class="btn btn-cancel" style="padding:4px 10px;font-size:11px" onclick="ignoreUnmatched('+r.id+')">무시</button>';
+        : '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+          +'<select id="link-sel-'+r.id+'" style="font-size:11px;padding:3px 4px;max-width:150px;border-radius:6px">'+linkOptionsHtml(r.clinic_name)+'</select>'
+          +'<button class="btn btn-cancel" style="padding:4px 8px;font-size:11px" onclick="resolveUnmatchedAsMerge('+r.id+', document.getElementById(\'link-sel-'+r.id+'\').value)">기존과 연결</button>'
+          +'<button class="btn btn-save" style="padding:4px 10px;font-size:11px" onclick="resolveUnmatchedAsNew('+r.id+')">+ 신규 거래처로 추가</button>'
+          +'<button class="btn btn-cancel" style="padding:4px 10px;font-size:11px" onclick="ignoreUnmatched('+r.id+')">무시</button>'
+          +'</div>';
       return '<div style="padding:8px 4px;border-bottom:0.5px solid var(--bd)">'
         +'<div style="display:flex;justify-content:space-between;gap:8px"><b>'+(r.clinic_name||'(이름없음)')+'</b><span style="color:var(--t3);font-size:11px">사업자번호 '+(r.biz_no||'-')+'</span></div>'
         +'<div style="color:var(--t2);font-size:11px;margin-top:2px">'+(r.note||'')+'</div>'
-        +'<div style="display:flex;gap:6px;margin-top:6px">'+actions+'</div></div>';
+        +'<div style="margin-top:6px">'+actions+'</div></div>';
     }).join('');
   });
   document.getElementById('unmatched-ov').classList.add('ov-open');
 }
 function closeUnmatchedModal(){ document.getElementById('unmatched-ov').classList.remove('ov-open'); }
+// "기존과 연결" 드롭다운 후보: 사업자번호가 아직 없는(=수기 등록 때 채워넣지 못했을 가능성이 있는)
+// 이 사무소 거래처만 대상으로 하고, 미매칭 행의 거래처명과 이름이 겹치는 후보를 위로 올림
+function linkOptionsHtml(hintName){
+  var candidates=CLINICS.filter(function(c){ return !c.biz_no; });
+  candidates.sort(function(a,b){
+    var an=(hintName&&(a.name.indexOf(hintName)>=0||hintName.indexOf(a.name)>=0))?0:1;
+    var bn=(hintName&&(b.name.indexOf(hintName)>=0||hintName.indexOf(b.name)>=0))?0:1;
+    if(an!==bn) return an-bn;
+    return a.name.localeCompare(b.name);
+  });
+  var html='<option value="">기존 거래처 선택...</option>';
+  candidates.forEach(function(c){ html+='<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>'; });
+  return html;
+}
+// 수기 등록 때 사업자번호를 못 채웠던 기존 거래처에 이 미매칭 행의 사업자번호를 그대로 채워넣는다 -
+// insert가 아니라 update라서 메모/DH품목 등 그 거래처에 이미 있던 정보는 전혀 안 건드리고 그대로 남고,
+// 이번 회차 파일이 알려준 활성환자수(raw_data)만 같이 반영해서 "매칭 안 돼서 이번 건만 놓친" 상태도 복구
+function resolveUnmatchedAsMerge(id, clinicId){
+  if(!clinicId){ alert('연결할 기존 거래처를 먼저 선택해주세요.'); return; }
+  clinicId=Number(clinicId); // <select> value는 문자열이라, id 비교/저장 전에 숫자로 통일
+  db.from('unmatched_clinics').select('*').eq('id',id).then(function(res){
+    var row=res.data&&res.data[0];
+    if(!row) return;
+    var target=CLINICS.find(function(c){ return c.id===clinicId; });
+    if(target&&target.biz_no&&target.biz_no!==row.biz_no){
+      alert('선택한 거래처엔 이미 다른 사업자번호("'+target.biz_no+'")가 등록돼 있어요. 잘못 고르신 게 아닌지 확인해주세요.');
+      return;
+    }
+    var rd=row.raw_data||{};
+    db.from('clinics').update({biz_no:row.biz_no, patients:rd.patients||0, non_patients:rd.non_patients||0}).eq('id',clinicId).then(function(res2){
+      if(res2.error){ alert('연결 실패: '+res2.error.message); return; }
+      db.from('unmatched_clinics').update({status:'confirmed_new', matched_clinic_id:clinicId, resolved_at:new Date().toISOString()}).eq('id',id).then(function(){
+        loadClinics().then(function(){ openUnmatchedModal(); refreshUnmatchedBadge(); });
+      });
+    });
+  });
+}
 function resolveUnmatchedAsNew(id){
   db.from('unmatched_clinics').select('*').eq('id',id).then(function(res){
     var row=res.data&&res.data[0];
@@ -2501,12 +2546,13 @@ function timeOptionsHTML(selected){
   }
   return html;
 }
-// 시간 지정 이벤트를 늦은 시간부터 먼저 정렬, 시간 미지정은 맨 뒤로
-function byExactTimeDesc(a,b){
+// 시간 지정 이벤트를 이른 시간부터 먼저 정렬(하루 일정을 읽는 자연스러운 순서), 시간 미지정은 맨 뒤로.
+// 예전엔 반대(늦은 시간부터)로 정렬돼 있어서 오전 영역에 11시반이 8시반보다 위에 뜨는 문제가 있었음.
+function byExactTimeAsc(a,b){
   if(!a.exactTime&&!b.exactTime) return 0;
   if(!a.exactTime) return 1;
   if(!b.exactTime) return -1;
-  return b.exactTime.localeCompare(a.exactTime);
+  return a.exactTime.localeCompare(b.exactTime);
 }
 function loadSchedules(){
   // 예전엔 전 사무소 일정을 다 받아온 뒤 담당자(mr)로 짐작해서 걸러냈는데, mr이 비어있거나
@@ -2556,7 +2602,7 @@ function rowToClinic(r){
     lastSyncDate:r.last_sync_date||null,
     eduDate:r.edu_completed_date||null, duesDate:r.dues_paid_date||null};
 }
-// 일만사 운영 자격: 의협회비 납부가 심화교육 이수의 전제조건이고(회비를 내야 교육을 들을 자격이 생김),
+// 일만사 운영 자격: 의협회비 납부가 교육이수의 전제조건이고(회비를 내야 교육을 들을 자격이 생김),
 // 교육을 이수하면 그 다음해 12월 31일까지 자격이 유지됨(회사 규정, 사용자 확인 완료) - 그래서 만료일은
 // 회비납부일이 아니라 "교육이수일"의 연도 기준으로만 계산한다(같은 해 안에 둘 다 처리되는 게 보통이라
 // 회비납부일 자체는 전제조건 충족 여부 표시용으로만 쓰고 만료일 계산엔 관여하지 않음).
@@ -3027,7 +3073,7 @@ var SORT_TYPES={
   dh_op:'check', dh_cp:'check', dh_sp:'check', dh_mb:'check', dh_lb:'check', dh_wd:'check',
   gap:'num', cum:'num'
 };
-var CHECK_RANK={'도입':2,'예정':1,'미도입':0,'참여':1,'미참여':0,'이수완료':2,'미이수':1,'납부':2,'비납부':1,'해당없음':0};
+var CHECK_RANK={'도입':2,'예정':1,'미도입':0,'참여':1,'미참여':0,'이수':2,'미이수':1,'납부':2,'비납부':1,'해당없음':0};
 function charRank(s){
   var ch=(s||'').charAt(0);
   if(/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch)) return 0;
@@ -3287,8 +3333,8 @@ function renderCalendar(){
     // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임)
     var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||(e.mr===activeMR&&!e.mrOffice));});
     var allEvs=dayEvs.filter(function(e){return e.time==='all';});
-    var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeDesc);
-    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeDesc);
+    var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeAsc);
+    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeAsc);
 
     // 날짜 헤더
     var top=document.createElement('div');top.className='dc-top';
@@ -3374,7 +3420,7 @@ function openDayList(day, zone, evsList){
   document.getElementById('daylist-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 · '+ZONE_LABEL[zone]+' ('+evsList.length+'건)';
   var body=document.getElementById('daylist-body');
   body.innerHTML='';
-  evsList.slice().sort(byExactTimeDesc).forEach(function(ev){
+  evsList.slice().sort(byExactTimeAsc).forEach(function(ev){
     var m=getMR(ev.mr);
     var row=document.createElement('div');
     row.className='dl-row';
@@ -3459,7 +3505,7 @@ function openAdd(day, zone){
   document.getElementById('inp-patients').value='';
   document.getElementById('inp-ilmansa').value='참여';
   document.getElementById('inp-device').value='미도입';
-  document.getElementById('inp-edu').value='이수완료';
+  document.getElementById('inp-edu').value='이수';
   document.getElementById('inp-memo').value='';
   document.getElementById('inp-etc-label').value='';
   document.getElementById('del-btn').style.display='none';
@@ -3695,7 +3741,7 @@ function renderList(){
       return r*sortDir;
     });
   }
-  function ecls(e){ return e==='이수완료'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
+  function ecls(e){ return e==='이수'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
   function gcol(p){ return p>=100?'#10b981':p>=40?'#EAB308':p>=20?'#f97316':'#ef4444'; }
   function gwid(p){ return p>=100?'100%':p>=40?'80%':p>=20?'50%':'25%'; }
   // DH품목 6종을 컬럼 하나로 합쳐봤더니(그리드+팝업) 품목명이 안 보여서 뭐가 뭔지 알 수 없다는
@@ -3784,7 +3830,7 @@ function renderList(){
     +sth('patients','일만사&amp;웰체크 환자수','width:150px;text-align:center')
     +sth('gap','평가청구GAP','width:72px;text-align:right')
     +sth('cum','당월청구(추정)','width:72px;text-align:right')
-    +sth('edu','심화교육','width:68px;text-align:center')
+    +sth('edu','교육이수','width:68px;text-align:center')
     +sth('dues','의협회비','width:56px;text-align:center')
     // DH품목 6개 헤더: .gtbl th 기본 좌우 패딩(12px)이 폭을 제일 많이 잡아먹던 원인이라 여기만 좁게
     // 오버라이드(padding:6px 2px)하고, 긴 이름은 2줄로 접어서 폭을 최소화. sth()로 클릭 정렬도 복원
@@ -4950,12 +4996,12 @@ function onClinicSelect() {
   }
 }
 
-// ===== 심화교육 현황 계산 =====
+// ===== 교육이수 현황 계산 =====
 function updateEduStats(){
   if(!window.CLINICS||!CLINICS.length) return;
   var rows=officeRows(); // 전국 CLINICS 전체가 아니라 현재 사무소 것만 집계해야 함
   var total = rows.filter(function(c){ return c.ilmansa==='참여'; }).length;
-  var done  = rows.filter(function(c){ return c.ilmansa==='참여' && c.edu==='이수완료'; }).length;
+  var done  = rows.filter(function(c){ return c.ilmansa==='참여' && c.edu==='이수'; }).length;
   var notyet= rows.filter(function(c){ return c.ilmansa==='참여' && c.edu==='미이수'; }).length;
 
   var et=document.getElementById('edu-total');
@@ -4975,7 +5021,7 @@ function updateEduStats(){
   if(du) du.textContent=dU+'곳';
   if(en) en.textContent=notyet+'곳';
 
-  // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수완료가 아니면(=이수일이 없으면)
+  // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수가 아니면(=이수일이 없으면)
   // 판단 자체가 불가하니 총 대상에서도 제외한다("총 대상"이 유효+임박+만료 합과 항상 일치해야 함)
   var licRows=rows.filter(function(c){ return c.ilmansa==='참여' && ilmansaLicenseStatus(c)!=null; });
   var lTotal=licRows.length;
@@ -5045,7 +5091,7 @@ function showDHPopup(el){
   },100);
 }
 
-// 심화교육 팝업
+// 교육이수 팝업
 function showEduPopup(el){
   var idx=parseInt(el.dataset.idx);
   var c=CLINICS[idx];
@@ -5059,22 +5105,27 @@ function showEduPopup(el){
   var rect=el.getBoundingClientRect();
   div.style.top=(rect.bottom+6)+'px';
   div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-  var isTarget=current!=='해당없음';
+  // [버그 수정] 예전엔 "현재 상태값이 해당없음이 아니면"으로 판정해서, edu가 아직 한 번도
+  // 기록된 적 없는(=해당없음 기본값인) 거래처는 전부 편집 폼 자체가 안 뜨고 "일만사 미참여"
+  // 안내만 뜨는 사고가 있었음 - 실제로 프로덕션 전체 거래처가 edu='해당없음' 기본값이라 이 팝업으로
+  // 교육이수 상태를 처음 기록하는 게 원천적으로 불가능했음. "교육이수 추적 대상인지"는 edu 값이
+  // 아니라 일만사 참여 여부(ilmansa)로 판단해야 맞음(showEduList/updateEduStats와 동일 기준).
+  var isTarget=!!(c&&c.ilmansa==='참여');
   var todayIso=new Date().toISOString().slice(0,10);
   var dateVal=(c&&c.eduDate)||todayIso;
   var duesOk=!!(c&&c.duesDate);
-  div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">심화교육 현황</div>'
+  div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">교육이수 현황</div>'
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +(isTarget
       ?(!duesOk?'<div style="background:#FFF1DB;border-radius:8px;padding:8px 10px;font-size:11px;color:#8A6800;margin-bottom:8px">⚠ 의협회비 납부일이 아직 없어요 - 회비 납부가 교육이수 자격의 전제조건입니다.</div>':'')
         +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
-        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수완료'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
         +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">교육이수일</label>'
         +'<input type="date" id="edu-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
         +'<div id="edu-expiry-preview" style="margin-top:6px;font-size:11px"></div>'
         +'</div>'
         +'<div style="display:flex;gap:6px">'
-        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수완료로 저장</button>'
+        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수로 저장</button>'
         +'<button id="edu-yet-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">미이수</button>'
         +'<button onclick="closeEduPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
         +'</div>'
@@ -5096,7 +5147,7 @@ function showEduPopup(el){
     dateInput.addEventListener('input', updatePreview);
     document.getElementById('edu-done-btn').onclick=function(){
       var v=dateInput.value||todayIso;
-      if(c){c.edu='이수완료';c.eduDate=v;saveClinicField(c,{edu:'이수완료',edu_completed_date:v});renderList();updateEduStats();}
+      if(c){c.edu='이수';c.eduDate=v;saveClinicField(c,{edu:'이수',edu_completed_date:v});renderList();updateEduStats();}
       div.remove();
     };
     document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';saveClinicField(c,{edu:'미이수'});renderList();updateEduStats();} div.remove(); };
@@ -5127,7 +5178,7 @@ function showDuesPopup(el){
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
     +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b></div>'
-    +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (심화교육 이수 자격의 전제조건)</label>'
+    +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (교육이수 자격의 전제조건)</label>'
     +'<input type="date" id="dues-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
     +'</div>'
     +'<div style="display:flex;gap:6px">'
@@ -5160,13 +5211,13 @@ function showEduList(type, event) {
   var existing=document.getElementById('edu-list-popup');
   if(existing){ existing.remove(); return; }
   var filtered=CLINICS.filter(function(c){ return c.ilmansa==='참여'; });
-  if(type==='done') filtered=filtered.filter(function(c){ return c.edu==='이수완료'; });
+  if(type==='done') filtered=filtered.filter(function(c){ return c.edu==='이수'; });
   if(type==='notyet') filtered=filtered.filter(function(c){ return c.edu==='미이수'; });
   var titleHtml=type==='done'
-    ?'<span style="color:#145C38">✅ 이수완료 거래처</span>'
+    ?'<span style="color:#145C38">✅ 이수 거래처</span>'
     :type==='notyet'
     ?'<span style="color:#B01A1A">❗ 미이수 거래처</span>'
-    :'심화교육 대상 전체';
+    :'교육이수 대상 전체';
   var popup=document.createElement('div');
   popup.id='edu-list-popup';
   popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:500;background:var(--white);border:0.5px solid var(--bd2);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.15);width:320px;max-height:420px;display:flex;flex-direction:column';
@@ -5561,7 +5612,11 @@ function saveAddClinic(){
     edu_completed_date:document.getElementById('ca-edu-date').value||null,
     dues_paid_date:document.getElementById('ca-dues-date').value||null,
     last_visit:document.getElementById('ca-lastvisit').value.trim()||'-',
-    biz_no:document.getElementById('ca-bizno').value.trim(),
+    // 빈 문자열('')로 저장하면 (office,biz_no) 유니크 제약 때문에 그 사무소에 사업자번호를 안 채운
+    // 거래처가 2곳째부터 "duplicate key" 에러로 저장 자체가 안 됐음(둘 다 ''라 충돌) - null은 유니크
+    // 제약에서 서로 다른 값으로 취급되므로, 비어있으면 null로 보내 여러 거래처가 동시에 "사업자번호
+    // 미확인" 상태로 존재할 수 있게 함
+    biz_no:document.getElementById('ca-bizno').value.trim()||null,
     note:document.getElementById('ca-memo').value
   };
   var q=editingClinicId
@@ -5839,6 +5894,7 @@ function closeClinicChart(){
           <option value="false">미가입</option>
           <option value="true">가입</option>
         </select>
+        <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ '가입'으로 설정해야 캘린더에서 이 거래처로 일정을 등록할 수 있어요.</div>
       </div>
     </div>
     <div class="fld-2">
@@ -5861,11 +5917,11 @@ function closeClinicChart(){
       </div>
     </div>
     <div class="fld-2">
-      <div class="fld"><label>심화교육</label>
+      <div class="fld"><label>교육이수</label>
         <select id="ca-edu">
           <option value="해당없음">해당없음</option>
           <option value="미이수">미이수</option>
-          <option value="이수완료">이수완료</option>
+          <option value="이수">이수</option>
         </select>
       </div>
       <div class="fld"><label>의협회비</label>
@@ -5890,6 +5946,7 @@ function closeClinicChart(){
       </div>
       <div class="fld"><label>사업자번호</label>
         <input type="text" id="ca-bizno" placeholder="숫자만" autocomplete="off">
+        <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ 나중에 엑셀(활성처/청구현황)에 이 거래처가 처음 나올 때, 여기 적은 번호와 정확히 같아야 같은 거래처로 인식돼서 메모 등 기존 정보가 유지된 채 업데이트돼요. 지금 모르면 비워두고, 알게 되면 꼭 채워주세요.</div>
       </div>
     </div>
     <div class="fld"><label>메모</label>
