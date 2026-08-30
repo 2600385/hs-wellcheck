@@ -307,10 +307,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.q4{border-top:4px solid #99cfb1}
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
-/* 9~12월 목표 카드(m9~m12) - 색을 4개 다 다르게 했더니 오히려 산만하다는 지적이 있어서, 가장 가까운
-   다음달(9월)만 눈에 띄게 주황으로 구분하고 나머지(10~12월)는 하나의 파란 톤으로 통일 */
-.miniCard.m9{border-top:4px solid #F47920}
-.miniCard.m10,.miniCard.m11,.miniCard.m12{border-top:4px solid #8fb8e8}
+/* 다음달 목표 카드(m9~m12 중 그 시점의 다음달 하나만 렌더링됨)는 주황으로 강조, 그 이후 남은 달을
+   압축한 카드(mRest)는 파란 톤 - 카드 수가 많아지면 복잡해 보인다는 지적으로 다음달 1개+나머지
+   1개로 줄임(예전엔 9~12월을 각각 카드로 펼쳤었음) */
+.miniCard.m9,.miniCard.m10,.miniCard.m11,.miniCard.m12{border-top:4px solid #F47920}
+.miniCard.mRest{border-top:4px solid #8fb8e8}
+/* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
+.miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
@@ -465,7 +468,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div id="login-error" style="color:#e53e3e;font-size:12px;margin:-4px 0 10px;display:none">사번/사무소명을 찾을 수 없습니다. 담당자에게 문의해주세요.</div>
     <button class="btn btn-save" style="width:100%;padding:10px" onclick="doLogin()">로그인</button>
-    <div class="login-hint">사번 조회가 안되면 사무소명 입력 후 접속 가능 (예: 경인1)</div>
+    <div class="login-hint">담당 CM: 사번 · 소장님, 사무소원: 사무소명으로 로그인 (예: 경인1)</div>
   </div>
 </div>
 
@@ -592,7 +595,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- VIEW 1: 캘린더 -->
 <div id="view-cal" class="view-panel v-active">
   <div class="cal-head">
-    <div class="cal-head-title">교육간호사 캘린더</div>
+    <div class="cal-head-title" id="cal-head-title">CM 캘린더</div>
     <div class="cal-head-right" id="cal-head-right">경인1사무소 · 부평 / 계양 / 김포</div>
   </div>
   <div class="cal-topbar">
@@ -734,8 +737,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="kpiGrid" id="st-kpi"></div>
     <div class="sectionTitle">평가기준 대응</div>
     <div class="miniGrid" id="st-mini"></div>
-    <div class="sectionTitle" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">청구기준 대응 <span id="st-eval-badge" style="font-size:11px;font-weight:400"></span></div>
-    <div class="miniGrid" id="st-eval"></div>
     <div class="sectionTitle">사무소 월별 활성환자 · 청구 추이</div>
     <div class="sub" style="margin:-6px 0 10px;font-size:12px">점선=월 신규/순증 활성환자·누적 활성환자·청구-평가 GAP, 실선=월별·누적 청구금액</div>
     <div class="card chartBox2"><canvas id="officeTrend"></canvas></div>
@@ -902,7 +903,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="dm-fields">
       <div class="dm-field"><div class="dm-field-lbl">시간대</div><div class="dm-field-val" id="dm-time">—</div></div>
       <div class="dm-field" id="dm-checked-fld"><div class="dm-field-lbl">방문 체크</div><div class="dm-field-val" id="dm-checked">—</div></div>
-      <div class="dm-field" id="dm-lastvisit-fld" style="grid-column:span 2"><div class="dm-field-lbl">마지막 교육간호사 방문일</div><div class="dm-field-val" id="dm-lastvisit">—</div></div>
+      <div class="dm-field" id="dm-lastvisit-fld" style="grid-column:span 2"><div class="dm-field-lbl">마지막 CM 방문일</div><div class="dm-field-val" id="dm-lastvisit">—</div></div>
     </div>
     <div id="dm-gauge-block" style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">웰체크 활성도</div>
@@ -1305,7 +1306,6 @@ function renderImportLog(){
   }
   renderOfficeBoardBadge();
   renderClaimBoardBadge();
-  renderStEvalBadge();
 }
 // offices: 생략하면 currentOffice 하나만. "전체" 업로드처럼 여러 사무소 clinics가 한 번에 갱신될 땐
 // 실제로 갱신된 사무소 전부를 넘겨야 한다 - 안 그러면 currentOffice(업로드한 사람 자신의 사무소)만
@@ -1348,10 +1348,6 @@ function renderOfficeBoardBadge(){
 function renderClaimBoardBadge(){
   var el=document.getElementById('claim-board-badge');
   if(el) el.innerHTML=importStatusBadgeHtml(['current','baseline'], false);
-}
-function renderStEvalBadge(){
-  var el=document.getElementById('st-eval-badge');
-  if(el) el.innerHTML=importStatusBadgeHtml(['current','baseline'], true);
 }
 // 업로드할 때마다(활성처 현황/베이스라인) office_claims 최신 상태를 별도 이력 테이블에도 남겨서,
 // 매 업로드 시점의 스냅샷을 나중에 돌아볼 수 있게 함 (숫자 몇 개짜리 행이라 저장 비용은 무시할 수준)
@@ -1822,10 +1818,17 @@ function parseCurrentRaw(wb){
     }
   }
   if(!updates.length) return {error:'"'+currentOffice+'" 사무소 데이터를 파일에서 찾지 못했습니다.'};
-  // 주의: "현재 활성처 현황(RAW)" 파일의 "사업부사무소현황" 시트는 베이스라인 파일과 컬럼 구성이 아예 달라서
-  // (목표/target 컬럼 자체가 없음) 여기서 target을 읽지 않는다. business만 같은 위치(사업부 바로 왼쪽 칸)에서 참고하고,
-  // target은 항상 saveCurrentMonthClaims에서 직전 baseline 반영분(office_claims)의 값을 그대로 이어받는다.
-  var natBusiness={};
+  // business는 사업부 바로 왼쪽 칸에서 참고. target은 h2_targets(하반기 목표 파일)가 이미 월별로
+  // 정확히 공급하고 있어(stKpiData가 그쪽을 우선함) 굳이 여기서 다시 안 읽음.
+  //
+  // [8/28 파일부터 신규] "사업부사무소현황" 표에 회사가 이번 주차 기준 "청구현황(N월N주차)" 처수·금액과
+  // "환자 수"(①일만사) 블록이 새로 추가됨 - 예전엔 이 표에 목표/평가만 있어서 청구전환율·청구-평가GAP
+  // (당월 진행중 추정)을 매주 갱신할 방법이 없어 지난달 공식 마감 수치만 계속 보여주고 있었음(실사고:
+  // 8/28 파일엔 4799명·34,352,900원인데 화면은 여전히 7월 마감 값인 4539명·38,763,680원을 보여줌).
+  // 이제 이 표에서 직접 읽어서 매주 2회 갱신되게 함. 헤더 텍스트로 각 블록의 시작 컬럼만 찾고, 그
+  // 안에서의 상대 위치(달성률/평가/목표/마감예측/처수(①+②)/①일만사/... 순서, 환자수 블록도 동일하게
+  // 처수(①+②)/①일만사/②비일만사 순서)는 회사가 매번 같은 순서로 내려주는 걸 확인해서 그대로 사용.
+  var natBusiness={}, natEval={};
   var officeSheetRows2=sheetRows(wb,'사업부사무소현황');
   if(officeSheetRows2){
     var hIdx4=-1, colOff4=-1;
@@ -1836,15 +1839,39 @@ function parseCurrentRaw(wb){
       if(co4>0 && r4[co4-1]==='사업부'){ hIdx4=i4; colOff4=co4; break; }
     }
     if(hIdx4>=0){
+      var topRow4=officeSheetRows2[hIdx4]||[];
+      function findTopCol4(needle){
+        for(var c=0;c<topRow4.length;c++){
+          if(topRow4[c]!=null && String(topRow4[c]).replace(/\s+/g,'').indexOf(needle)>=0) return c;
+        }
+        return -1;
+      }
+      var activeBlockCol=findTopCol4('활성처수'); // 달성률(+0)/평가(+1)/8월목표(+2)/마감예측(+3)/처수①+②(+4)/①일만사(+5)
+      var patientBlockCol=findTopCol4('환자수'); // 처수①+②(+0)/①일만사(+1)/②비일만사(+2)
+      var claimBlockCol=findTopCol4('청구현황'); // "청구현황 (N월 N주차)" - 처수(+0)/금액(+1)/처당평균(+2)
+      var ilmansaActiveCol=activeBlockCol>=0?activeBlockCol+5:-1;
+      var ilmansaPatientCol=patientBlockCol>=0?patientBlockCol+1:-1;
+      var claimCntCol=claimBlockCol>=0?claimBlockCol:-1;
+      var claimAmtCol=claimBlockCol>=0?claimBlockCol+1:-1;
       for(var r5=hIdx4+2;r5<officeSheetRows2.length;r5++){
         var drow4=officeSheetRows2[r5];
         if(!drow4||(drow4[colOff4-1]==null&&drow4[colOff4]==null)) break;
         var rOff4=drow4[colOff4];
-        if(NATIONAL_OFFICES.indexOf(rOff4)>=0) natBusiness[rOff4]=drow4[colOff4-1]||NATIONAL_BUSINESS[rOff4]||'';
+        if(NATIONAL_OFFICES.indexOf(rOff4)>=0){
+          natBusiness[rOff4]=drow4[colOff4-1]||NATIONAL_BUSINESS[rOff4]||'';
+          if(ilmansaActiveCol>=0&&ilmansaPatientCol>=0&&claimCntCol>=0&&claimAmtCol>=0){
+            natEval[rOff4]={
+              ilmansaActive: Number(drow4[ilmansaActiveCol])||0,
+              ilmansaPatient: Number(drow4[ilmansaPatientCol])||0,
+              claimCnt: Number(drow4[claimCntCol])||0,
+              claimAmt: Number(drow4[claimAmtCol])||0
+            };
+          }
+        }
       }
     }
   }
-  return {updates:updates, natToday:natToday, natBusiness:natBusiness, natUpdates:natUpdates, asOf: asOf};
+  return {updates:updates, natToday:natToday, natBusiness:natBusiness, natEval:natEval, natUpdates:natUpdates, asOf: asOf};
 }
 // 'YYYY-MM-01' 문자열을 delta개월만큼 이동 (Date 객체 대신 순수 문자열 연산 - 타임존 영향 없음)
 function shiftMonthStr(monthStr, delta){
@@ -1887,7 +1914,7 @@ function saveRawMonthlySnapshot(rows, asOf){
 // 그래야 latestOfficeRows(onlyOfficial=true)/stEvalConversion이 "공식 마감 아님"으로 정확히 구분해서
 // 청구전환율 카드 등은 계속 베이스라인만 기다리고, 이 추정치를 확정치인 것처럼 잘못 보여주지 않는다.
 // 이미 그 달의 공식 마감이 있으면(=베이스라인이 이미 반영됨) 절대 덮어쓰지 않고 조용히 건너뜀.
-function saveCurrentMonthClaims(office, business, agg, asOf){
+function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
   if(!office||!agg) return Promise.resolve();
   var month=String(asOf||'').slice(0,7)+'-01';
   var existing=OFFICE_CLAIMS.find(function(r){ return r.office===office && r.month===month; });
@@ -1909,6 +1936,16 @@ function saveCurrentMonthClaims(office, business, agg, asOf){
     care_cnt:agg.care||0, edu_cnt:agg.edu||0, mgmt_cnt:agg.mgmt||0, check_cnt:agg.check||0,
     care_amt:care_amt, edu_amt:edu_amt, mgmt_amt:mgmt_amt, check_amt:check_amt
   };
+  // RAW의 "사업부사무소현황" 표가 이번 주차 ①일만사 처수/환자수/청구처수/청구금액을 직접 알려주면
+  // (evalData) 같이 저장해서 stEvalConversion()이 이번달(진행중)의 청구전환율/GAP도 매주 갱신되게 함.
+  // eval_clinic_cnt/eval_score 등(공식 마감 컬럼)은 절대 안 건드림 - 그래야 latestOfficeRows(onlyOfficial)
+  // 같은 전사 비교는 계속 "공식 마감 아님"으로 정확히 구분해서 이 추정치를 확정치처럼 섞어 쓰지 않는다.
+  if(evalData){
+    row.est_ilmansa_active=evalData.ilmansaActive||0;
+    row.est_ilmansa_patient=evalData.ilmansaPatient||0;
+    row.est_claim_cnt=evalData.claimCnt||0;
+    row.est_claim_amt=evalData.claimAmt||0;
+  }
   return db.from('office_claims').upsert([row], {onConflict:'office,month'}).then(function(res){
     if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
   });
@@ -1922,7 +1959,7 @@ function commitCurrentRaw(parsed, status){
     // (아래 update()-only 경로는 이미 등록된 거래처만 갱신되고 신규 거래처는 전부 "미매칭"으로 빠지는데,
     // 그러면 아직 거래처가 하나도 없는 사무소는 이 경로로 부트스트랩(최초 등록)할 수가 없었음)
     var natUpdates=parsed.natUpdates||[];
-    var natToday=parsed.natToday||{}, natBusiness=parsed.natBusiness||{};
+    var natToday=parsed.natToday||{}, natBusiness=parsed.natBusiness||{}, natEval=parsed.natEval||{};
     // 사무소 배정 보호: 파일마다 같은 사업자번호를 다른 사무소로 표기하는 경우가 있어서(예: 경인1<->폴라리스1 오락가락),
     // 파일 하나 잘못 올리면 조용히 사무소가 바뀌고 활성환자수가 엉뚱하게 합산되는 사고가 반복됐음. 그래서 이미 DB에
     // 등록된 사무소와 이 파일이 말하는 사무소가 다른 사업자번호는, 이 파일 값을 무시하고 기존 배정을 그대로 지킴
@@ -2021,11 +2058,11 @@ function commitCurrentRaw(parsed, status){
           curAgg.care+=u.care_plan_cnt||0; curAgg.edu+=u.edu_cnt||0; curAgg.mgmt+=u.patient_mgmt_cnt||0; curAgg.check+=u.check_eval_cnt||0;
         });
         loadOfficeClaims().then(function(){
-          var claimSaves=[saveCurrentMonthClaims(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf)];
+          var claimSaves=[saveCurrentMonthClaims(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf, natEval[currentOffice])];
           Object.keys(natToday).forEach(function(o){
             // 사무소 배정 불일치로 clinics 반영 자체가 보호돼서 건너뛴 사무소는 청구현황도 같이 건너뜀(일관성 유지).
             // stale 사무소는 "현재"만 안 건드리는 거라 청구현황(그 과거 달 몫)은 정상적으로 반영해야 함
-            if(allTouchedOffices.indexOf(o)>=0) claimSaves.push(saveCurrentMonthClaims(o, natBusiness[o], natToday[o], asOf));
+            if(allTouchedOffices.indexOf(o)>=0) claimSaves.push(saveCurrentMonthClaims(o, natBusiness[o], natToday[o], asOf, natEval[o]));
           });
           return Promise.all(claimSaves);
         }).then(function(){ return loadOfficeClaims(); }).then(function(){
@@ -2644,11 +2681,15 @@ function setCurrentOffice(o){
   currentOffice=o;
   activeMR='all';
   stMR='all';
-  // CLINICS/일정/담당자/지역 모두 사무소별로 필터링해서 로드되므로, 사무소를 바꾸면 그 사무소 데이터를 새로 받아와야 함
-  return Promise.all([loadClinics(), loadSchedules(), loadManagers(), loadRegions(), loadVisitNotes()]).then(function(){
+  // CLINICS/일정/담당자/지역 모두 사무소별로 필터링해서 로드되므로, 사무소를 바꾸면 그 사무소 데이터를 새로 받아와야 함.
+  // employees는 사무소명으로 조회 전용 입장(doLogin)할 땐 아예 안 불러졌었는데, 그 경우에도 그 사무소에
+  // 배정된 CM을 캘린더 제목/전략판에 표시해야 해서 여기서 항상 최신으로 받아온다(전사 목록이라 사무소
+  // 필터는 없음 - officeCM()에서 currentOffice로 걸러 씀).
+  return Promise.all([loadClinics(), loadSchedules(), loadManagers(), loadRegions(), loadVisitNotes(), loadEmployees()]).then(function(){
     renderManagerUI();
     renderRequests();
     renderImportLog();
+    renderCalHeadTitle();
     if(document.getElementById('view-list').classList.contains('v-active')) renderList();
     if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
     if(document.getElementById('view-clinicslist').classList.contains('v-active')) renderClinicsListView();
@@ -3203,6 +3244,21 @@ function renderOfficeRegionLabel(){
   var label=officeRegionLabel(currentOffice);
   el.textContent=currentOffice+'사무소'+(label?(' · '+label):'');
 }
+// 이 사무소에 배정된 CM(교육간호사) - EMPLOYEES는 전사 전체를 담고 있어서(loadEmployees가 사무소
+// 필터 없이 로드) 사번으로 로그인한 사람이 아니어도(=사무소명으로 조회 전용 입장한 소장님 등) 그
+// 사무소에 배정된 CM을 찾을 수 있다. 한 사무소에 CM이 여러 명 등록돼 있을 가능성은 낮지만, 있으면
+// 첫 번째만 대표로 보여준다.
+function officeCM(office){
+  return (EMPLOYEES||[]).find(function(e){ return e.role==='간호사' && e.office===office; }) || null;
+}
+// 캘린더 상단 제목 - 예전엔 "교육간호사 캘린더"로 고정 문구였는데, 사무소/배정 CM이 안 보인다는
+// 지적으로 "OO사무소 캘린더(OOOCM)" 형태로 동적으로 채움(배정된 CM이 없으면 사무소명까지만).
+function renderCalHeadTitle(){
+  var el=document.getElementById('cal-head-title');
+  if(!el) return;
+  var cm=officeCM(currentOffice);
+  el.textContent=currentOffice+'사무소 캘린더'+(cm?('('+cm.name+'CM)'):'');
+}
 // ===== 유틸 =====
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, function(c){
@@ -3322,6 +3378,7 @@ function applyMRButtons(){
 // ===== 달력 렌더링 =====
 function renderCalendar(){
   renderOfficeRegionLabel();
+  renderCalHeadTitle();
   autoCheckPastEvents();
   var evs=getEvs();
   var firstDow=new Date(curYear,curMonth-1,1).getDay();
@@ -3835,7 +3892,7 @@ function renderList(){
     +sth('region','지역','width:55px')
     +sth('mrname','담당자','width:55px')
     +sth('name','거래처명','width:120px')
-    +sth('visited','교육간호사<br>방문','width:52px;text-align:center;border-left:2px solid #C8D8C0')
+    +sth('visited','CM<br>방문','width:52px;text-align:center;border-left:2px solid #C8D8C0')
     +sth('ilmansa','일만사','width:48px;text-align:center')
     +sth('welcheck','웰체크','width:44px;text-align:center')
     +sth('patients','일만사&amp;웰체크 환자수','width:150px;text-align:center')
@@ -3952,7 +4009,6 @@ function renderStrategyView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot()]).then(function(){
     buildClaimMap();
     renderStKPI();
-    renderStEval();
     renderStTrend();
     renderClaimTypeTrend();
     renderStFilters();
@@ -4099,9 +4155,20 @@ function stEvalConversion(){
       gap:(cur.claim_ilmansa_amt||0)-(cur.eval_score||0), evalCnt:cur.eval_clinic_cnt, claimCnt:cur.claim_clinic_cnt||0,
       patientCnt:cur.cum_patient||0, official:true};
   }
-  // 이번달 "청구현황 베이스라인" 파일이 아직 안 올라왔으면, RAW/MAU로 실시간 추정하지 않는다 - 청구현황지표는
-  // 이제 베이스라인 파일로만 갱신되는 고정 지표라(회사가 공지하는 파일에 청구전환율까지 이미 다 나와있음),
-  // 대신 가장 최근 공식 마감월의 실제 값을 그대로 보여준다.
+  // [8/28 파일부터] 이번달 공식 베이스라인이 아직 없어도, RAW의 "사업부사무소현황" 표가 매주
+  // "①일만사 처수/환자수/청구처수/청구금액"을 직접 알려주므로(est_* 컬럼) 그걸로 진행중(추정)을
+  // 매주 갱신해서 보여준다 - 예전엔 이 값이 없어서 그냥 지난달 마감치를 계속 보여주고 있었음(실사고:
+  // 8/28 파일엔 4799명·34,352,900원인데 화면은 여전히 7월 마감 4539명·38,763,680원을 보여줌).
+  // 평가실적은 baseline과 동일한 단가(환자 1명당 10,000원)로 근사.
+  if(cur.est_claim_cnt!=null && cur.est_ilmansa_active){
+    var estRate=Math.round((cur.est_claim_cnt||0)/cur.est_ilmansa_active*100);
+    var estEvalScore=(cur.est_ilmansa_patient||0)*10000;
+    return {month:cur.month, evalScore:estEvalScore, actualClaim:cur.est_claim_amt||0, rate:estRate,
+      gap:(cur.est_claim_amt||0)-estEvalScore, evalCnt:cur.est_ilmansa_active, claimCnt:cur.est_claim_cnt||0,
+      patientCnt:cur.est_ilmansa_patient||0, official:false};
+  }
+  // 이번달 베이스라인도, RAW의 est_* 값도 없으면(예: RAW 파일이 아직 이 항목을 안 주던 예전 형식),
+  // 가장 최근 공식 마감월의 실제 값을 그대로 보여준다.
   var lastOfficial=null;
   for(var i=oc.length-1;i>=0;i--){ if(oc[i].eval_clinic_cnt){ lastOfficial=oc[i]; break; } }
   if(!lastOfficial) return null;
@@ -4109,23 +4176,6 @@ function stEvalConversion(){
   return {month:lastOfficial.month, evalScore:lastOfficial.eval_score||0, actualClaim:lastOfficial.claim_ilmansa_amt||0, rate:rate2,
     gap:(lastOfficial.claim_ilmansa_amt||0)-(lastOfficial.eval_score||0), evalCnt:lastOfficial.eval_clinic_cnt, claimCnt:lastOfficial.claim_clinic_cnt||0,
     patientCnt:lastOfficial.cum_patient||0, official:true};
-}
-function renderStEval(){
-  var el=document.getElementById('st-eval');
-  if(!el) return;
-  var ec=stEvalConversion();
-  if(!ec){ el.innerHTML='<div class="sub" style="padding:4px 0">청구현황 데이터가 아직 없어서 계산할 수 없어요.</div>'; return; }
-  var gapPositive=ec.gap>=0;
-  var gapColor=gapPositive?'#1048A0':'#B01A1A';
-  var tiles=[
-    ['일만사 평가 실적',ec.patientCnt.toLocaleString()+'명','일만사 환자수 × 10'],
-    ['당월 일만사 청구금액',companyMoneyHtml(ec.actualClaim),'케어플랜+교육상담+점검평가+환자관리 합산'],
-    ['청구 전환율',ec.rate+'%','일만사&웰체크 '+ec.evalCnt+'처<br>일만사 청구처 '+ec.claimCnt+'처'],
-    ['청구-평가 GAP','<span style="color:'+gapColor+'">'+(gapPositive?'+':'')+companyMoney(ec.gap)+'</span> <span style="font-weight:400;color:var(--t3);font-size:13px">(천원)</span>',gapPositive?'평가 실적 초과 달성':'남은 기간 동안 더 청구가 필요해요']
-  ];
-  el.innerHTML=tiles.map(function(t){
-    return '<div class="miniCard" style="cursor:default"><div class="klbl">'+t[0]+'</div><b style="font-size:20px">'+t[1]+'</b><div class="khint">'+t[2]+'</div></div>';
-  }).join('');
 }
 function renderClinicsListView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
@@ -4237,7 +4287,7 @@ function renderStKPI(){
   // 쓰는 "평가·청구 정산 완료된 마지막 달"과 반드시 같아야 한다 - 활성처 수는 이미 반영됐지만 평가·청구
   // 정산만 늦게 올라오는 달(예: 7월)이 있으면, 여기 표기와 실제 청구 위젯이 서로 다른 달을 가리키게 된다.
   var ec=stEvalConversion();
-  var claimMonTxt=ec?(parseInt(ec.month.slice(5,7))+'월 마감'):(oc.length?(parseInt(oc[oc.length-1].month.slice(5,7))+'월(정산 전)'):'-');
+  var claimMonTxt=ec?(parseInt(ec.month.slice(5,7))+(ec.official?'월 마감':'월 진행중(추정)')):(oc.length?(parseInt(oc[oc.length-1].month.slice(5,7))+'월(정산 전)'):'-');
   // "당월 활성처 증감"/"신규 활성환자" 등 아래 KPI 카드들이 실제로 무엇과 비교하는지(전월 RAW 마감
   // 스냅샷, 없으면 prevPatients)가 화면에 안 보이면 눈치채기 어렵다 - raw_monthly_snapshot에 전월 데이터가
   // 실제로 있는지로 직접 판단해서, 없을 때만(=prevPatients 폴백 중일 때만) 경고를 보여준다.
@@ -4256,7 +4306,11 @@ function renderStKPI(){
   }
   // "오늘(실시간)"이라고만 쓰면 정확히 며칠 기준인지 안 보여서, 실제 오늘 날짜(M/D)를 그대로 표기
   var todayDateStr=(function(){ var d=new Date(); return (d.getMonth()+1)+'/'+d.getDate(); })();
-  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>'+todayDateStr+'(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+rawWarn;
+  // 배정된 CM(교육간호사)을 이 줄 맨 끝(오른쪽)에 표기 - 이 정보가 예전엔 있었는데 안 보인다는
+  // 지적이 있어서 다시 붙임. margin-left:auto로 infoBar2(flex row)의 남는 공간 끝까지 밀어냄.
+  var cm=officeCM(currentOffice);
+  var cmLabel='<span style="margin-left:auto;color:'+(cm?'var(--t1)':'var(--t3)')+'">'+(cm?('👤 '+cm.name+'CM'):'담당CM없음')+'</span>';
+  document.getElementById('st-info').innerHTML='사업부 <b>'+(NATIONAL_BUSINESS[currentOffice]||'-')+'</b><span>|</span>사무소 <b>'+currentOffice+'</b><span>|</span>활성환자 기준 <b>'+todayDateStr+'(실시간)</b><span>|</span>청구 기준 <b>'+claimMonTxt+'</b>'+cmLabel+rawWarn;
   var TH=k.threshold;
   var kpis=[
     // "현재 활성처"는 이제 일만사 환자수 문턱(TH명) 단순 카운트가 아니라, 회사 파일의 공식 활성처
@@ -4278,31 +4332,55 @@ function renderStKPI(){
     return '<div class="kcard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><div class="kval">'+x[2]+'</div><div class="khint">'+x[3]+'</div></div>';
   }).join('');
   var r=officeRows();
-  // "평가기준 대응": 예전엔 익월/12월 딱 2개만 보여줬는데, 연말까지 남은 달(9·10·11·12월)별 목표
-  // 대비 현재 달성률을 한 번에 보고 싶다는 요청으로 4개월치를 각각 카드로 펼침 - 사무소마다 다른
-  // 실제 목표(h2_targets)로 자동 치환됨. "이번달"이 9월 이후로 넘어가면 이미 지난 달 카드는 자연히
-  // 사라지도록, nextMonthStr()부터 12월까지만 표시한다(예: 10월이 되면 10·11·12월 3개만 남음).
+  // "평가기준 대응": 예전엔 9~12월을 각각 카드로 펼쳐서 최대 4개였는데, 카드 수가 많아지니 복잡해
+  // 보인다는 지적 - 바로 다음달(예: 9월)만 단독 카드로 두고, 그 이후(예: 10~12월)는 한 카드에
+  // 압축해서 보여준다. "이번달"이 넘어가면 자동으로 다음달로 옮겨감(nextMonthStr 기준).
   var thisYear=new Date().getFullYear();
   var nextStr=nextMonthStr(); // 'YYYY-MM' - 항상 "익월"부터 시작
   var nextYear=parseInt(nextStr.slice(0,4),10), startMonth=parseInt(nextStr.slice(5,7),10);
+  function monthAchv(mm){
+    var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
+    var mTh=h2OfficeTarget(currentOffice, mStr);
+    var mPct=mTh?Math.round(k.active/mTh*100):null;
+    return {th:mTh, pct:mPct};
+  }
   var monthMinis=[];
   // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
   if(nextYear===thisYear){
-    for(var mm=startMonth;mm<=12;mm++){
-      var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
-      var mTh=h2OfficeTarget(currentOffice, mStr);
-      var mPct=mTh?Math.round(k.active/mTh*100):null;
-      // 달성률을 회사 등급 기준(S/A/B/C)으로도 같이 보여줌(사용자 확인: S 100%↑/A 80%↑/B 60%↑/C 60%미만)
-      var mHint=mTh!=null?('달성률 '+mPct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(mPct)+'등급</span>'):(mm+'월 목표 데이터 없음');
-      monthMinis.push(['m'+mm, mm+'월 목표', k.active+'/'+(mTh!=null?mTh:'-')+'처', mHint, 'active']);
+    var a0=monthAchv(startMonth);
+    var hint0=a0.th!=null?('달성률 '+a0.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(a0.pct)+'등급</span>'):(startMonth+'월 목표 데이터 없음');
+    monthMinis.push(['m'+startMonth, startMonth+'월 목표', k.active+'/'+(a0.th!=null?a0.th:'-')+'처', hint0, 'active']);
+    var restMonths=[];
+    for(var mm2=startMonth+1;mm2<=12;mm2++) restMonths.push(mm2);
+    if(restMonths.length){
+      var lastMm=restMonths[restMonths.length-1];
+      var aLast=monthAchv(lastMm);
+      var restHint=restMonths.map(function(mm3){
+        var a3=monthAchv(mm3);
+        return mm3+'월 '+(a3.pct!=null?(a3.pct+'%('+achievementGrade(a3.pct)+')'):'-');
+      }).join(' · ');
+      monthMinis.push(['mRest', restMonths[0]+'~'+lastMm+'월 목표', k.active+'/'+(aLast.th!=null?aLast.th:'-')+'처', restHint, 'active']);
     }
   }
-  var minis=monthMinis.concat([
+  // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
+  // 일만사 평가실적+청구금액을 한 카드, 청구전환율+청구-평가GAP을 한 카드로.
+  var evalMinis=[];
+  if(ec){
+    var gapPositive=ec.gap>=0;
+    var gapColor=gapPositive?'#1048A0':'#B01A1A';
+    var estBadge=ec.official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px;vertical-align:middle">추정</span>';
+    evalMinis.push(['evalScore','일만사 평가·청구'+estBadge, companyMoney(ec.actualClaim)+'천원', '평가실적 '+ec.patientCnt.toLocaleString()+'명 · 약 '+companyMoney(ec.patientCnt*10000)+'천원', null]);
+    evalMinis.push(['evalRate','청구전환율·GAP'+estBadge, ec.rate+'%', '<span style="color:'+gapColor+';font-weight:700">GAP '+(gapPositive?'+':'')+companyMoney(ec.gap)+'천원</span> · 일만사 '+ec.evalCnt+'처 중 '+ec.claimCnt+'처 청구', null]);
+  }
+  var minis=monthMinis.concat(evalMinis).concat([
     ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
     ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=35&&p<=39;}).length+'처','일만사&웰체크 35~39명처','cand40']
   ]);
   document.getElementById('st-mini').innerHTML=minis.map(function(x){
-    return '<div class="miniCard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
+    var clickable=!!x[4];
+    var attr=clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"';
+    var arrow=clickable?' ▼':'';
+    return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
 }
 function renderStTrend(){
@@ -5912,7 +5990,7 @@ function closeClinicChart(){
       <div class="fld"><label>일만사&웰체크 환자수</label>
         <input type="number" id="ca-patients" placeholder="0" min="0" value="0">
       </div>
-      <div class="fld"><label>교육간호사 방문</label>
+      <div class="fld"><label>CM 방문</label>
         <select id="ca-visited">
           <option value="false">X (방문 전)</option>
           <option value="true">O (방문 완료)</option>
