@@ -318,6 +318,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.mNext{border-top:4px solid #C6B8EA}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
+/* 9~12월 목표 카드의 달별 한 줄 */
+.month-line{display:block;font-size:14px;font-weight:700;margin-top:6px}
+.gradePill-sm{padding:1px 7px;font-size:10.5px;margin-left:2px}
+/* 일만사 평가·청구 카드의 청구금액/평가실적/GAP 줄 - GAP만 한 단계 더 크게(모바일에서도 비율
+   유지되도록 폰트 크기를 인라인이 아니라 클래스로 둠) */
+.eval-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}
+.eval-row-gap{margin-top:7px;padding-top:7px;border-top:1px dashed #eadfd4}
+.eval-row-lbl{font-size:12px;font-weight:800;color:#74695f}
+.eval-row-val{font-size:20px;font-weight:800}
+.eval-row-lbl-big{font-size:15px}
+.eval-row-val-big{font-size:26px}
+/* 청구전환율 카드의 % - 위 KPI 카드들처럼 포인트색으로 큼직하게 */
+.rate-big{font-size:32px;font-weight:900;color:#B8860B}
+.rate-sub{display:block;margin-top:10px;line-height:2;font-size:12.5px}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
@@ -443,6 +457,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   #st-kpi.kpiGrid .khint{font-size:10px!important;margin-top:3px!important}
   .miniGrid .klbl{font-size:10.5px!important}
   .miniGrid .khint{font-size:9.5px!important}
+  /* smallTarget/gradePill은 원래 각자 폰트 크기를 못박아둔 요소라 위 카드 축소 규칙만으로는 안 줄어들어서
+     ("PC 화면을 폰 크기로 줄여 넣은 느낌"의 원인 중 하나) 따로 줄임 */
+  .smallTarget{font-size:14px!important}
+  .gradePill{font-size:10.5px!important;padding:2px 6px!important;margin-left:4px!important}
+  /* 평가기준대응 카드(9~12월/일만사 평가·청구/청구전환율)도 인라인 스타일이 아니라 클래스로 되어
+     있어서 여기서 같이 줄인다 */
+  .month-line{font-size:12px!important;margin-top:5px!important}
+  .eval-row-lbl{font-size:10.5px!important}
+  .eval-row-val{font-size:16px!important}
+  .eval-row-lbl-big{font-size:12.5px!important}
+  .eval-row-val-big{font-size:20px!important}
+  .rate-big{font-size:24px!important}
+  .rate-sub{font-size:11px!important;margin-top:6px!important;line-height:1.7!important}
+  /* 그래프(차트)도 PC 높이(420px) 그대로면 폰에서 스크롤을 너무 많이 잡아먹어서 "PC 툴 같다"는
+     지적의 큰 원인이었음 - 모바일에서는 확 낮춤 */
+  .chartBox2{height:220px!important}
   .modal-lg,.modal-sm{width:92vw !important}
   .cal-content{flex-direction:column}
   /* .cal-content가 align-items:flex-start라 flex 자식(달력/하단패널)이 기본적으로 내용 크기만큼만 잡혀 화면 폭을 다 못 씀 -> 모바일에서 명시적으로 꽉 채움 */
@@ -453,11 +483,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .ev input[type=checkbox]{display:none}
   .ev-txt{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25;font-size:9.5px}
   .cal-topbar .mr-btn[onclick="openMgrModal()"]{display:none}
-  /* 달력 자체도 화면 폭 대비 칸/글씨가 작아 보인다는 피드백 -> 요일헤더/날짜숫자 폰트를 키우고 칸 높이도 화면에 맞게 살짝 키움 */
+  /* 예전엔 칸/글씨가 너무 작아 보인다는 피드백으로 키웠었는데(cal-dh/day-num 폰트는 그대로 유지),
+     달력 전체 세로 길이(칸 높이×최대 6줄)가 한 화면을 넘어가 스크롤이 너무 많이 생기고 "PC용 큰 달력을
+     그대로 욱여넣은 느낌"이 난다는 지적으로 칸 높이만 한 단계 낮춤(글씨 크기는 안 건드림) */
   .cal-dh{font-size:12.5px!important;padding:9px 4px!important}
-  .dc,.ec{height:100px!important}
+  .dc,.ec{height:76px!important}
   .day-num{font-size:14px!important}
-  .today-circle{width:24px!important;height:24px!important;font-size:13px!important}
+  .today-circle{width:22px!important;height:22px!important;font-size:12px!important}
 }
 </style>
 </head>
@@ -4466,8 +4498,8 @@ function renderStKPI(){
     for(var mmX=startMonth; mmX<=12; mmX++) monthsList.push(mmX);
     var monthLines=monthsList.map(function(mm){
       var a=monthAchv(mm);
-      if(a.th==null) return '<span style="display:block;font-size:14px;font-weight:700;margin-top:6px">'+mm+'월 목표 데이터 없음</span>';
-      return '<span style="display:block;font-size:14px;font-weight:700;margin-top:6px">'+mm+'월 '+a.th+'처 → 달성률 '+a.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10.5px;margin-left:2px">'+achievementGrade(a.pct)+'등급</span></span>';
+      if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
+      return '<span class="month-line">'+mm+'월 '+a.th+'처 → 달성률 '+a.pct+'% <span class="gradePill gradePill-sm">'+achievementGrade(a.pct)+'등급</span></span>';
     }).join('');
     var monthLabel=monthsList.length>1?(monthsList[0]+'~'+monthsList[monthsList.length-1]+'월 목표'):(monthsList[0]+'월 목표');
     monthMinis.push(['mNext', monthLabel, monthLines, '', 'active']);
@@ -4483,13 +4515,17 @@ function renderStKPI(){
     // 청구금액/평가실적을 같은 크기 숫자로 나란히 보여주고("천원" 글자를 붙이면 두 줄 폭이 안 맞아
     // 지저분해짐), GAP은 청구금액-평가실적 비교의 결론이라 두 줄보다 한 단계 더 크게(라벨/숫자 둘 다)
     // 강조해서 한눈에 좋은지 나쁜지 보이게 한다.
+    // 폰트 크기는 CSS 클래스(eval-row-lbl/eval-row-val, gap 수식어)로 빼서 모바일에서
+    // 미디어쿼리로 따로 줄일 수 있게 함(인라인 style로 박아두면 모바일에서도 그대로 커서
+    // "PC 화면을 그냥 줄인 것 같다"는 지적의 원인이 됐었음) - 색상만 데이터에 따라 달라서 inline으로 남김.
     function evalRow(lbl, val, opts){
       opts=opts||{};
-      var fsVal=opts.big?26:20, fsLbl=opts.big?15:12;
-      return '<span style="display:flex;justify-content:space-between;align-items:baseline'
-        +(opts.borderTop?';margin-top:7px;padding-top:7px;border-top:1px dashed #eadfd4':';margin-top:4px')+'">'
-        +'<span style="font-size:'+fsLbl+'px;font-weight:800;color:'+(opts.color||'#74695f')+'">'+lbl+'</span>'
-        +'<span style="font-size:'+fsVal+'px;font-weight:800'+(opts.color?(';color:'+opts.color):'')+'">'+val+'</span></span>';
+      var rowCls='eval-row'+(opts.borderTop?' eval-row-gap':'');
+      var lblCls='eval-row-lbl'+(opts.big?' eval-row-lbl-big':'');
+      var valCls='eval-row-val'+(opts.big?' eval-row-val-big':'');
+      return '<span class="'+rowCls+'">'
+        +'<span class="'+lblCls+'"'+(opts.color?(' style="color:'+opts.color+'"'):'')+'>'+lbl+'</span>'
+        +'<span class="'+valCls+'"'+(opts.color?(' style="color:'+opts.color+'"'):'')+'>'+val+'</span></span>';
     }
     evalMinis.push(['evalScore','일만사 평가·청구'+estBadge,
       evalRow('청구금액', companyMoney(ec.actualClaim), {})
@@ -4499,8 +4535,8 @@ function renderStKPI(){
     // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
     // 둬서 카드 안에 고르게 퍼지도록 함(예전엔 %만 크고 나머진 카드 위쪽에 작게 몰려 있어 불균형했음).
     evalMinis.push(['evalRate','청구전환율'+estBadge,
-      '<span style="font-size:32px;font-weight:900;color:#B8860B">'+ec.rate+'%</span>',
-      '<span style="display:block;margin-top:10px;line-height:2;font-size:12.5px">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
+      '<span class="rate-big">'+ec.rate+'%</span>',
+      '<span class="rate-sub">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
   }
   var minis=monthMinis.concat(evalMinis).concat([
     ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
