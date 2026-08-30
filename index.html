@@ -2678,6 +2678,12 @@ function loadEmployees(){
 }
 function isMultiOfficeRole(role){ return MULTI_OFFICE_ROLES.indexOf(role)>=0; }
 
+// 로그인 후 처음 보여줄 화면 - 역할별로 필요한 정보가 다름. 간호사는 사번으로 개별 로그인하고
+// 실제로 매일 거래처를 방문하는 역할이라 캘린더(오늘 어디 가야 하는지)가 맞고, 그 외(소장·MR·
+// 사무소원)는 사번을 모르는 경우가 많아 사무소명으로 "조회 전용"(role='MR')으로 들어오는 게
+// 대부분이라 개별 역할 구분이 사실상 안 됨 - 이 그룹이 실제로 궁금한 건 "지금 활성처/청구처
+// 현황"이므로 활성처 전략판을 기본으로 함(사용자 확인).
+function homeViewForRole(){ return (currentUser && currentUser.role==='간호사') ? 'cal' : 'strategy'; }
 function doLogin(){
   var input=document.getElementById('login-empno').value.trim();
   var errEl=document.getElementById('login-error');
@@ -2690,6 +2696,7 @@ function doLogin(){
   if(NATIONAL_OFFICES.indexOf(input)>=0){
     currentUser={id:0, emp_no:'office-view', name:input+' 조회', role:'MR', office:input};
     document.getElementById('login-ov').classList.add('login-hide');
+    switchView(homeViewForRole());
     setCurrentOffice(input);
     applyRoleGating();
     return;
@@ -2700,6 +2707,7 @@ function doLogin(){
     currentUser=emp;
     localStorage.setItem('wc_emp_no', input);
     document.getElementById('login-ov').classList.add('login-hide');
+    switchView(homeViewForRole());
     setCurrentOffice(emp.office||'경인1');
     applyRoleGating();
   });
@@ -2715,6 +2723,7 @@ function logout(){
 function guestLogin(){
   currentUser={id:0, emp_no:'guest', name:'임시 관리자', role:'사업부장', office:currentOffice||'경인1'};
   document.getElementById('login-ov').classList.add('login-hide');
+  switchView(homeViewForRole());
   applyRoleGating();
 }
 function tryAutoLogin(){
@@ -2725,6 +2734,7 @@ function tryAutoLogin(){
     if(!emp) return;
     currentUser=emp;
     document.getElementById('login-ov').classList.add('login-hide');
+    switchView(homeViewForRole());
     setCurrentOffice(emp.office||'경인1');
     applyRoleGating();
   });
@@ -3251,9 +3261,10 @@ function switchView(v){
   if(v==='clinicslist') renderClinicsListView();
   closeMobileSidebar();
 }
-// 좌측 상단 로고/타이틀 클릭 시 - 새로고침한 것처럼 캘린더 화면으로 돌아가고, 열려있던 전국 사업부 현황은 닫음
+// 좌측 상단 로고/타이틀 클릭 시(사이드바 "홈" 메뉴도 동일) - 새로고침한 것처럼 역할별 기본 화면으로
+// 돌아가고, 열려있던 전국 사업부 현황은 닫음
 function goHome(){
-  switchView('cal');
+  switchView(homeViewForRole());
   var nat=document.getElementById('sb-nat');
   if(nat && nat.classList.contains('open')){
     nat.classList.remove('open');
