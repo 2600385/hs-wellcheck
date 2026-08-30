@@ -311,10 +311,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
 /* 다음달~12월 목표를 한 카드에 담되, 예전엔 다음달만 큰 글씨 2줄이고 나머지는 작은 글씨 1줄이라
-   불공평해 보인다는 지적으로 이제 달마다 "OO월 목표 OO처인데 현재 OO처면 달성률 OO% 등급" 형태의
-   같은 크기 한 줄씩으로 통일함. 클래스명을 'm9'처럼 달 숫자에 묶어두면 그 달이 아닐 땐 스타일이 안
-   먹는 버그가 생겨서('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠 */
-.miniCard.mNext{border-top:4px solid #F47920}
+   불공평해 보인다는 지적으로 이제 달마다 "OO월 OO처 → 달성률 OO% 등급" 형태의 같은 크기 한 줄씩으로
+   통일함. 클래스명을 'm9'처럼 달 숫자에 묶어두면 그 달이 아닐 땐 스타일이 안 먹는 버그가 생겨서
+   ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠. 테두리색은 주황 대신
+   연보라 파스텔톤으로(다른 카드들과 안 겹치게) 변경 */
+.miniCard.mNext{border-top:4px solid #C6B8EA}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 .chartBox2{height:420px}
@@ -374,6 +375,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .modal-title{font-size:14px;font-weight:700;color:var(--t1)}
 .modal-x{cursor:pointer;color:var(--t3);font-size:20px;background:none;border:none;font-family:inherit;line-height:1}
 .modal-x:hover{color:var(--t1)}
+
+/* ===== 시간 선택 바텀시트 (모바일 네이티브 앱 느낌 - 카톡처럼 아래에서 올라와서 목록 중 하나를 탭) =====
+   기존엔 그냥 <select>라서 웹을 폰 화면에 얹은 느낌만 났음("다른 앱은 진짜 앱 느낌난다"는 지적) */
+.time-trigger{width:100%;padding:4px 6px;font-size:13px;font-weight:600;color:var(--t1);cursor:pointer}
+.time-sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(45,41,38,0);z-index:800;transition:background .2s}
+.time-sheet-backdrop.open{background:rgba(45,41,38,.4)}
+.time-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--white);border-radius:16px 16px 0 0;max-height:62vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -6px 24px rgba(0,0,0,.18);-webkit-overflow-scrolling:touch}
+.time-sheet-backdrop.open .time-sheet{transform:translateY(0)}
+.time-sheet-hd{position:sticky;top:0;background:var(--white);padding:12px 16px;font-weight:700;font-size:14px;color:var(--t1);text-align:center;border-bottom:0.5px solid var(--bd)}
+.time-sheet-item{padding:14px 18px;font-size:16px;color:var(--t1);cursor:pointer;display:flex;align-items:center;gap:8px}
+.time-sheet-item:active{background:var(--bg2)}
+.time-sheet-item.sel{background:#EAF4FF;color:#1048A0;font-weight:700}
+.time-sheet-check{width:16px;flex-shrink:0}
 .fld{margin-bottom:10px}
 .fld label{display:block;font-size:10px;font-weight:700;color:var(--t2);margin-bottom:3px;letter-spacing:.2px}
 .fld input,.fld select,.fld textarea{width:100%;padding:7px 10px;font-size:12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);font-family:inherit;transition:.12s}
@@ -817,11 +831,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="dm-fields" style="margin-top:8px" id="time-exact-fields">
       <div class="dm-field">
         <div class="dm-field-lbl">시작 시간(선택)</div>
-        <select id="inp-time-exact" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
+        <div class="time-trigger" id="inp-time-exact-trigger" onclick="openTimeSheet('inp-time-exact')">시간 미지정</div>
+        <input type="hidden" id="inp-time-exact">
       </div>
       <div class="dm-field">
         <div class="dm-field-lbl">종료 시간(선택)</div>
-        <select id="inp-time-exact-end" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
+        <div class="time-trigger" id="inp-time-exact-end-trigger" onclick="openTimeSheet('inp-time-exact-end')">시간 미지정</div>
+        <input type="hidden" id="inp-time-exact-end">
       </div>
     </div>
     <div id="visit-only-fields">
@@ -2579,6 +2595,52 @@ function timeOptionsHTML(selected){
   }
   return html;
 }
+// 시간 선택 바텀시트 - 예전엔 그냥 <select>라 모바일에서 "웹을 폰 크기로 줄인" 느낌만 났음. 카톡처럼
+// 하단에서 목록이 올라와 탭으로 고르는 방식으로 바꿈(값 자체는 hidden input에 그대로 저장해서
+// 기존에 .value로 읽던 코드는 안 건드려도 됨).
+function timeSheetOptionList(){
+  var opts=[{v:'',label:'시간 미지정'}];
+  for(var mins=6*60; mins<=21*60; mins+=30){
+    var hh=Math.floor(mins/60), mm=mins%60;
+    var val=(hh<10?'0'+hh:hh)+':'+(mm<10?'0'+mm:mm);
+    opts.push({v:val,label:val});
+  }
+  return opts;
+}
+function timeFieldLabel(val){ return val?val:'시간 미지정'; }
+function setTimeFieldValue(id, val){
+  var input=document.getElementById(id);
+  if(input) input.value=val||'';
+  var trig=document.getElementById(id+'-trigger');
+  if(trig) trig.textContent=timeFieldLabel(val);
+}
+var TIME_SHEET_TARGET=null;
+function openTimeSheet(targetId){
+  TIME_SHEET_TARGET=targetId;
+  var input=document.getElementById(targetId);
+  var cur=input?(input.value||''):'';
+  var body=document.getElementById('time-sheet-body');
+  body.innerHTML=timeSheetOptionList().map(function(o){
+    var sel=o.v===cur;
+    return '<div class="time-sheet-item'+(sel?' sel':'')+'" onclick="pickTimeSheet(\''+o.v+'\')"><span class="time-sheet-check">'+(sel?'✓':'')+'</span>'+o.label+'</div>';
+  }).join('');
+  var backdrop=document.getElementById('time-sheet-backdrop');
+  backdrop.style.display='block';
+  requestAnimationFrame(function(){
+    backdrop.classList.add('open');
+    var selEl=body.querySelector('.sel');
+    if(selEl) selEl.scrollIntoView({block:'center'});
+  });
+}
+function pickTimeSheet(val){
+  if(TIME_SHEET_TARGET) setTimeFieldValue(TIME_SHEET_TARGET, val);
+  closeTimeSheet();
+}
+function closeTimeSheet(){
+  var backdrop=document.getElementById('time-sheet-backdrop');
+  backdrop.classList.remove('open');
+  setTimeout(function(){ backdrop.style.display='none'; }, 200);
+}
 // 시간 지정 이벤트를 이른 시간부터 먼저 정렬(하루 일정을 읽는 자연스러운 순서), 시간 미지정은 맨 뒤로.
 // 예전엔 반대(늦은 시간부터)로 정렬돼 있어서 오전 영역에 11시반이 8시반보다 위에 뜨는 문제가 있었음.
 function byExactTimeAsc(a,b){
@@ -3568,8 +3630,8 @@ function openAdd(day, zone){
   document.getElementById('inp-clinic').value='';
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
   document.getElementById('inp-time').value=zone;
-  document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML('');
-  document.getElementById('inp-time-exact-end').innerHTML=timeOptionsHTML('');
+  setTimeFieldValue('inp-time-exact','');
+  setTimeFieldValue('inp-time-exact-end','');
   document.getElementById('inp-patients').value='';
   document.getElementById('inp-ilmansa').value='참여';
   document.getElementById('inp-device').value='미도입';
@@ -3595,8 +3657,8 @@ function openEditModal(ev){
   }
   document.getElementById('inp-clinic').value=ev.label;
   document.getElementById('inp-time').value=ev.time;
-  document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML(ev.exactTime||'');
-  document.getElementById('inp-time-exact-end').innerHTML=timeOptionsHTML(ev.exactTimeEnd||'');
+  setTimeFieldValue('inp-time-exact', ev.exactTime||'');
+  setTimeFieldValue('inp-time-exact-end', ev.exactTimeEnd||'');
   document.getElementById('inp-patients').value=ev.patients;
   document.getElementById('inp-ilmansa').value=ev.ilmansa;
   document.getElementById('inp-device').value=ev.device;
@@ -4397,15 +4459,15 @@ function renderStKPI(){
   }
   var monthMinis=[];
   // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
-  // 9월(다음달)만 큰 글씨로 2줄 차지하고 10~12월은 작게 1줄씩이라 불공평해 보인다는 지적 - 이제
-  // 모든 달을 "OO월 목표 OO처인데 현재 OO처면 달성률 OO% 등급" 형태의 똑같은 한 줄로 통일한다.
+  // "OO월 목표 OO처인데 현재 OO처면 달성률 OO%"는 줄줄이 늘어놔서 읽기 불편하다는 지적 - "현재 OO처"는
+  // 위 KPI 카드에 이미 있는 정보라 빼고, "OO월 OO처 → 달성률 OO% 등급"으로 짧게 정리한다.
   if(nextYear===thisYear){
     var monthsList=[];
     for(var mmX=startMonth; mmX<=12; mmX++) monthsList.push(mmX);
     var monthLines=monthsList.map(function(mm){
       var a=monthAchv(mm);
-      if(a.th==null) return '<span style="display:block;font-size:12.5px;font-weight:700;margin-top:5px">'+mm+'월 목표 데이터 없음</span>';
-      return '<span style="display:block;font-size:12.5px;font-weight:700;margin-top:5px">'+mm+'월 목표 '+a.th+'처인데 현재 '+k.active+'처면 달성률 '+a.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10px;margin-left:3px">'+achievementGrade(a.pct)+'등급</span></span>';
+      if(a.th==null) return '<span style="display:block;font-size:14px;font-weight:700;margin-top:6px">'+mm+'월 목표 데이터 없음</span>';
+      return '<span style="display:block;font-size:14px;font-weight:700;margin-top:6px">'+mm+'월 '+a.th+'처 → 달성률 '+a.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10.5px;margin-left:2px">'+achievementGrade(a.pct)+'등급</span></span>';
     }).join('');
     var monthLabel=monthsList.length>1?(monthsList[0]+'~'+monthsList[monthsList.length-1]+'월 목표'):(monthsList[0]+'월 목표');
     monthMinis.push(['mNext', monthLabel, monthLines, '', 'active']);
@@ -4418,23 +4480,27 @@ function renderStKPI(){
     var gapPositive=ec.gap>=0;
     var gapColor=gapPositive?'#1048A0':'#B01A1A';
     var estBadge=ec.official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px;vertical-align:middle">추정</span>';
-    // 청구금액/평가실적/갭을 같은 크기의 숫자로 나란히 - "천원" 글자를 붙이면 두 줄 폭이 안 맞아
-    // 지저분해 보인다는 지적으로 여기 3줄에서만 단위 글자 없이 숫자만 크게 보여준다(다른 화면은
-    // 기존 "천원" 표기 그대로 유지).
-    function evalRow(lbl, val, color, borderTop){
-      return '<span style="display:flex;justify-content:space-between;align-items:baseline;font-size:19px;font-weight:800'
-        +(color?(';color:'+color):'')+(borderTop?';margin-top:5px;padding-top:5px;border-top:1px dashed #eadfd4':';margin-top:3px')+'">'
-        +'<span style="font-size:11px;font-weight:700;color:#74695f">'+lbl+'</span><span>'+val+'</span></span>';
+    // 청구금액/평가실적을 같은 크기 숫자로 나란히 보여주고("천원" 글자를 붙이면 두 줄 폭이 안 맞아
+    // 지저분해짐), GAP은 청구금액-평가실적 비교의 결론이라 두 줄보다 한 단계 더 크게(라벨/숫자 둘 다)
+    // 강조해서 한눈에 좋은지 나쁜지 보이게 한다.
+    function evalRow(lbl, val, opts){
+      opts=opts||{};
+      var fsVal=opts.big?26:20, fsLbl=opts.big?15:12;
+      return '<span style="display:flex;justify-content:space-between;align-items:baseline'
+        +(opts.borderTop?';margin-top:7px;padding-top:7px;border-top:1px dashed #eadfd4':';margin-top:4px')+'">'
+        +'<span style="font-size:'+fsLbl+'px;font-weight:800;color:'+(opts.color||'#74695f')+'">'+lbl+'</span>'
+        +'<span style="font-size:'+fsVal+'px;font-weight:800'+(opts.color?(';color:'+opts.color):'')+'">'+val+'</span></span>';
     }
     evalMinis.push(['evalScore','일만사 평가·청구'+estBadge,
-      evalRow('청구금액', companyMoney(ec.actualClaim), null, false)
-      + evalRow('평가실적', companyMoney(ec.evalScore), null, false)
-      + evalRow('갭', (gapPositive?'+':'')+companyMoney(ec.gap), gapColor, true),
+      evalRow('청구금액', companyMoney(ec.actualClaim), {})
+      + evalRow('평가실적(환자수×10)', companyMoney(ec.evalScore), {})
+      + evalRow('GAP', (gapPositive?'+':'')+companyMoney(ec.gap), {color:gapColor, big:true, borderTop:true}),
       '', null]);
-    // %는 크게 그대로 두고, 아래 설명 두 줄(일만사처/청구처)이 카드 위쪽에만 몰려 있어 보이던 걸
-    // 줄바꿈+여백을 넉넉히 둬서 카드 안에 고르게 퍼지도록 함.
-    evalMinis.push(['evalRate','청구전환율'+estBadge, ec.rate+'%',
-      '<span style="display:block;margin-top:10px;line-height:2">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
+    // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
+    // 둬서 카드 안에 고르게 퍼지도록 함(예전엔 %만 크고 나머진 카드 위쪽에 작게 몰려 있어 불균형했음).
+    evalMinis.push(['evalRate','청구전환율'+estBadge,
+      '<span style="font-size:32px;font-weight:900;color:#B8860B">'+ec.rate+'%</span>',
+      '<span style="display:block;margin-top:10px;line-height:2;font-size:12.5px">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
   }
   var minis=monthMinis.concat(evalMinis).concat([
     ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
@@ -5646,8 +5712,8 @@ function updateLeaveTimeVisibility(){
   document.getElementById('time-exact-fields').style.display = forceAllDay?'none':'';
   if(forceAllDay){
     document.getElementById('inp-time').value='all';
-    document.getElementById('inp-time-exact').value='';
-    document.getElementById('inp-time-exact-end').value='';
+    setTimeFieldValue('inp-time-exact','');
+    setTimeFieldValue('inp-time-exact-end','');
   }
   if(isLeave) setLeaveTimeActive(document.getElementById('inp-time').value);
 }
@@ -5835,6 +5901,7 @@ function openRequestPopup(id){
   document.getElementById('req-ov').style.display='flex';
 }
 function approveRequest(){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('승낙은 담당 CM만 가능합니다.'); return; }
   if(!currentReqId) return;
   var exactTimeEl=document.getElementById('req-exact-time');
   var upd={status:'approved'};
@@ -5846,6 +5913,7 @@ function approveRequest(){
   });
 }
 function rejectRequest(){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('거절은 담당 CM만 가능합니다.'); return; }
   if(!currentReqId) return;
   db.from('schedules').update({status:'rejected'}).eq('id',currentReqId).then(function(res){
     if(res.error){alert('거절 처리 실패: '+res.error.message);return;}
@@ -5868,8 +5936,18 @@ function renderRequests(){
     list.innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:8px 0">현재 요청 없음</div>';
     return;
   }
+  // 승낙/거절은 담당 CM(간호사)만 - 사무소명으로 로그인한 소장님/사무소원(role='MR')도 이 목록을
+  // 볼 수는 있어야(간호사에게 요청이 가 있다는 걸 알 수 있게) 하지만, 실제로 승낙/거절을 누를 수 있는 건
+  // 아니어야 함(예전엔 role 체크가 아예 없어서 사무소 로그인으로도 승낙이 눌러졌음)
+  var canApprove=currentUser&&currentUser.role==='간호사';
   list.innerHTML=pending.map(function(r){
     var m=getMR(r.mr);
+    var actions=canApprove
+      ? ('<div style="display:flex;gap:5px">'
+        +'<button onclick="approveReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:5px;cursor:pointer">✅ 승낙</button>'
+        +'<button onclick="rejectReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:5px;cursor:pointer">❌ 거절</button>'
+        +'</div>')
+      : '<div style="font-size:10px;color:var(--t3);text-align:center">승낙/거절은 담당 CM만 가능해요</div>';
     return '<div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:6px">'
       +'<div style="font-weight:700;color:var(--t1);font-size:12px;margin-bottom:3px">'+r.label+'</div>'
       +'<div style="color:var(--t2);font-size:10px;margin-bottom:6px">'
@@ -5877,14 +5955,12 @@ function renderRequests(){
       +' · '+(r.time==='am'?'오전':r.time==='pm'?'오후':'종일')+' · '+(r.month||TODAY.m)+'/'+r.day+'일'
       +(r.memo?'<br><span style="color:var(--t3)">'+r.memo+'</span>':'')
       +'</div>'
-      +'<div style="display:flex;gap:5px">'
-      +'<button onclick="approveReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:5px;cursor:pointer">✅ 승낙</button>'
-      +'<button onclick="rejectReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:5px;cursor:pointer">❌ 거절</button>'
-      +'</div></div>';
+      +actions+'</div>';
   }).join('');
 }
 
 function approveReq(id){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('승낙은 담당 CM만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
   db.from('schedules').update({status:'approved'}).eq('id',id).then(function(res){
@@ -5895,6 +5971,7 @@ function approveReq(id){
 }
 
 function rejectReq(id){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('거절은 담당 CM만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
   db.from('schedules').update({status:'rejected'}).eq('id',id).then(function(res){
@@ -6326,6 +6403,14 @@ function closeClinicChart(){
       <button class="btn" style="background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A" onclick="rejectRequest()">거절</button>
       <button class="btn btn-save" onclick="approveRequest()">✅ 승낙</button>
     </div>
+  </div>
+</div>
+
+<!-- 시간 선택 바텀시트 -->
+<div class="time-sheet-backdrop" id="time-sheet-backdrop" onclick="if(event.target===this) closeTimeSheet()">
+  <div class="time-sheet">
+    <div class="time-sheet-hd">시간 선택</div>
+    <div id="time-sheet-body"></div>
   </div>
 </div>
 </body>
