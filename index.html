@@ -310,10 +310,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    보통 gap만큼만 떨어지고 두 카드만 자연스럽게 붙어 보이게 함 */
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
-/* 다음달 목표(예: 9월)+나머지 달(예: 10~12월)을 다시 한 카드로 합침(카드 수 자체를 줄여달라는
-   요청) - 다음달은 위에 크게, 나머지 달은 그 아래 작게 이어붙임. 클래스명을 'm9'처럼 달 숫자에
-   묶어두면 그 달이 아닐 땐 스타일이 안 먹는 버그가 생겨서('다음달'은 매달 바뀌므로) 달과 무관한
-   고정 클래스명(mNext)으로 둠 */
+/* 다음달~12월 목표를 한 카드에 담되, 예전엔 다음달만 큰 글씨 2줄이고 나머지는 작은 글씨 1줄이라
+   불공평해 보인다는 지적으로 이제 달마다 "OO월 목표 OO처인데 현재 OO처면 달성률 OO% 등급" 형태의
+   같은 크기 한 줄씩으로 통일함. 클래스명을 'm9'처럼 달 숫자에 묶어두면 그 달이 아닐 땐 스타일이 안
+   먹는 버그가 생겨서('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠 */
 .miniCard.mNext{border-top:4px solid #F47920}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
@@ -1807,6 +1807,7 @@ function parseCurrentRaw(wb){
         inactive_transition: row[COL.inactiveConv]==='해당',
         prev_active: row[COL.prevActive]==='해당',
         prev_patients: Number(row[COL.prevPatients])||0,
+        claim: claimVal,
         care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt,
         last_sync_date: lastSyncVal
       });
@@ -1991,14 +1992,14 @@ function commitCurrentRaw(parsed, status){
       var allRows=updates.map(function(u){
         return {office:currentOffice, biz_no:u.biz_no, name:u.name, mr:mrCode(currentOffice,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
-          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+          raw_claim:u.claim, care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
           last_sync_date:u.last_sync_date};
       }).concat(natUpdates.map(function(u){
         // clinics 테이블엔 mr_sabun 컬럼이 없음 - Object.assign으로 통째로 복사하면 스키마에 없는 컬럼이
         // 섞여 들어가서 upsert 전체가 실패함(실제로 "전국 거래처 반영 실패" 에러 재현됨). 필요한 필드만 명시적으로 골라 담는다.
         return {office:u.office, biz_no:u.biz_no, name:u.name, mr:mrCode(u.office,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
-          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+          raw_claim:u.claim, care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
           last_sync_date:u.last_sync_date};
       }));
       var conflictBiz={}, conflictRows=[];
@@ -2077,7 +2078,7 @@ function commitCurrentRaw(parsed, status){
   Promise.all(updates.map(function(u){
     return db.from('clinics').update({
       patients:u.patients, non_patients:u.non_patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
-      prev_active:u.prev_active, prev_patients:u.prev_patients,
+      prev_active:u.prev_active, prev_patients:u.prev_patients, raw_claim:u.claim,
       care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
       last_sync_date:u.last_sync_date
     }).eq('biz_no', u.biz_no).eq('office', currentOffice).select('id');
@@ -2630,6 +2631,7 @@ function rowToClinic(r){
     isActive:!!r.is_active, inactiveTr:!!r.inactive_transition, prevActive:!!r.prev_active,
     nonPatients:r.non_patients||0,
     office:r.office||'경인1',
+    raw_claim:r.raw_claim!=null?r.raw_claim:null,
     care_plan_cnt:r.care_plan_cnt||0, edu_cnt:r.edu_cnt||0, patient_mgmt_cnt:r.patient_mgmt_cnt||0, check_eval_cnt:r.check_eval_cnt||0,
     lastSyncDate:r.last_sync_date||null,
     eduDate:r.edu_completed_date||null, duesDate:r.dues_paid_date||null};
@@ -3854,9 +3856,11 @@ function renderList(){
         var gap=clinicEvalGap(c);
         var gapTxt=gap===null?'-':((gap>=0?'+':'')+companyMoney(gap));
         var gapColor=gap===null?'var(--t2)':(gap>=0?'#15803d':'#B01A1A');
-        // 당월청구(추정): MAU가 매일 갱신하는 이번달 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가
-        var monthlyEst=clinicMonthlyClaimEstimate(c);
-        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 항목별 건수·단가 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
+        // 당월청구(추정): RAW 파일("거래처별 RAW" 시트 AA열 "금액")이 알려주는 그 거래처의 실제 당월
+        // 청구금액을 최우선으로 쓰고(clinics.raw_claim), 아직 그 값이 없으면(예: RAW 재업로드 전)
+        // MAU가 매일 갱신하는 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가로 역산 추정한다.
+        var monthlyEst=(c.raw_claim!=null)?c.raw_claim:clinicMonthlyClaimEstimate(c);
+        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
       })()
       +(function(){
         var lStatus=ilmansaLicenseStatus(c);
@@ -3969,20 +3973,28 @@ function showClaimEstPopup(idx, event){
   var total=items.reduce(function(s,it){return s+it[1]*it[2];},0);
   var src=latestDataSourceLog();
   var srcLabel=src?((src.import_type==='daily'?'MAU':'활성처 현황(RAW)')+' '+(src.source_date?src.source_date.slice(5).replace('-','.'):'?')+' 기준 파일'):'파일 기준일 정보 없음';
+  var hasReal=c.raw_claim!=null;
   var div=document.createElement('div');
   div.id='claim-est-popup';
-  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid var(--bd2);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);width:250px';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid var(--bd2);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);width:260px';
   var rect=el.getBoundingClientRect();
   div.style.top=(rect.bottom+6)+'px';
-  div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-  div.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px">🧮 '+c.name+' 당월청구(추정) 내역</div>'
+  div.style.left=Math.min(rect.left,window.innerWidth-270)+'px';
+  // RAW 파일("거래처별 RAW" 시트 AA열 "금액")에 실제 청구금액이 있으면 그 실제값을 맨 위에 크게
+  // 보여주고, 항목별 건수×단가 내역은 "참고"로만 아래에 둔다(역산 추정치라 실제값과 약간 차이날 수
+  // 있음 - 예전엔 항목별 합계 자체를 "당월청구(추정)"로 표시해서 실제 파일 값과 안 맞는다는 지적이 있었음).
+  div.innerHTML=(hasReal?('<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:2px">🧮 '+c.name+' 당월청구</div>'
+      +'<div style="font-size:20px;font-weight:800;color:#1048A0;margin-bottom:10px">'+c.raw_claim.toLocaleString()+'원</div>'
+      +'<div style="font-size:10.5px;color:var(--t2);margin-bottom:6px">RAW 파일(거래처별 RAW 시트 "금액" 컬럼) 실제 청구금액 · '+srcLabel+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t2);margin:8px 0 4px">참고: 항목별 건수 내역(단가 역산, 실제값과 약간 다를 수 있음)</div>')
+    :'<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px">🧮 '+c.name+' 당월청구(추정) 내역</div>')
     +'<table style="width:100%;font-size:11px;border-collapse:collapse">'
     +items.map(function(it){
       return '<tr><td style="padding:3px 0;color:var(--t2)">'+it[0]+'</td><td style="text-align:right;padding:3px 0">'+it[1]+'건 × '+it[2].toLocaleString()+'원</td><td style="text-align:right;padding:3px 0;font-weight:600;width:64px">'+(it[1]*it[2]).toLocaleString()+'</td></tr>';
     }).join('')
-    +'<tr><td colspan="2" style="padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">합계</td><td style="text-align:right;padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">'+total.toLocaleString()+'원</td></tr>'
+    +'<tr><td colspan="2" style="padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">'+(hasReal?'항목 합계(참고)':'합계')+'</td><td style="text-align:right;padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">'+total.toLocaleString()+'원</td></tr>'
     +'</table>'
-    +'<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">건수: '+srcLabel+'<br>단가는 회사 청구단가(건당) 고정값 - 이 금액은 심평원에 최종 확정된 청구금액이 아니라 현재까지 파악된 건수로 역산한 추정치입니다. 확정 금액은 청구현황판(베이스라인 반영 후)에서 확인하세요.</div>'
+    +(hasReal?'':'<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">건수: '+srcLabel+'<br>단가는 회사 청구단가(건당) 고정값 - 이 금액은 심평원에 최종 확정된 청구금액이 아니라 현재까지 파악된 건수로 역산한 추정치입니다. 확정 금액은 청구현황판(베이스라인 반영 후)에서 확인하세요.</div>')
     +'<button onclick="closeClaimEstPopup()" style="margin-top:8px;width:100%;padding:5px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer;background:white">닫기</button>';
   document.body.appendChild(div);
   clampPopupVertical(div, rect);
@@ -3993,15 +4005,28 @@ function showClaimEstPopup(idx, event){
     });
   },100);
 }
-// 거래처별 평가청구 GAP: "평가-청구" 시트는 거래처 단위 값이 없어(사무소/MR 단위까지만 있음) 여기서만 근사 추정 -
-// 그 거래처의 최신 파일 기준 누적 활성환자수×10,000원(평가실적, 실제 파일로 검증된 환자 1명당 평가단가) 대비
-// 같은 시점 총청구금액(실제 청구금액). 매칭되는 청구 데이터가 없으면 null
+// 거래처별 평가청구 GAP: 환자수×10,000원(평가실적, 실제 파일로 검증된 환자 1명당 평가단가) 대비
+// 같은 시점 실제 청구금액. 이번달이 아직 공식 마감(clinic_claims 베이스라인) 전이면, 마감된
+// 지난달 값과 비교하는 꼴이 돼서 안 맞아 보이는 문제가 있었음(실사례: 누가의원 404명 기준
+// 평가실적 4,040,000원인데, 화면은 지난달 마감 청구금액을 보여줘서 어긋남) - RAW 파일
+// "거래처별 RAW" 시트 AA열("금액")이 그 거래처의 실제 당월 청구금액을 그대로 알려주므로
+// (clinics.raw_claim, 매 RAW 업로드마다 갱신) 이번달이 아직 마감 전이면 그 값을 우선 쓴다.
 function clinicEvalGap(c){
   var cl=clinicClaim(c);
-  if(!cl) return null;
-  var evalScore=(cl.cumPatient||0)*10000;
-  var actualClaim=cl.mclaim||0;
-  return actualClaim-evalScore;
+  var curMonth=todayMonthStr();
+  if(cl && cl.month && cl.month.slice(0,7)===curMonth){
+    // 이번달 공식 마감(베이스라인)이 이미 있음 - 그 마감 시점 값이 최우선
+    return (cl.mclaim||0)-(cl.cumPatient||0)*10000;
+  }
+  if(c && c.raw_claim!=null){
+    // 마감 전이면 RAW 파일의 실제 금액을 그대로 씀(항목별 단가 역산 추정 대신)
+    return (c.raw_claim||0)-(c.patients||0)*10000;
+  }
+  if(cl){
+    // 최후 폴백: 이번달 데이터가 전혀 없으면 지난 마감월 값이라도(예전 동작 유지)
+    return (cl.mclaim||0)-(cl.cumPatient||0)*10000;
+  }
+  return null;
 }
 var stTrendChart=null;
 function renderStrategyView(){
@@ -4370,31 +4395,20 @@ function renderStKPI(){
     var mPct=mTh?Math.round(k.active/mTh*100):null;
     return {th:mTh, pct:mPct};
   }
-  // "OO/OO처"가 같은 색으로 보여서 지금 몇 처인지 눈에 안 띈다는 지적 - 위 "현재 활성처" 카드처럼
-  // 현재값은 주황, 목표값은 회색으로 구분해서 보여준다.
-  function miniValHtml(cur, target){
-    return '<span style="color:#F47920">'+cur+'처</span> <span style="color:#9b8d82;font-size:15px;font-weight:700">/ '+(target!=null?target:'-')+'처</span>';
-  }
   var monthMinis=[];
   // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
-  // 카드 2개(다음달 단독 + 나머지 달 압축)로 나눴던 걸 다시 한 카드로 합침 - 다음달(예: 9월)은
-  // 위에 크게, 그 이후(예: 10~12월)는 아래에 작게 이어붙인다.
+  // 9월(다음달)만 큰 글씨로 2줄 차지하고 10~12월은 작게 1줄씩이라 불공평해 보인다는 지적 - 이제
+  // 모든 달을 "OO월 목표 OO처인데 현재 OO처면 달성률 OO% 등급" 형태의 똑같은 한 줄로 통일한다.
   if(nextYear===thisYear){
-    var a0=monthAchv(startMonth);
-    var hint0=a0.th!=null?('달성률 '+a0.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(a0.pct)+'등급</span>'):(startMonth+'월 목표 데이터 없음');
-    var restMonths=[];
-    for(var mm2=startMonth+1;mm2<=12;mm2++) restMonths.push(mm2);
-    var restHint='';
-    if(restMonths.length){
-      // 10월/11월은 한 줄인데 12월만 다음 줄로 밀려나 보이는 문제 - 아예 달마다 줄을 나눠서(<br>)
-      // 항상 "OO월 OO% C등급" 한 줄씩, 등급도 다른 카드와 통일된 gradePill(핑크바탕/빨간글씨)로.
-      restHint='<br>'+restMonths.map(function(mm3){
-        var a3=monthAchv(mm3);
-        if(a3.pct==null) return mm3+'월 목표 데이터 없음';
-        return mm3+'월 '+a3.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10px;margin-left:3px">'+achievementGrade(a3.pct)+'등급</span>';
-      }).join('<br>');
-    }
-    monthMinis.push(['mNext', startMonth+'월 목표', miniValHtml(k.active, a0.th), hint0+restHint, 'active']);
+    var monthsList=[];
+    for(var mmX=startMonth; mmX<=12; mmX++) monthsList.push(mmX);
+    var monthLines=monthsList.map(function(mm){
+      var a=monthAchv(mm);
+      if(a.th==null) return '<span style="display:block;font-size:12.5px;font-weight:700;margin-top:5px">'+mm+'월 목표 데이터 없음</span>';
+      return '<span style="display:block;font-size:12.5px;font-weight:700;margin-top:5px">'+mm+'월 목표 '+a.th+'처인데 현재 '+k.active+'처면 달성률 '+a.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10px;margin-left:3px">'+achievementGrade(a.pct)+'등급</span></span>';
+    }).join('');
+    var monthLabel=monthsList.length>1?(monthsList[0]+'~'+monthsList[monthsList.length-1]+'월 목표'):(monthsList[0]+'월 목표');
+    monthMinis.push(['mNext', monthLabel, monthLines, '', 'active']);
   }
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
   // 일만사 평가실적+청구금액을 한 카드, 청구전환율을 한 카드로. GAP(청구금액-평가실적)은 청구금액과
