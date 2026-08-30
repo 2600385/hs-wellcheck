@@ -294,7 +294,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .diffKpi .kval{color:#15803d}
 .newKpi{background:#F3FAFF!important;border:2px solid #CBE3F6!important}
 .newKpi .kval{color:#2F78B7}
-.miniGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+/* 카드 5개(다음달~12월 목표 통합 1 + 일만사평가·청구/청구전환율 2 + 20명/40명 전환후보 2) 기준
+   트랙 폭 - 뒤 두 칸(20명/40명)만 좁게 잡아서 두 카드가 서로 붙어 보이게 함 */
+.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.7fr 0.7fr;gap:12px}
 .miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px}
 .miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
 .miniCard b{display:block;font-size:26px;margin:3px 0}
@@ -302,16 +304,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .miniCard .khint{font-size:11px;color:#8e857c;font-weight:800}
 .miniCard.q3{border-top:4px solid #8fb8e8}
 .miniCard.q4{border-top:4px solid #99cfb1}
-/* 20명/40명 전환후보 카드는 다른 미니카드보다 내용이 짧아서 가로로 너무 넓어 보인다는 지적 - 폭을 줄임 */
-.miniCard.c20,.miniCard.c40{max-width:72%}
+/* 20명/40명 전환후보 카드는 다른 미니카드보다 내용이 짧은데, max-width로 폭만 줄이면 grid 칸
+   안에서 혼자 좁아져서 오히려 옆 카드와 더 멀어져 보이는 문제가 있었음(칸 자체는 그대로라 남는
+   여백이 생김) - 대신 miniGrid의 그리드 트랙 자체를 마지막 두 칸만 좁게 잡아서, 카드끼리는
+   보통 gap만큼만 떨어지고 두 카드만 자연스럽게 붙어 보이게 함 */
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
-/* 다음달 목표 카드는 주황으로 강조, 그 이후 남은 달을 압축한 카드(mRest)는 파란 톤 - 카드 수가
-   많아지면 복잡해 보인다는 지적으로 다음달 1개+나머지 1개로 줄임(예전엔 9~12월을 각각 카드로
-   펼쳤었음). 클래스명을 'm9'처럼 달 숫자에 묶어두면 그 달이 아닐 땐 스타일이 안 먹는 버그가 생겨서
-   ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠 */
+/* 다음달 목표(예: 9월)+나머지 달(예: 10~12월)을 다시 한 카드로 합침(카드 수 자체를 줄여달라는
+   요청) - 다음달은 위에 크게, 나머지 달은 그 아래 작게 이어붙임. 클래스명을 'm9'처럼 달 숫자에
+   묶어두면 그 달이 아닐 땐 스타일이 안 먹는 버그가 생겨서('다음달'은 매달 바뀌므로) 달과 무관한
+   고정 클래스명(mNext)으로 둠 */
 .miniCard.mNext{border-top:4px solid #F47920}
-.miniCard.mRest{border-top:4px solid #8fb8e8}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 .chartBox2{height:420px}
@@ -499,7 +502,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="cat-icon" style="background:#F3F1EC">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A7A5C" stroke-width="2.2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
       </div>
-      홈
+      캘린더 홈
     </div>
 
     <!-- 웰체크 현황판 (거래처현황판: 전체현황/담당자별/지역별) - 캘린더는 매일 들여다보는 화면이라
@@ -3877,7 +3880,7 @@ function renderList(){
     +'<span style="font-weight:700">'+currentOffice+' 거래처 현황판 ('+data.length+'곳)</span>'
     +'<button onclick="openAddClinic()" style="margin-left:6px;padding:3px 10px;font-size:11px;border-radius:999px;border:1px solid var(--dw);color:var(--dw);background:white;cursor:pointer;font-family:inherit">+ 거래처 추가</button>'
     +'</div>'
-    +'<div style="font-size:11px;color:#958b82;margin:2px 0 8px">환자수 클릭 시 활성환자·청구 추이 그래프, 당월청구(추정) 클릭 시 항목별 상세내역 조회 가능</div>'
+    +'<div style="display:inline-block;margin:2px 0 8px;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 환자수 클릭 시 활성환자·청구 추이 그래프, 당월청구(추정) 클릭 시 항목별 상세내역 조회 가능</div>'
     +'<table class="gtbl"><thead>'
     +'<tr style="background:var(--bg2)">'
     +'<th colspan="3" style="border-bottom:0.5px solid var(--bd)"></th>'
@@ -4374,24 +4377,24 @@ function renderStKPI(){
   }
   var monthMinis=[];
   // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
+  // 카드 2개(다음달 단독 + 나머지 달 압축)로 나눴던 걸 다시 한 카드로 합침 - 다음달(예: 9월)은
+  // 위에 크게, 그 이후(예: 10~12월)는 아래에 작게 이어붙인다.
   if(nextYear===thisYear){
     var a0=monthAchv(startMonth);
     var hint0=a0.th!=null?('달성률 '+a0.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(a0.pct)+'등급</span>'):(startMonth+'월 목표 데이터 없음');
-    monthMinis.push(['mNext', startMonth+'월 목표', miniValHtml(k.active, a0.th), hint0, 'active']);
     var restMonths=[];
     for(var mm2=startMonth+1;mm2<=12;mm2++) restMonths.push(mm2);
+    var restHint='';
     if(restMonths.length){
-      var lastMm=restMonths[restMonths.length-1];
-      var aLast=monthAchv(lastMm);
       // 10월/11월은 한 줄인데 12월만 다음 줄로 밀려나 보이는 문제 - 아예 달마다 줄을 나눠서(<br>)
       // 항상 "OO월 OO% C등급" 한 줄씩, 등급도 다른 카드와 통일된 gradePill(핑크바탕/빨간글씨)로.
-      var restHint=restMonths.map(function(mm3){
+      restHint='<br>'+restMonths.map(function(mm3){
         var a3=monthAchv(mm3);
         if(a3.pct==null) return mm3+'월 목표 데이터 없음';
-        return mm3+'월 '+a3.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(a3.pct)+'등급</span>';
+        return mm3+'월 '+a3.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10px;margin-left:3px">'+achievementGrade(a3.pct)+'등급</span>';
       }).join('<br>');
-      monthMinis.push(['mRest', restMonths[0]+'~'+lastMm+'월 목표', miniValHtml(k.active, aLast.th), restHint, 'active']);
     }
+    monthMinis.push(['mNext', startMonth+'월 목표', miniValHtml(k.active, a0.th), hint0+restHint, 'active']);
   }
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
   // 일만사 평가실적+청구금액을 한 카드, 청구전환율을 한 카드로. GAP(청구금액-평가실적)은 청구금액과
@@ -4401,11 +4404,23 @@ function renderStKPI(){
     var gapPositive=ec.gap>=0;
     var gapColor=gapPositive?'#1048A0':'#B01A1A';
     var estBadge=ec.official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px;vertical-align:middle">추정</span>';
+    // 청구금액/평가실적/갭을 같은 크기의 숫자로 나란히 - "천원" 글자를 붙이면 두 줄 폭이 안 맞아
+    // 지저분해 보인다는 지적으로 여기 3줄에서만 단위 글자 없이 숫자만 크게 보여준다(다른 화면은
+    // 기존 "천원" 표기 그대로 유지).
+    function evalRow(lbl, val, color, borderTop){
+      return '<span style="display:flex;justify-content:space-between;align-items:baseline;font-size:19px;font-weight:800'
+        +(color?(';color:'+color):'')+(borderTop?';margin-top:5px;padding-top:5px;border-top:1px dashed #eadfd4':';margin-top:3px')+'">'
+        +'<span style="font-size:11px;font-weight:700;color:#74695f">'+lbl+'</span><span>'+val+'</span></span>';
+    }
     evalMinis.push(['evalScore','일만사 평가·청구'+estBadge,
-      '<span style="font-size:12px;font-weight:700;color:#74695f">청구금액</span> '+companyMoney(ec.actualClaim)+'천원',
-      '평가실적 '+companyMoney(ec.evalScore)+'천원(환자수*10)<br><span style="color:'+gapColor+';font-weight:700">갭 '+(gapPositive?'+':'')+companyMoney(ec.gap)+'천원</span>', null]);
+      evalRow('청구금액', companyMoney(ec.actualClaim), null, false)
+      + evalRow('평가실적', companyMoney(ec.evalScore), null, false)
+      + evalRow('갭', (gapPositive?'+':'')+companyMoney(ec.gap), gapColor, true),
+      '', null]);
+    // %는 크게 그대로 두고, 아래 설명 두 줄(일만사처/청구처)이 카드 위쪽에만 몰려 있어 보이던 걸
+    // 줄바꿈+여백을 넉넉히 둬서 카드 안에 고르게 퍼지도록 함.
     evalMinis.push(['evalRate','청구전환율'+estBadge, ec.rate+'%',
-      '일만사처: '+ec.evalCnt+'처 · 청구처: '+ec.claimCnt+'처', null]);
+      '<span style="display:block;margin-top:10px;line-height:2">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
   }
   var minis=monthMinis.concat(evalMinis).concat([
     ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
@@ -4632,7 +4647,7 @@ function renderStTable(){
   var title=stTitles()[stFilter]||'거래처 리스트';
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed">'+CLINIC_LIST_COLGROUP+'<thead>'
-    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px">전월 마감 대비 오늘 기준 최신 현황 반영 · 거래처명 클릭 시 활성환자·청구 추이 그래프 조회 가능</small></th></tr>'
+    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px;font-weight:400">전월 마감 대비 오늘 기준 최신 현황 반영</small><span style="display:inline-block;margin-top:5px;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프 조회 가능</span></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows)+'</tbody></table></div>';
 }
@@ -4649,7 +4664,7 @@ function renderClinicsListTable(){
   var title=stMR==='all'?'전체 담당자':getMR(stMR).name;
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
-    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px">거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</small></th></tr>'
+    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</span></div></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
 }
