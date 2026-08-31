@@ -3835,22 +3835,33 @@ function openDetail(id){
   document.getElementById('dm-save-memo-btn').style.display=isLeave?'none':'';
   if(!isLeave){
     document.getElementById('dm-checked').textContent=ev.checked?'✅ 방문 완료':'⬜ 방문 예정';
-    // 마지막 방문일: 같은 거래처의 체크된 이벤트 중 가장 최근
+    // 마지막 방문일 / 방문 이력: 같은 거래처의 체크된(방문 완료) 이벤트를 모아 실제 날짜로 정렬.
+    // 예전엔 (1) 방문 이력 목록이 어느 거래처든 항상 똑같은 가짜 문구 3줄로 고정돼 있었고,
+    // (2) 마지막 방문일도 그 이벤트의 실제 연/월이 아니라 "지금 보고 있는 달력의 연/월(curYear/curMonth)"을
+    // 그대로 붙여버려서, 예를 들어 9월 일정을 보다가 다른 달에 체크된 방문을 만나면 "9월" 방문한 것처럼
+    // 잘못 표시되는(심하면 미래 날짜로 보이는) 버그가 있었음 - 이벤트 자체의 year/month/day로 표시하고
+    // 실제 날짜 기준으로 정렬해서 진짜 방문 이력만 보여줌
     var allEvs2=[];
     Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(function(e){ if(e.label===ev.label) allEvs2.push(e); }); });
-    var visited=allEvs2.filter(function(e){return e.checked;});
-    document.getElementById('dm-lastvisit').textContent=visited.length>0?visited[visited.length-1].label+'('+curYear+'.'+curMonth+'.'+visited[visited.length-1].day+')':'방문 이력 없음';
+    var visited=allEvs2.filter(function(e){return e.checked;}).sort(function(a,b){
+      return new Date(a.year,a.month-1,a.day) - new Date(b.year,b.month-1,b.day);
+    });
+    var lastV=visited.length>0?visited[visited.length-1]:null;
+    document.getElementById('dm-lastvisit').textContent=lastV?ev.label+'('+lastV.year+'.'+lastV.month+'.'+lastV.day+')':'방문 이력 없음';
     var p=ev.patients||0;
     document.getElementById('dm-patients').textContent=p+'명';
     document.getElementById('dm-gauge').style.width=gw(p);
     document.getElementById('dm-gauge').style.background=gc(p);
     document.getElementById('dm-gauge-lbl').textContent=p>=40?'✅ 활성처 달성':p>=20?'⚠ MR 기준 달성':'❌ 기준 미달';
     var hist=document.getElementById('dm-hist');
-    hist.innerHTML=[
-      {date:'5/12',txt:'웰체크 세팅 완료, 간호사 교육 1회차'},
-      {date:'4/8', txt:'일만사 참여 안내, 원장님 긍정 반응'},
-      {date:'3/15',txt:'초기 상담, 디지털기기 관심 표명'}
-    ].map(function(h){return '<div class="hist-item"><span class="hist-date">'+h.date+'</span><span>'+h.txt+'</span></div>';}).join('');
+    var pastVisits=visited.slice().reverse().slice(0,8); // 최신순으로 최대 8건
+    hist.innerHTML=pastVisits.length
+      ? pastVisits.map(function(e){
+          var dstr=e.year+'.'+e.month+'.'+e.day;
+          var tstr=timeLabel(e.time)+(e.exactTime?' · '+timeRangeLabel(e):'');
+          return '<div class="hist-item"><span class="hist-date">'+dstr+'</span><span>'+tstr+' 방문 완료</span></div>';
+        }).join('')
+      : '<div style="font-size:11px;color:var(--t3)">방문 완료 이력이 없습니다</div>';
   }
   document.getElementById('dm-memo').value=MEMO_STORE[ev.label]||ev.memo||'';
   document.getElementById('detail-ov').classList.add('ov-open');
