@@ -812,18 +812,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- ===== 일정 추가/수정 모달 ===== -->
 <div class="ov" id="add-ov">
   <div class="modal modal-sm">
-    <div class="modal-head">
-      <div>
-        <div class="modal-title" id="add-title">일정 추가</div>
-        <div id="add-mr-badge" class="dm-badge" style="margin-top:4px;display:none"></div>
+    <!-- 예전엔 제목(날짜+"일정 추가")과 우측 버튼 2개+닫기버튼이 한 줄에 같이 있어서, 좁은 화면에서
+         버튼들에 밀려 제목이 "2026년/9월 3일/일정 추가"처럼 단어마다 줄바꿈되던 문제가 있었음 -
+         제목+닫기는 항상 한 줄로 붙여서 위에 두고, 모드 전환 버튼들은 그 아래 별도 줄로 내림 -->
+    <div class="modal-head" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div class="modal-title" id="add-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">일정 추가</div>
+        <button class="modal-x" onclick="closeAdd()" style="flex:none">✕</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div id="add-mr-badge" class="dm-badge" style="display:none"></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <!-- "동도(지원 방문)" 진입점이 예전엔 거래처명 입력칸 옆에 작은 파란 글씨 링크로만 있어서(거래처
              일정 모드에서만 보임) 못 찾겠다는 실제 피드백이 있었음 - 모드와 무관하게 항상 보이는 버튼으로
-             올리고, 거래처 외 일정 모드에 있었으면 자동으로 거래처 일정 모드로 전환까지 해줌 -->
-        <button type="button" class="btn btn-cancel" id="cross-mr-entry-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap;color:#2F78B7;border-color:#2F78B7" onclick="openCrossOfficeFromAnywhere()">🤝 타사무소 동도 지원</button>
-        <button type="button" class="btn btn-cancel" id="add-mode-toggle-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap" onclick="toggleAddMode()">📋 거래처 외 일정</button>
-        <button class="modal-x" onclick="closeAdd()">✕</button>
+             올리고, 거래처 외 일정 모드에 있었으면 자동으로 거래처 일정 모드로 전환까지 해줌.
+             타사무소 동도 지원(파랑) / 거래처 외 일정(초록) 둘 다 같은 테두리형 알약 버튼 디자인으로 통일,
+             색만 서로 다르게 둬서 한눈에 구분되게 함 -->
+        <button type="button" class="btn btn-cancel" id="cross-mr-entry-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap;border-radius:999px;color:#2F78B7;border-color:#2F78B7" onclick="openCrossOfficeFromAnywhere()">🤝 타사무소 동도 지원</button>
+        <button type="button" class="btn btn-cancel" id="add-mode-toggle-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap;border-radius:999px;color:#1F8A5F;border-color:#1F8A5F" onclick="toggleAddMode()">📋 거래처 외 일정</button>
       </div>
     </div>
     <div class="dm-fields">
@@ -861,6 +866,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요 (타사무소 동도는 위 '🤝 타사무소 동도 지원' 버튼 이용)" autocomplete="off">
         <datalist id="clinic-list"></datalist>
       </div>
+      <!-- 사무소(MR)가 간호사에게 방문을 요청할 때 어떤 상황인지/뭘 해달라는건지 몰라서 답답하다는
+           피드백 - 사무소 쪽에서 요청할 땐 필수로 적게 하고, 간호사 본인이 직접 일정을 넣을 땐(요청 대상이
+           없으므로) 이 칸 자체를 숨김. updateSituationFieldVisibility()에서 role 보고 표시/필수여부 결정 -->
+      <div class="fld" id="situation-fld" style="display:none">
+        <label id="situation-fld-lbl">거래처 상황 및 요청사항</label>
+        <textarea id="inp-situation" class="memo-area" style="min-height:64px" placeholder="ex) 일만사 도입 예정처, DR 및 간호사 교육 요청, 청구 오류 확인 등"></textarea>
+      </div>
       <div class="dm-fields" style="margin-top:8px">
         <div class="dm-field" style="grid-column:span 2">
           <div class="dm-field-lbl">마지막 방문일</div>
@@ -883,8 +895,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <button type="button" class="type-btn" onclick="setEvType(this,'off')">🌿 연차</button>
           <button type="button" class="type-btn" onclick="setEvType(this,'study')">📚 학소</button>
           <button type="button" class="type-btn" onclick="setEvType(this,'office')">🏢 내근</button>
+          <button type="button" class="type-btn" onclick="setEvType(this,'welda')">🩺 웰다</button>
           <button type="button" class="type-btn" onclick="setEvType(this,'etc')">📌 기타</button>
         </div>
+      </div>
+      <div class="fld" id="leave-welda-label-fld" style="display:none">
+        <label>웰다 방문처</label>
+        <input type="text" id="inp-welda-label" placeholder="예) OO병원, OO보건소 등" autocomplete="off">
       </div>
       <div class="fld" id="leave-etc-label-fld" style="display:none">
         <label>기타 일정명</label>
@@ -900,8 +917,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
     <div style="margin-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">메모</div>
-      <textarea id="inp-memo" class="memo-area" placeholder="방문 기록, 원장님 성향, 특이사항 등"></textarea>
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">메모 <span style="font-weight:400;color:var(--t3)">(선택)</span></div>
+      <textarea id="inp-memo" class="memo-area" placeholder="ex) 교육자료 6부, 거래처 상주 필요, 웰체크&amp;일만사 프로세스 세팅 등"></textarea>
     </div>
     <input type="hidden" id="inp-type" value="visit">
     <input type="hidden" id="inp-ilmansa" value="미참여">
@@ -2591,7 +2608,7 @@ var MEMO_STORE = {}; // 거래처명 → 메모 저장소 (clinic_memos 테이�
 function rowToEv(r){
   return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, mrOffice:r.mr_office||'', label:r.label,
     time:r.time_slot, exactTime:r.exact_time||'', exactTimeEnd:r.exact_time_end||'', evType:r.ev_type, region:r.region, patients:r.patients,
-    memo:r.memo||'', checked:r.checked, status:r.status};
+    memo:r.memo||'', situation:r.situation||'', checked:r.checked, status:r.status};
 }
 // "14:30" -> "2p30", "09:00" -> "9a", "14:00" -> "2p"
 function compactTime(t){
@@ -3588,7 +3605,7 @@ function timeRangeLabel(ev){
   if(!ev.exactTime) return '';
   return compactTime(ev.exactTime)+(ev.exactTimeEnd?'~'+compactTime(ev.exactTimeEnd):'');
 }
-var EV_TYPE_ICON={off:'🌿',study:'📚',office:'🏢',etc:'📌'};
+var EV_TYPE_ICON={off:'🌿',study:'📚',office:'🏢',welda:'🩺',etc:'📌'};
 function buildChip(ev, isAll){
   var m=getMR(ev.mr);
   var isLeave=ev.evType&&ev.evType!=='visit';
@@ -3655,7 +3672,9 @@ function openAdd(day, zone){
   document.getElementById('inp-device').value='미도입';
   document.getElementById('inp-edu').value='이수';
   document.getElementById('inp-memo').value='';
+  document.getElementById('inp-situation').value='';
   document.getElementById('inp-etc-label').value='';
+  document.getElementById('inp-welda-label').value='';
   document.getElementById('del-btn').style.display='none';
   setAddMode('visit');
   document.getElementById('add-ov').classList.add('ov-open');
@@ -3682,11 +3701,13 @@ function openEditModal(ev){
   document.getElementById('inp-device').value=ev.device;
   document.getElementById('inp-edu').value=ev.edu;
   document.getElementById('inp-memo').value=ev.memo;
+  document.getElementById('inp-situation').value=ev.situation||'';
   document.getElementById('del-btn').style.display='inline-block';
   var isLeave=ev.evType&&ev.evType!=='visit';
   setAddMode(isLeave?'leave':'visit');
   if(isLeave){
     document.getElementById('inp-etc-label').value=ev.evType==='etc'?ev.label:'';
+    document.getElementById('inp-welda-label').value=ev.evType==='welda'?ev.label.replace(/^웰다\s*-\s*/,''):'';
     var btn=document.querySelector('#ev-type-btns .type-btn[onclick*="\''+ev.evType+'\'"]');
     if(btn) setEvType(btn, ev.evType);
   }
@@ -3698,11 +3719,25 @@ function saveEv(){
   var evType=document.getElementById('inp-type').value||'visit';
   var label;
   if(isLeave){
-    label = evType==='etc' ? document.getElementById('inp-etc-label').value.trim() : (EV_TYPE_LABELS[evType]||'일정');
-    if(!label){ alert('기타 일정명을 입력해주세요.'); return; }
+    if(evType==='etc'){
+      label=document.getElementById('inp-etc-label').value.trim();
+      if(!label){ alert('기타 일정명을 입력해주세요.'); return; }
+    } else if(evType==='welda'){
+      var weldaPlace=document.getElementById('inp-welda-label').value.trim();
+      if(!weldaPlace){ alert('웰다 방문처를 입력해주세요.'); return; }
+      label='웰다 - '+weldaPlace;
+    } else {
+      label=EV_TYPE_LABELS[evType]||'일정';
+    }
   } else {
     label=document.getElementById('inp-clinic').value.trim();
     if(!label){alert('거래처명을 입력해주세요.');return;}
+    // 사무소(MR)가 간호사에게 방문을 요청할 때는 어떤 상황인지/뭘 해달라는건지 반드시 적게 함.
+    // 간호사 본인이 자기 일정을 넣을 땐 요청 대상이 없으므로 면제(situation-fld 자체가 숨겨져 있음)
+    var situationVal=document.getElementById('inp-situation').value.trim();
+    if(!(currentUser&&currentUser.role==='간호사') && !situationVal){
+      alert('거래처 상황 및 요청사항을 입력해주세요.'); return;
+    }
   }
   var row={
     year:curYear, month:curMonth, day:addDay,
@@ -3724,7 +3759,8 @@ function saveEv(){
     exact_time:document.getElementById('inp-time-exact').value||null,
     exact_time_end:document.getElementById('inp-time-exact-end').value||null,
     ev_type:evType,
-    memo:document.getElementById('inp-memo').value
+    memo:document.getElementById('inp-memo').value,
+    situation: isLeave?null:(document.getElementById('inp-situation').value.trim()||null)
   };
   // 메모 저장
   if(row.memo && !isLeave){ MEMO_STORE[label]=row.memo; saveMemoToDB(label,row.memo); }
@@ -5712,6 +5748,7 @@ function setEvType(btn,type){
   document.querySelectorAll('#ev-type-btns .type-btn').forEach(function(b){b.classList.remove('type-active');});
   btn.classList.add('type-active');
   document.getElementById('leave-etc-label-fld').style.display=type==='etc'?'block':'none';
+  document.getElementById('leave-welda-label-fld').style.display=type==='welda'?'block':'none';
   updateLeaveTimeVisibility();
 }
 function setLeaveTimeSlot(btn,slot){
@@ -5768,6 +5805,17 @@ function setAddMode(mode){
     document.querySelectorAll('#ev-type-btns .type-btn').forEach(function(b){b.classList.remove('type-active');});
   }
   updateLeaveTimeVisibility();
+  updateSituationFieldVisibility();
+}
+// 사무소(MR)가 간호사에게 방문 요청을 넣을 때만 "거래처 상황 및 요청사항"을 보이고 필수로 함 -
+// 간호사 본인이 자기 일정을 직접 넣을 땐 요청 대상이 없으므로 칸 자체를 숨김
+function updateSituationFieldVisibility(){
+  var isLeave=ADD_MODE==='leave';
+  var show=!isLeave && !(currentUser&&currentUser.role==='간호사');
+  var fld=document.getElementById('situation-fld');
+  if(fld) fld.style.display=show?'block':'none';
+  var lbl=document.getElementById('situation-fld-lbl');
+  if(lbl) lbl.innerHTML='거래처 상황 및 요청사항'+(show?' <span style="color:#B01A1A;font-weight:800">*필수</span>':'');
 }
 
 function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=document.getElementById('add-mr-badge');if(b&&MR[mr]){b.textContent=MR[mr].name+' MR';b.style.background=MR[mr].bg;b.style.color=MR[mr].t;b.style.display='inline-flex';}}
@@ -5978,6 +6026,7 @@ function renderRequests(){
       +' · '+(r.time==='am'?'오전':r.time==='pm'?'오후':'종일')+' · '+(r.month||TODAY.m)+'/'+r.day+'일'
       +(r.memo?'<br><span style="color:var(--t3)">'+r.memo+'</span>':'')
       +'</div>'
+      +(r.situation?('<div style="background:#FFF8ED;border-left:3px solid #E0A339;border-radius:4px;padding:5px 7px;margin-bottom:6px;font-size:10.5px;color:#7A5A15;white-space:pre-wrap">📝 '+r.situation+'</div>'):'')
       +actions+'</div>';
   }).join('');
 }
