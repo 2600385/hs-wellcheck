@@ -485,10 +485,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* .cal-content가 align-items:flex-start라 flex 자식(달력/하단패널)이 기본적으로 내용 크기만큼만 잡혀 화면 폭을 다 못 씀 -> 모바일에서 명시적으로 꽉 채움 */
   .cal-grid-wrap,.bot-panels{width:100%}
   .bot-panels{position:static}
-  /* 캘린더 칸이 좁아 시간표기·체크박스까지 넣으면 거래처명이 다 잘리므로, 모바일에선 이름만 깔끔하게 노출 (조회 위주) */
+  /* 캘린더 칸이 좁아 시간표기·체크박스까지 넣으면 거래처명이 다 잘리므로, 모바일에선 이름만 깔끔하게 노출 (조회 위주).
+     예전엔 여기서 줄바꿈(white-space:normal)까지 허용해 2줄로 풀어줬는데, 칸 높이(76px)에 비해 일정이
+     여러 건 겹치면 남은 공간이 부족해 글자가 중간에서 뚝 잘리는(말줄임표도 없이) 현상이 있었음 - 데스크톱과
+     같은 한 줄 말줄임(...)으로 통일해서 항상 깔끔하게 잘리게 하고(글씨 크기만 축소), 전체 이름은 칩을
+     탭하면 상세보기에서 바로 확인 가능 */
   .ev-time,.ev-dot{display:none}
   .ev input[type=checkbox]{display:none}
-  .ev-txt{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25;font-size:9.5px}
+  .ev-txt{font-size:9.5px!important}
   .cal-topbar .mr-btn[onclick="openMgrModal()"]{display:none}
   /* 예전엔 칸/글씨가 너무 작아 보인다는 피드백으로 키웠었는데(cal-dh/day-num 폰트는 그대로 유지),
      달력 전체 세로 길이(칸 높이×최대 6줄)가 한 화면을 넘어가 스크롤이 너무 많이 생기고 "PC용 큰 달력을
@@ -3532,7 +3536,7 @@ function renderCalendar(){
       var lbl=document.createElement('div');lbl.className='zone-lbl';lbl.textContent='종일';
       az.appendChild(lbl);
 
-      appendEvsWithMore(az,allEvs,true,3,d,'all');
+      appendEvsWithMore(az,allEvs,true,zoneMax(3,2),d,'all');
       cell.appendChild(az);
     } else {
       // 종일 일정이 있으면 상단에 띠로 표시 (오전/오후와 공존)
@@ -3546,8 +3550,8 @@ function renderCalendar(){
       var am=document.createElement('div');am.className='dc-am';
       var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.textContent='오전';
       am.appendChild(amlbl);
-  
-      appendEvsWithMore(am,amEvs,false,2,d,'am');
+
+      appendEvsWithMore(am,amEvs,false,zoneMax(2,1),d,'am');
       var sep=document.createElement("div");sep.className="dc-sep";
       cell.appendChild(am);
       cell.appendChild(sep);
@@ -3556,7 +3560,7 @@ function renderCalendar(){
       var pmlbl=document.createElement('div');pmlbl.className='zone-lbl';pmlbl.textContent='오후';
       pm.appendChild(pmlbl);
   
-      appendEvsWithMore(pm,pmEvs,false,2,d,'pm');
+      appendEvsWithMore(pm,pmEvs,false,zoneMax(2,1),d,'pm');
       cell.appendChild(pm);
     }
     grid.appendChild(cell);
@@ -3566,6 +3570,10 @@ function renderCalendar(){
   for(var j=0;j<rem;j++){var e2=document.createElement('div');e2.className='ec';grid.appendChild(e2);}
 }
 
+// 모바일은 칸 높이가 76px로 데스크톱(116px)보다 훨씬 낮아서, 데스크톱 기준 max값을 그대로 쓰면
+// "+N개 더보기" 문턱을 안 넘긴 채로 칸 안에서 조용히 잘려(안내 없이 아예 안 보임) 정보가 누락되는
+// 문제가 있었음 - 모바일에서는 문턱을 낮춰서 넘치면 항상 "+N개 더보기"로 안내되게 함
+function zoneMax(desktopMax, mobileMax){ return window.innerWidth<=768 ? mobileMax : desktopMax; }
 // 셀에 이벤트를 max개까지만 그리고 초과분은 "+N개 더보기"로 묶어서 보여줌
 function appendEvsWithMore(container, evsList, isAll, max, day, zone){
   if(evsList.length<=max){
@@ -3591,7 +3599,8 @@ function openDayList(day, zone, evsList){
     row.className='dl-row';
     row.style.background=m.bg;row.style.color=m.t;
     var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
-    var txt=document.createElement('span');txt.style.cssText='flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    // 목록 팝업은 세로 스크롤이 있어 칸 높이 제약이 없으니, 여기선 잘리지 않고 이름 전체가 보이도록 줄바꿈 허용
+    var txt=document.createElement('span');txt.style.cssText='flex:1;font-size:12px;font-weight:600;line-height:1.4;word-break:break-word';
     txt.textContent=(ev.exactTime?compactTime(ev.exactTime)+' ':'')+ev.label;
     row.appendChild(dot);row.appendChild(txt);
     row.onclick=function(){closeDayList();openDetail(ev.id);};
