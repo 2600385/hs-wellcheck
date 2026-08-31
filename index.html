@@ -310,13 +310,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    보통 gap만큼만 떨어지고 두 카드만 자연스럽게 붙어 보이게 함 */
 .miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
-/* 다음달 목표(예: 9월)+나머지 달(예: 10~12월)을 다시 한 카드로 합침(카드 수 자체를 줄여달라는
-   요청) - 다음달은 위에 크게, 나머지 달은 그 아래 작게 이어붙임. 클래스명을 'm9'처럼 달 숫자에
-   묶어두면 그 달이 아닐 땐 스타일이 안 먹는 버그가 생겨서('다음달'은 매달 바뀌므로) 달과 무관한
-   고정 클래스명(mNext)으로 둠 */
-.miniCard.mNext{border-top:4px solid #F47920}
+/* 다음달~12월 목표를 한 카드에 담되, 예전엔 다음달만 큰 글씨 2줄이고 나머지는 작은 글씨 1줄이라
+   불공평해 보인다는 지적으로 이제 달마다 "OO월 OO처 → 달성률 OO% 등급" 형태의 같은 크기 한 줄씩으로
+   통일함. 클래스명을 'm9'처럼 달 숫자에 묶어두면 그 달이 아닐 땐 스타일이 안 먹는 버그가 생겨서
+   ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠. 테두리색은 주황 대신
+   연보라 파스텔톤으로(다른 카드들과 안 겹치게) 변경 */
+.miniCard.mNext{border-top:4px solid #C6B8EA}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
+/* 9~12월 목표 카드의 달별 한 줄 */
+.month-line{display:block;font-size:14px;font-weight:700;margin-top:6px}
+.gradePill-sm{padding:1px 7px;font-size:10.5px;margin-left:2px}
+/* 일만사 평가·청구 카드의 청구금액/평가실적/GAP 줄 - GAP만 한 단계 더 크게(모바일에서도 비율
+   유지되도록 폰트 크기를 인라인이 아니라 클래스로 둠) */
+.eval-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}
+.eval-row-gap{margin-top:7px;padding-top:7px;border-top:1px dashed #eadfd4}
+.eval-row-lbl{font-size:12px;font-weight:800;color:#74695f}
+.eval-row-val{font-size:20px;font-weight:800}
+.eval-row-lbl-big{font-size:15px}
+.eval-row-val-big{font-size:26px}
+/* 청구전환율 카드의 % - 위 KPI 카드들처럼 포인트색으로 큼직하게 */
+.rate-big{font-size:32px;font-weight:900;color:#B8860B}
+.rate-sub{display:block;margin-top:10px;line-height:2;font-size:12.5px}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
@@ -374,6 +389,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .modal-title{font-size:14px;font-weight:700;color:var(--t1)}
 .modal-x{cursor:pointer;color:var(--t3);font-size:20px;background:none;border:none;font-family:inherit;line-height:1}
 .modal-x:hover{color:var(--t1)}
+
+/* ===== 시간 선택 바텀시트 (모바일 네이티브 앱 느낌 - 카톡처럼 아래에서 올라와서 목록 중 하나를 탭) =====
+   기존엔 그냥 <select>라서 웹을 폰 화면에 얹은 느낌만 났음("다른 앱은 진짜 앱 느낌난다"는 지적) */
+.time-trigger{width:100%;padding:4px 6px;font-size:13px;font-weight:600;color:var(--t1);cursor:pointer}
+.time-sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(45,41,38,0);z-index:800;transition:background .2s}
+.time-sheet-backdrop.open{background:rgba(45,41,38,.4)}
+.time-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--white);border-radius:16px 16px 0 0;max-height:62vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -6px 24px rgba(0,0,0,.18);-webkit-overflow-scrolling:touch}
+.time-sheet-backdrop.open .time-sheet{transform:translateY(0)}
+.time-sheet-hd{position:sticky;top:0;background:var(--white);padding:12px 16px;font-weight:700;font-size:14px;color:var(--t1);text-align:center;border-bottom:0.5px solid var(--bd)}
+.time-sheet-item{padding:14px 18px;font-size:16px;color:var(--t1);cursor:pointer;display:flex;align-items:center;gap:8px}
+.time-sheet-item:active{background:var(--bg2)}
+.time-sheet-item.sel{background:#EAF4FF;color:#1048A0;font-weight:700}
+.time-sheet-check{width:16px;flex-shrink:0}
 .fld{margin-bottom:10px}
 .fld label{display:block;font-size:10px;font-weight:700;color:var(--t2);margin-bottom:3px;letter-spacing:.2px}
 .fld input,.fld select,.fld textarea{width:100%;padding:7px 10px;font-size:12px;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);font-family:inherit;transition:.12s}
@@ -429,6 +457,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   #st-kpi.kpiGrid .khint{font-size:10px!important;margin-top:3px!important}
   .miniGrid .klbl{font-size:10.5px!important}
   .miniGrid .khint{font-size:9.5px!important}
+  /* smallTarget/gradePill은 원래 각자 폰트 크기를 못박아둔 요소라 위 카드 축소 규칙만으로는 안 줄어들어서
+     ("PC 화면을 폰 크기로 줄여 넣은 느낌"의 원인 중 하나) 따로 줄임 */
+  .smallTarget{font-size:14px!important}
+  .gradePill{font-size:10.5px!important;padding:2px 6px!important;margin-left:4px!important}
+  /* 평가기준대응 카드(9~12월/일만사 평가·청구/청구전환율)도 인라인 스타일이 아니라 클래스로 되어
+     있어서 여기서 같이 줄인다 */
+  .month-line{font-size:12px!important;margin-top:5px!important}
+  .eval-row-lbl{font-size:10.5px!important}
+  .eval-row-val{font-size:16px!important}
+  .eval-row-lbl-big{font-size:12.5px!important}
+  .eval-row-val-big{font-size:20px!important}
+  .rate-big{font-size:24px!important}
+  .rate-sub{font-size:11px!important;margin-top:6px!important;line-height:1.7!important}
+  /* 그래프(차트)도 PC 높이(420px) 그대로면 폰에서 스크롤을 너무 많이 잡아먹어서 "PC 툴 같다"는
+     지적의 큰 원인이었음 - 모바일에서는 확 낮춤 */
+  .chartBox2{height:220px!important}
   .modal-lg,.modal-sm{width:92vw !important}
   .cal-content{flex-direction:column}
   /* .cal-content가 align-items:flex-start라 flex 자식(달력/하단패널)이 기본적으로 내용 크기만큼만 잡혀 화면 폭을 다 못 씀 -> 모바일에서 명시적으로 꽉 채움 */
@@ -439,11 +483,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .ev input[type=checkbox]{display:none}
   .ev-txt{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25;font-size:9.5px}
   .cal-topbar .mr-btn[onclick="openMgrModal()"]{display:none}
-  /* 달력 자체도 화면 폭 대비 칸/글씨가 작아 보인다는 피드백 -> 요일헤더/날짜숫자 폰트를 키우고 칸 높이도 화면에 맞게 살짝 키움 */
+  /* 예전엔 칸/글씨가 너무 작아 보인다는 피드백으로 키웠었는데(cal-dh/day-num 폰트는 그대로 유지),
+     달력 전체 세로 길이(칸 높이×최대 6줄)가 한 화면을 넘어가 스크롤이 너무 많이 생기고 "PC용 큰 달력을
+     그대로 욱여넣은 느낌"이 난다는 지적으로 칸 높이만 한 단계 낮춤(글씨 크기는 안 건드림) */
   .cal-dh{font-size:12.5px!important;padding:9px 4px!important}
-  .dc,.ec{height:100px!important}
+  .dc,.ec{height:76px!important}
   .day-num{font-size:14px!important}
-  .today-circle{width:24px!important;height:24px!important;font-size:13px!important}
+  .today-circle{width:22px!important;height:22px!important;font-size:12px!important}
 }
 </style>
 </head>
@@ -817,11 +863,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="dm-fields" style="margin-top:8px" id="time-exact-fields">
       <div class="dm-field">
         <div class="dm-field-lbl">시작 시간(선택)</div>
-        <select id="inp-time-exact" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
+        <div class="time-trigger" id="inp-time-exact-trigger" onclick="openTimeSheet('inp-time-exact')">시간 미지정</div>
+        <input type="hidden" id="inp-time-exact">
       </div>
       <div class="dm-field">
         <div class="dm-field-lbl">종료 시간(선택)</div>
-        <select id="inp-time-exact-end" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer"></select>
+        <div class="time-trigger" id="inp-time-exact-end-trigger" onclick="openTimeSheet('inp-time-exact-end')">시간 미지정</div>
+        <input type="hidden" id="inp-time-exact-end">
       </div>
     </div>
     <div id="visit-only-fields">
@@ -1807,6 +1855,7 @@ function parseCurrentRaw(wb){
         inactive_transition: row[COL.inactiveConv]==='해당',
         prev_active: row[COL.prevActive]==='해당',
         prev_patients: Number(row[COL.prevPatients])||0,
+        claim: claimVal,
         care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt,
         last_sync_date: lastSyncVal
       });
@@ -1991,14 +2040,14 @@ function commitCurrentRaw(parsed, status){
       var allRows=updates.map(function(u){
         return {office:currentOffice, biz_no:u.biz_no, name:u.name, mr:mrCode(currentOffice,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
-          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+          raw_claim:u.claim, care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
           last_sync_date:u.last_sync_date};
       }).concat(natUpdates.map(function(u){
         // clinics 테이블엔 mr_sabun 컬럼이 없음 - Object.assign으로 통째로 복사하면 스키마에 없는 컬럼이
         // 섞여 들어가서 upsert 전체가 실패함(실제로 "전국 거래처 반영 실패" 에러 재현됨). 필요한 필드만 명시적으로 골라 담는다.
         return {office:u.office, biz_no:u.biz_no, name:u.name, mr:mrCode(u.office,u.mr,u.mr_sabun), patients:u.patients, non_patients:u.non_patients,
           is_active:u.is_active, inactive_transition:u.inactive_transition, prev_active:u.prev_active, prev_patients:u.prev_patients,
-          care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
+          raw_claim:u.claim, care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
           last_sync_date:u.last_sync_date};
       }));
       var conflictBiz={}, conflictRows=[];
@@ -2077,7 +2126,7 @@ function commitCurrentRaw(parsed, status){
   Promise.all(updates.map(function(u){
     return db.from('clinics').update({
       patients:u.patients, non_patients:u.non_patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
-      prev_active:u.prev_active, prev_patients:u.prev_patients,
+      prev_active:u.prev_active, prev_patients:u.prev_patients, raw_claim:u.claim,
       care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
       last_sync_date:u.last_sync_date
     }).eq('biz_no', u.biz_no).eq('office', currentOffice).select('id');
@@ -2578,6 +2627,52 @@ function timeOptionsHTML(selected){
   }
   return html;
 }
+// 시간 선택 바텀시트 - 예전엔 그냥 <select>라 모바일에서 "웹을 폰 크기로 줄인" 느낌만 났음. 카톡처럼
+// 하단에서 목록이 올라와 탭으로 고르는 방식으로 바꿈(값 자체는 hidden input에 그대로 저장해서
+// 기존에 .value로 읽던 코드는 안 건드려도 됨).
+function timeSheetOptionList(){
+  var opts=[{v:'',label:'시간 미지정'}];
+  for(var mins=6*60; mins<=21*60; mins+=30){
+    var hh=Math.floor(mins/60), mm=mins%60;
+    var val=(hh<10?'0'+hh:hh)+':'+(mm<10?'0'+mm:mm);
+    opts.push({v:val,label:val});
+  }
+  return opts;
+}
+function timeFieldLabel(val){ return val?val:'시간 미지정'; }
+function setTimeFieldValue(id, val){
+  var input=document.getElementById(id);
+  if(input) input.value=val||'';
+  var trig=document.getElementById(id+'-trigger');
+  if(trig) trig.textContent=timeFieldLabel(val);
+}
+var TIME_SHEET_TARGET=null;
+function openTimeSheet(targetId){
+  TIME_SHEET_TARGET=targetId;
+  var input=document.getElementById(targetId);
+  var cur=input?(input.value||''):'';
+  var body=document.getElementById('time-sheet-body');
+  body.innerHTML=timeSheetOptionList().map(function(o){
+    var sel=o.v===cur;
+    return '<div class="time-sheet-item'+(sel?' sel':'')+'" onclick="pickTimeSheet(\''+o.v+'\')"><span class="time-sheet-check">'+(sel?'✓':'')+'</span>'+o.label+'</div>';
+  }).join('');
+  var backdrop=document.getElementById('time-sheet-backdrop');
+  backdrop.style.display='block';
+  requestAnimationFrame(function(){
+    backdrop.classList.add('open');
+    var selEl=body.querySelector('.sel');
+    if(selEl) selEl.scrollIntoView({block:'center'});
+  });
+}
+function pickTimeSheet(val){
+  if(TIME_SHEET_TARGET) setTimeFieldValue(TIME_SHEET_TARGET, val);
+  closeTimeSheet();
+}
+function closeTimeSheet(){
+  var backdrop=document.getElementById('time-sheet-backdrop');
+  backdrop.classList.remove('open');
+  setTimeout(function(){ backdrop.style.display='none'; }, 200);
+}
 // 시간 지정 이벤트를 이른 시간부터 먼저 정렬(하루 일정을 읽는 자연스러운 순서), 시간 미지정은 맨 뒤로.
 // 예전엔 반대(늦은 시간부터)로 정렬돼 있어서 오전 영역에 11시반이 8시반보다 위에 뜨는 문제가 있었음.
 function byExactTimeAsc(a,b){
@@ -2630,6 +2725,7 @@ function rowToClinic(r){
     isActive:!!r.is_active, inactiveTr:!!r.inactive_transition, prevActive:!!r.prev_active,
     nonPatients:r.non_patients||0,
     office:r.office||'경인1',
+    raw_claim:r.raw_claim!=null?r.raw_claim:null,
     care_plan_cnt:r.care_plan_cnt||0, edu_cnt:r.edu_cnt||0, patient_mgmt_cnt:r.patient_mgmt_cnt||0, check_eval_cnt:r.check_eval_cnt||0,
     lastSyncDate:r.last_sync_date||null,
     eduDate:r.edu_completed_date||null, duesDate:r.dues_paid_date||null};
@@ -3566,8 +3662,8 @@ function openAdd(day, zone){
   document.getElementById('inp-clinic').value='';
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
   document.getElementById('inp-time').value=zone;
-  document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML('');
-  document.getElementById('inp-time-exact-end').innerHTML=timeOptionsHTML('');
+  setTimeFieldValue('inp-time-exact','');
+  setTimeFieldValue('inp-time-exact-end','');
   document.getElementById('inp-patients').value='';
   document.getElementById('inp-ilmansa').value='참여';
   document.getElementById('inp-device').value='미도입';
@@ -3593,8 +3689,8 @@ function openEditModal(ev){
   }
   document.getElementById('inp-clinic').value=ev.label;
   document.getElementById('inp-time').value=ev.time;
-  document.getElementById('inp-time-exact').innerHTML=timeOptionsHTML(ev.exactTime||'');
-  document.getElementById('inp-time-exact-end').innerHTML=timeOptionsHTML(ev.exactTimeEnd||'');
+  setTimeFieldValue('inp-time-exact', ev.exactTime||'');
+  setTimeFieldValue('inp-time-exact-end', ev.exactTimeEnd||'');
   document.getElementById('inp-patients').value=ev.patients;
   document.getElementById('inp-ilmansa').value=ev.ilmansa;
   document.getElementById('inp-device').value=ev.device;
@@ -3854,9 +3950,11 @@ function renderList(){
         var gap=clinicEvalGap(c);
         var gapTxt=gap===null?'-':((gap>=0?'+':'')+companyMoney(gap));
         var gapColor=gap===null?'var(--t2)':(gap>=0?'#15803d':'#B01A1A');
-        // 당월청구(추정): MAU가 매일 갱신하는 이번달 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가
-        var monthlyEst=clinicMonthlyClaimEstimate(c);
-        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 항목별 건수·단가 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
+        // 당월청구(추정): RAW 파일("거래처별 RAW" 시트 AA열 "금액")이 알려주는 그 거래처의 실제 당월
+        // 청구금액을 최우선으로 쓰고(clinics.raw_claim), 아직 그 값이 없으면(예: RAW 재업로드 전)
+        // MAU가 매일 갱신하는 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가로 역산 추정한다.
+        var monthlyEst=(c.raw_claim!=null)?c.raw_claim:clinicMonthlyClaimEstimate(c);
+        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
       })()
       +(function(){
         var lStatus=ilmansaLicenseStatus(c);
@@ -3969,20 +4067,28 @@ function showClaimEstPopup(idx, event){
   var total=items.reduce(function(s,it){return s+it[1]*it[2];},0);
   var src=latestDataSourceLog();
   var srcLabel=src?((src.import_type==='daily'?'MAU':'활성처 현황(RAW)')+' '+(src.source_date?src.source_date.slice(5).replace('-','.'):'?')+' 기준 파일'):'파일 기준일 정보 없음';
+  var hasReal=c.raw_claim!=null;
   var div=document.createElement('div');
   div.id='claim-est-popup';
-  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid var(--bd2);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);width:250px';
+  div.style.cssText='position:fixed;z-index:999;background:white;border:0.5px solid var(--bd2);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);width:260px';
   var rect=el.getBoundingClientRect();
   div.style.top=(rect.bottom+6)+'px';
-  div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-  div.innerHTML='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px">🧮 '+c.name+' 당월청구(추정) 내역</div>'
+  div.style.left=Math.min(rect.left,window.innerWidth-270)+'px';
+  // RAW 파일("거래처별 RAW" 시트 AA열 "금액")에 실제 청구금액이 있으면 그 실제값을 맨 위에 크게
+  // 보여주고, 항목별 건수×단가 내역은 "참고"로만 아래에 둔다(역산 추정치라 실제값과 약간 차이날 수
+  // 있음 - 예전엔 항목별 합계 자체를 "당월청구(추정)"로 표시해서 실제 파일 값과 안 맞는다는 지적이 있었음).
+  div.innerHTML=(hasReal?('<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:2px">🧮 '+c.name+' 당월청구</div>'
+      +'<div style="font-size:20px;font-weight:800;color:#1048A0;margin-bottom:10px">'+c.raw_claim.toLocaleString()+'원</div>'
+      +'<div style="font-size:10.5px;color:var(--t2);margin-bottom:6px">RAW 파일(거래처별 RAW 시트 "금액" 컬럼) 실제 청구금액 · '+srcLabel+'</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t2);margin:8px 0 4px">참고: 항목별 건수 내역(단가 역산, 실제값과 약간 다를 수 있음)</div>')
+    :'<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px">🧮 '+c.name+' 당월청구(추정) 내역</div>')
     +'<table style="width:100%;font-size:11px;border-collapse:collapse">'
     +items.map(function(it){
       return '<tr><td style="padding:3px 0;color:var(--t2)">'+it[0]+'</td><td style="text-align:right;padding:3px 0">'+it[1]+'건 × '+it[2].toLocaleString()+'원</td><td style="text-align:right;padding:3px 0;font-weight:600;width:64px">'+(it[1]*it[2]).toLocaleString()+'</td></tr>';
     }).join('')
-    +'<tr><td colspan="2" style="padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">합계</td><td style="text-align:right;padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">'+total.toLocaleString()+'원</td></tr>'
+    +'<tr><td colspan="2" style="padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">'+(hasReal?'항목 합계(참고)':'합계')+'</td><td style="text-align:right;padding:6px 0 0;font-weight:700;border-top:0.5px solid var(--bd2)">'+total.toLocaleString()+'원</td></tr>'
     +'</table>'
-    +'<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">건수: '+srcLabel+'<br>단가는 회사 청구단가(건당) 고정값 - 이 금액은 심평원에 최종 확정된 청구금액이 아니라 현재까지 파악된 건수로 역산한 추정치입니다. 확정 금액은 청구현황판(베이스라인 반영 후)에서 확인하세요.</div>'
+    +(hasReal?'':'<div style="margin-top:8px;font-size:10px;color:var(--t3);line-height:1.5">건수: '+srcLabel+'<br>단가는 회사 청구단가(건당) 고정값 - 이 금액은 심평원에 최종 확정된 청구금액이 아니라 현재까지 파악된 건수로 역산한 추정치입니다. 확정 금액은 청구현황판(베이스라인 반영 후)에서 확인하세요.</div>')
     +'<button onclick="closeClaimEstPopup()" style="margin-top:8px;width:100%;padding:5px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer;background:white">닫기</button>';
   document.body.appendChild(div);
   clampPopupVertical(div, rect);
@@ -3993,15 +4099,28 @@ function showClaimEstPopup(idx, event){
     });
   },100);
 }
-// 거래처별 평가청구 GAP: "평가-청구" 시트는 거래처 단위 값이 없어(사무소/MR 단위까지만 있음) 여기서만 근사 추정 -
-// 그 거래처의 최신 파일 기준 누적 활성환자수×10,000원(평가실적, 실제 파일로 검증된 환자 1명당 평가단가) 대비
-// 같은 시점 총청구금액(실제 청구금액). 매칭되는 청구 데이터가 없으면 null
+// 거래처별 평가청구 GAP: 환자수×10,000원(평가실적, 실제 파일로 검증된 환자 1명당 평가단가) 대비
+// 같은 시점 실제 청구금액. 이번달이 아직 공식 마감(clinic_claims 베이스라인) 전이면, 마감된
+// 지난달 값과 비교하는 꼴이 돼서 안 맞아 보이는 문제가 있었음(실사례: 누가의원 404명 기준
+// 평가실적 4,040,000원인데, 화면은 지난달 마감 청구금액을 보여줘서 어긋남) - RAW 파일
+// "거래처별 RAW" 시트 AA열("금액")이 그 거래처의 실제 당월 청구금액을 그대로 알려주므로
+// (clinics.raw_claim, 매 RAW 업로드마다 갱신) 이번달이 아직 마감 전이면 그 값을 우선 쓴다.
 function clinicEvalGap(c){
   var cl=clinicClaim(c);
-  if(!cl) return null;
-  var evalScore=(cl.cumPatient||0)*10000;
-  var actualClaim=cl.mclaim||0;
-  return actualClaim-evalScore;
+  var curMonth=todayMonthStr();
+  if(cl && cl.month && cl.month.slice(0,7)===curMonth){
+    // 이번달 공식 마감(베이스라인)이 이미 있음 - 그 마감 시점 값이 최우선
+    return (cl.mclaim||0)-(cl.cumPatient||0)*10000;
+  }
+  if(c && c.raw_claim!=null){
+    // 마감 전이면 RAW 파일의 실제 금액을 그대로 씀(항목별 단가 역산 추정 대신)
+    return (c.raw_claim||0)-(c.patients||0)*10000;
+  }
+  if(cl){
+    // 최후 폴백: 이번달 데이터가 전혀 없으면 지난 마감월 값이라도(예전 동작 유지)
+    return (cl.mclaim||0)-(cl.cumPatient||0)*10000;
+  }
+  return null;
 }
 var stTrendChart=null;
 function renderStrategyView(){
@@ -4370,31 +4489,20 @@ function renderStKPI(){
     var mPct=mTh?Math.round(k.active/mTh*100):null;
     return {th:mTh, pct:mPct};
   }
-  // "OO/OO처"가 같은 색으로 보여서 지금 몇 처인지 눈에 안 띈다는 지적 - 위 "현재 활성처" 카드처럼
-  // 현재값은 주황, 목표값은 회색으로 구분해서 보여준다.
-  function miniValHtml(cur, target){
-    return '<span style="color:#F47920">'+cur+'처</span> <span style="color:#9b8d82;font-size:15px;font-weight:700">/ '+(target!=null?target:'-')+'처</span>';
-  }
   var monthMinis=[];
   // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
-  // 카드 2개(다음달 단독 + 나머지 달 압축)로 나눴던 걸 다시 한 카드로 합침 - 다음달(예: 9월)은
-  // 위에 크게, 그 이후(예: 10~12월)는 아래에 작게 이어붙인다.
+  // "OO월 목표 OO처인데 현재 OO처면 달성률 OO%"는 줄줄이 늘어놔서 읽기 불편하다는 지적 - "현재 OO처"는
+  // 위 KPI 카드에 이미 있는 정보라 빼고, "OO월 OO처 → 달성률 OO% 등급"으로 짧게 정리한다.
   if(nextYear===thisYear){
-    var a0=monthAchv(startMonth);
-    var hint0=a0.th!=null?('달성률 '+a0.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:11px;margin-left:3px">'+achievementGrade(a0.pct)+'등급</span>'):(startMonth+'월 목표 데이터 없음');
-    var restMonths=[];
-    for(var mm2=startMonth+1;mm2<=12;mm2++) restMonths.push(mm2);
-    var restHint='';
-    if(restMonths.length){
-      // 10월/11월은 한 줄인데 12월만 다음 줄로 밀려나 보이는 문제 - 아예 달마다 줄을 나눠서(<br>)
-      // 항상 "OO월 OO% C등급" 한 줄씩, 등급도 다른 카드와 통일된 gradePill(핑크바탕/빨간글씨)로.
-      restHint='<br>'+restMonths.map(function(mm3){
-        var a3=monthAchv(mm3);
-        if(a3.pct==null) return mm3+'월 목표 데이터 없음';
-        return mm3+'월 '+a3.pct+'% <span class="gradePill" style="padding:1px 7px;font-size:10px;margin-left:3px">'+achievementGrade(a3.pct)+'등급</span>';
-      }).join('<br>');
-    }
-    monthMinis.push(['mNext', startMonth+'월 목표', miniValHtml(k.active, a0.th), hint0+restHint, 'active']);
+    var monthsList=[];
+    for(var mmX=startMonth; mmX<=12; mmX++) monthsList.push(mmX);
+    var monthLines=monthsList.map(function(mm){
+      var a=monthAchv(mm);
+      if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
+      return '<span class="month-line">'+mm+'월 '+a.th+'처 → 달성률 '+a.pct+'% <span class="gradePill gradePill-sm">'+achievementGrade(a.pct)+'등급</span></span>';
+    }).join('');
+    var monthLabel=monthsList.length>1?(monthsList[0]+'~'+monthsList[monthsList.length-1]+'월 목표'):(monthsList[0]+'월 목표');
+    monthMinis.push(['mNext', monthLabel, monthLines, '', 'active']);
   }
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
   // 일만사 평가실적+청구금액을 한 카드, 청구전환율을 한 카드로. GAP(청구금액-평가실적)은 청구금액과
@@ -4404,23 +4512,31 @@ function renderStKPI(){
     var gapPositive=ec.gap>=0;
     var gapColor=gapPositive?'#1048A0':'#B01A1A';
     var estBadge=ec.official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px;vertical-align:middle">추정</span>';
-    // 청구금액/평가실적/갭을 같은 크기의 숫자로 나란히 - "천원" 글자를 붙이면 두 줄 폭이 안 맞아
-    // 지저분해 보인다는 지적으로 여기 3줄에서만 단위 글자 없이 숫자만 크게 보여준다(다른 화면은
-    // 기존 "천원" 표기 그대로 유지).
-    function evalRow(lbl, val, color, borderTop){
-      return '<span style="display:flex;justify-content:space-between;align-items:baseline;font-size:19px;font-weight:800'
-        +(color?(';color:'+color):'')+(borderTop?';margin-top:5px;padding-top:5px;border-top:1px dashed #eadfd4':';margin-top:3px')+'">'
-        +'<span style="font-size:11px;font-weight:700;color:#74695f">'+lbl+'</span><span>'+val+'</span></span>';
+    // 청구금액/평가실적을 같은 크기 숫자로 나란히 보여주고("천원" 글자를 붙이면 두 줄 폭이 안 맞아
+    // 지저분해짐), GAP은 청구금액-평가실적 비교의 결론이라 두 줄보다 한 단계 더 크게(라벨/숫자 둘 다)
+    // 강조해서 한눈에 좋은지 나쁜지 보이게 한다.
+    // 폰트 크기는 CSS 클래스(eval-row-lbl/eval-row-val, gap 수식어)로 빼서 모바일에서
+    // 미디어쿼리로 따로 줄일 수 있게 함(인라인 style로 박아두면 모바일에서도 그대로 커서
+    // "PC 화면을 그냥 줄인 것 같다"는 지적의 원인이 됐었음) - 색상만 데이터에 따라 달라서 inline으로 남김.
+    function evalRow(lbl, val, opts){
+      opts=opts||{};
+      var rowCls='eval-row'+(opts.borderTop?' eval-row-gap':'');
+      var lblCls='eval-row-lbl'+(opts.big?' eval-row-lbl-big':'');
+      var valCls='eval-row-val'+(opts.big?' eval-row-val-big':'');
+      return '<span class="'+rowCls+'">'
+        +'<span class="'+lblCls+'"'+(opts.color?(' style="color:'+opts.color+'"'):'')+'>'+lbl+'</span>'
+        +'<span class="'+valCls+'"'+(opts.color?(' style="color:'+opts.color+'"'):'')+'>'+val+'</span></span>';
     }
     evalMinis.push(['evalScore','일만사 평가·청구'+estBadge,
-      evalRow('청구금액', companyMoney(ec.actualClaim), null, false)
-      + evalRow('평가실적', companyMoney(ec.evalScore), null, false)
-      + evalRow('갭', (gapPositive?'+':'')+companyMoney(ec.gap), gapColor, true),
+      evalRow('청구금액', companyMoney(ec.actualClaim), {})
+      + evalRow('평가실적(환자수×10)', companyMoney(ec.evalScore), {})
+      + evalRow('GAP', (gapPositive?'+':'')+companyMoney(ec.gap), {color:gapColor, big:true, borderTop:true}),
       '', null]);
-    // %는 크게 그대로 두고, 아래 설명 두 줄(일만사처/청구처)이 카드 위쪽에만 몰려 있어 보이던 걸
-    // 줄바꿈+여백을 넉넉히 둬서 카드 안에 고르게 퍼지도록 함.
-    evalMinis.push(['evalRate','청구전환율'+estBadge, ec.rate+'%',
-      '<span style="display:block;margin-top:10px;line-height:2">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
+    // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
+    // 둬서 카드 안에 고르게 퍼지도록 함(예전엔 %만 크고 나머진 카드 위쪽에 작게 몰려 있어 불균형했음).
+    evalMinis.push(['evalRate','청구전환율'+estBadge,
+      '<span class="rate-big">'+ec.rate+'%</span>',
+      '<span class="rate-sub">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
   }
   var minis=monthMinis.concat(evalMinis).concat([
     ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
@@ -5632,8 +5748,8 @@ function updateLeaveTimeVisibility(){
   document.getElementById('time-exact-fields').style.display = forceAllDay?'none':'';
   if(forceAllDay){
     document.getElementById('inp-time').value='all';
-    document.getElementById('inp-time-exact').value='';
-    document.getElementById('inp-time-exact-end').value='';
+    setTimeFieldValue('inp-time-exact','');
+    setTimeFieldValue('inp-time-exact-end','');
   }
   if(isLeave) setLeaveTimeActive(document.getElementById('inp-time').value);
 }
@@ -5821,6 +5937,7 @@ function openRequestPopup(id){
   document.getElementById('req-ov').style.display='flex';
 }
 function approveRequest(){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('승낙은 담당 CM만 가능합니다.'); return; }
   if(!currentReqId) return;
   var exactTimeEl=document.getElementById('req-exact-time');
   var upd={status:'approved'};
@@ -5832,6 +5949,7 @@ function approveRequest(){
   });
 }
 function rejectRequest(){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('거절은 담당 CM만 가능합니다.'); return; }
   if(!currentReqId) return;
   db.from('schedules').update({status:'rejected'}).eq('id',currentReqId).then(function(res){
     if(res.error){alert('거절 처리 실패: '+res.error.message);return;}
@@ -5854,8 +5972,18 @@ function renderRequests(){
     list.innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:8px 0">현재 요청 없음</div>';
     return;
   }
+  // 승낙/거절은 담당 CM(간호사)만 - 사무소명으로 로그인한 소장님/사무소원(role='MR')도 이 목록을
+  // 볼 수는 있어야(간호사에게 요청이 가 있다는 걸 알 수 있게) 하지만, 실제로 승낙/거절을 누를 수 있는 건
+  // 아니어야 함(예전엔 role 체크가 아예 없어서 사무소 로그인으로도 승낙이 눌러졌음)
+  var canApprove=currentUser&&currentUser.role==='간호사';
   list.innerHTML=pending.map(function(r){
     var m=getMR(r.mr);
+    var actions=canApprove
+      ? ('<div style="display:flex;gap:5px">'
+        +'<button onclick="approveReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:5px;cursor:pointer">✅ 승낙</button>'
+        +'<button onclick="rejectReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:5px;cursor:pointer">❌ 거절</button>'
+        +'</div>')
+      : '<div style="font-size:10px;color:var(--t3);text-align:center">승낙/거절은 담당 CM만 가능해요</div>';
     return '<div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:6px">'
       +'<div style="font-weight:700;color:var(--t1);font-size:12px;margin-bottom:3px">'+r.label+'</div>'
       +'<div style="color:var(--t2);font-size:10px;margin-bottom:6px">'
@@ -5863,14 +5991,12 @@ function renderRequests(){
       +' · '+(r.time==='am'?'오전':r.time==='pm'?'오후':'종일')+' · '+(r.month||TODAY.m)+'/'+r.day+'일'
       +(r.memo?'<br><span style="color:var(--t3)">'+r.memo+'</span>':'')
       +'</div>'
-      +'<div style="display:flex;gap:5px">'
-      +'<button onclick="approveReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:5px;cursor:pointer">✅ 승낙</button>'
-      +'<button onclick="rejectReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:5px;cursor:pointer">❌ 거절</button>'
-      +'</div></div>';
+      +actions+'</div>';
   }).join('');
 }
 
 function approveReq(id){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('승낙은 담당 CM만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
   db.from('schedules').update({status:'approved'}).eq('id',id).then(function(res){
@@ -5881,6 +6007,7 @@ function approveReq(id){
 }
 
 function rejectReq(id){
+  if(!(currentUser&&currentUser.role==='간호사')){ alert('거절은 담당 CM만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
   db.from('schedules').update({status:'rejected'}).eq('id',id).then(function(res){
@@ -6312,6 +6439,14 @@ function closeClinicChart(){
       <button class="btn" style="background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A" onclick="rejectRequest()">거절</button>
       <button class="btn btn-save" onclick="approveRequest()">✅ 승낙</button>
     </div>
+  </div>
+</div>
+
+<!-- 시간 선택 바텀시트 -->
+<div class="time-sheet-backdrop" id="time-sheet-backdrop" onclick="if(event.target===this) closeTimeSheet()">
+  <div class="time-sheet">
+    <div class="time-sheet-hd">시간 선택</div>
+    <div id="time-sheet-body"></div>
   </div>
 </div>
 </body>
