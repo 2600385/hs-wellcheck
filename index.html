@@ -397,6 +397,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .time-sheet-backdrop.open{background:rgba(45,41,38,.4)}
 .time-sheet{position:fixed;left:0;right:0;bottom:0;background:var(--white);border-radius:16px 16px 0 0;max-height:62vh;overflow-y:auto;transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -6px 24px rgba(0,0,0,.18);-webkit-overflow-scrolling:touch}
 .time-sheet-backdrop.open .time-sheet{transform:translateY(0)}
+/* 화면 폭이 넓으면(PC) 바텀시트가 화면 끝까지 꽉 차서 너무 커 보인다는 지적 - 좁은 화면(폰)에서만
+   화면폭 전체를 쓰는 진짜 "바텀시트"로 두고, 그보다 넓으면 폭을 제한하고 가운데로 모아서 작은
+   팝업처럼 보이게 함 */
+@media (min-width:640px){
+  .time-sheet{left:50%;right:auto;bottom:auto;top:50%;width:340px;border-radius:16px;max-height:62vh;transform:translate(-50%,-46%) scale(.96);opacity:0;transition:transform .18s ease,opacity .18s ease}
+  .time-sheet-backdrop.open .time-sheet{transform:translate(-50%,-50%) scale(1);opacity:1}
+}
 .time-sheet-hd{position:sticky;top:0;background:var(--white);padding:12px 16px;font-weight:700;font-size:14px;color:var(--t1);text-align:center;border-bottom:0.5px solid var(--bd)}
 .time-sheet-item{padding:14px 18px;font-size:16px;color:var(--t1);cursor:pointer;display:flex;align-items:center;gap:8px}
 .time-sheet-item:active{background:var(--bg2)}
@@ -707,30 +714,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('unpaid',event)">
             <div style="font-size:15px;font-weight:700;color:#B01A1A" id="dues-unpaid">—</div>
             <div style="font-size:9px;color:#B01A1A">미납</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pnl">
-        <div class="pnl-title">🎓 <span style="color:#1048A0">일만사 운영자격 현황</span>
-          <span style="font-weight:400;color:var(--t3);font-size:9px">(회비납부+교육이수 → 그다음해 12/31까지 유효)</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">
-          <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('all',event)">
-            <div style="font-size:15px;font-weight:700;color:var(--t1)" id="lic-total">—</div>
-            <div style="font-size:9px;color:var(--t2)">총 대상</div>
-          </div>
-          <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('valid',event)">
-            <div style="font-size:15px;font-weight:700;color:#145C38" id="lic-valid">—</div>
-            <div style="font-size:9px;color:#145C38">유효</div>
-          </div>
-          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('soon',event)">
-            <div style="font-size:15px;font-weight:700;color:#B26A00" id="lic-soon">—</div>
-            <div style="font-size:9px;color:#B26A00">만료임박</div>
-          </div>
-          <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('expired',event)">
-            <div style="font-size:15px;font-weight:700;color:#B01A1A" id="lic-expired">—</div>
-            <div style="font-size:9px;color:#B01A1A">만료</div>
           </div>
         </div>
       </div>
@@ -2820,6 +2803,9 @@ function isMultiOfficeRole(role){ return MULTI_OFFICE_ROLES.indexOf(role)>=0; }
 // 대부분이라 개별 역할 구분이 사실상 안 됨 - 이 그룹이 실제로 궁금한 건 "지금 활성처/청구처
 // 현황"이므로 활성처 전략판을 기본으로 함(사용자 확인).
 function homeViewForRole(){ return (currentUser && currentUser.role==='간호사') ? 'cal' : 'strategy'; }
+// 일정 요청 승낙/거절: 원래 담당 CM(간호사)만 되던 걸, 관리자도 필요할 때(간호사 대신/자리 비웠을
+// 때 등) 처리할 수 있어야 한다는 요청으로 관리자도 허용. 그 외 역할(사무소명 로그인 등)은 계속 불가.
+function canApproveRequests(){ return !!(currentUser && (currentUser.role==='간호사'||currentUser.role==='관리자')); }
 function doLogin(){
   var input=document.getElementById('login-empno').value.trim();
   var errEl=document.getElementById('login-error');
@@ -5937,7 +5923,7 @@ function openRequestPopup(id){
   document.getElementById('req-ov').style.display='flex';
 }
 function approveRequest(){
-  if(!(currentUser&&currentUser.role==='간호사')){ alert('승낙은 담당 CM만 가능합니다.'); return; }
+  if(!canApproveRequests()){ alert('승낙은 담당 CM 또는 관리자만 가능합니다.'); return; }
   if(!currentReqId) return;
   var exactTimeEl=document.getElementById('req-exact-time');
   var upd={status:'approved'};
@@ -5949,7 +5935,7 @@ function approveRequest(){
   });
 }
 function rejectRequest(){
-  if(!(currentUser&&currentUser.role==='간호사')){ alert('거절은 담당 CM만 가능합니다.'); return; }
+  if(!canApproveRequests()){ alert('거절은 담당 CM 또는 관리자만 가능합니다.'); return; }
   if(!currentReqId) return;
   db.from('schedules').update({status:'rejected'}).eq('id',currentReqId).then(function(res){
     if(res.error){alert('거절 처리 실패: '+res.error.message);return;}
@@ -5972,10 +5958,11 @@ function renderRequests(){
     list.innerHTML='<div style="font-size:11px;color:var(--t3);text-align:center;padding:8px 0">현재 요청 없음</div>';
     return;
   }
-  // 승낙/거절은 담당 CM(간호사)만 - 사무소명으로 로그인한 소장님/사무소원(role='MR')도 이 목록을
-  // 볼 수는 있어야(간호사에게 요청이 가 있다는 걸 알 수 있게) 하지만, 실제로 승낙/거절을 누를 수 있는 건
-  // 아니어야 함(예전엔 role 체크가 아예 없어서 사무소 로그인으로도 승낙이 눌러졌음)
-  var canApprove=currentUser&&currentUser.role==='간호사';
+  // 승낙/거절은 담당 CM(간호사) 또는 관리자만 - 사무소명으로 로그인한 소장님/사무소원(role='MR')도 이
+  // 목록을 볼 수는 있어야(간호사에게 요청이 가 있다는 걸 알 수 있게) 하지만, 실제로 승낙/거절을 누를 수
+  // 있는 건 아니어야 함(예전엔 role 체크가 아예 없어서 사무소 로그인으로도 승낙이 눌러졌음). 관리자는
+  // 간호사가 자리를 비웠을 때 등 대신 처리할 수 있어야 한다는 요청으로 함께 허용.
+  var canApprove=canApproveRequests();
   list.innerHTML=pending.map(function(r){
     var m=getMR(r.mr);
     var actions=canApprove
@@ -5983,7 +5970,7 @@ function renderRequests(){
         +'<button onclick="approveReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:5px;cursor:pointer">✅ 승낙</button>'
         +'<button onclick="rejectReq('+r.id+')" style="flex:1;padding:4px;font-size:11px;font-weight:600;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:5px;cursor:pointer">❌ 거절</button>'
         +'</div>')
-      : '<div style="font-size:10px;color:var(--t3);text-align:center">승낙/거절은 담당 CM만 가능해요</div>';
+      : '<div style="font-size:10px;color:var(--t3);text-align:center">승낙/거절은 담당 CM 또는 관리자만 가능해요</div>';
     return '<div style="background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:6px">'
       +'<div style="font-weight:700;color:var(--t1);font-size:12px;margin-bottom:3px">'+r.label+'</div>'
       +'<div style="color:var(--t2);font-size:10px;margin-bottom:6px">'
@@ -5996,7 +5983,7 @@ function renderRequests(){
 }
 
 function approveReq(id){
-  if(!(currentUser&&currentUser.role==='간호사')){ alert('승낙은 담당 CM만 가능합니다.'); return; }
+  if(!canApproveRequests()){ alert('승낙은 담당 CM 또는 관리자만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
   db.from('schedules').update({status:'approved'}).eq('id',id).then(function(res){
@@ -6007,7 +5994,7 @@ function approveReq(id){
 }
 
 function rejectReq(id){
-  if(!(currentUser&&currentUser.role==='간호사')){ alert('거절은 담당 CM만 가능합니다.'); return; }
+  if(!canApproveRequests()){ alert('거절은 담당 CM 또는 관리자만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
   db.from('schedules').update({status:'rejected'}).eq('id',id).then(function(res){
