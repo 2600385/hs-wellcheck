@@ -718,30 +718,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
 
-      <div class="pnl">
-        <div class="pnl-title">🎓 <span style="color:#1048A0">일만사 운영자격 현황</span>
-          <span style="font-weight:400;color:var(--t3);font-size:9px">(회비납부+교육이수 → 그다음해 12/31까지 유효)</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">
-          <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('all',event)">
-            <div style="font-size:15px;font-weight:700;color:var(--t1)" id="lic-total">—</div>
-            <div style="font-size:9px;color:var(--t2)">총 대상</div>
-          </div>
-          <div style="background:#E4F5EE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('valid',event)">
-            <div style="font-size:15px;font-weight:700;color:#145C38" id="lic-valid">—</div>
-            <div style="font-size:9px;color:#145C38">유효</div>
-          </div>
-          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('soon',event)">
-            <div style="font-size:15px;font-weight:700;color:#B26A00" id="lic-soon">—</div>
-            <div style="font-size:9px;color:#B26A00">만료임박</div>
-          </div>
-          <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showLicenseList('expired',event)">
-            <div style="font-size:15px;font-weight:700;color:#B01A1A" id="lic-expired">—</div>
-            <div style="font-size:9px;color:#B01A1A">만료</div>
-          </div>
-        </div>
-      </div>
-
       <div class="pnl" id="req-pnl">
         <div class="pnl-title">📬 <span style="color:#1048A0">신규 일정 요청</span>
           <span id="req-badge" style="display:none;background:#ef4444;color:white;border-radius:999px;font-size:9px;padding:1px 6px;margin-left:4px;font-weight:700"></span>
