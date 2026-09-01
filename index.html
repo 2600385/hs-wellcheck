@@ -170,8 +170,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-dh{padding:8px 5px;font-size:11px;font-weight:700;color:var(--t2);text-align:center;background:var(--bg3);border-bottom:1px solid var(--bd2)}
 
-/* 날짜 셀 */
-.dc{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s;overflow:hidden}
+/* 날짜 셀 - height가 아니라 min-height라서, 한 주(같은 grid row)의 어느 날이든 일정이 많아 칸이
+   커져야 하면(예: 오전 3건) CSS grid가 그 행 전체를 알아서 그만큼 늘려줌(구현은 appendEvsWithMore의
+   max 상향 + 아래 zone 영역들의 overflow:visible 조합). 평소(2건 이하)엔 116px로 다른 주와 동일하게 유지 */
+.dc{min-height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s}
 .dc:nth-child(7n){border-right:none}
 .dc:hover{background:var(--dw-l)}
 .dc-top{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none}
@@ -179,11 +181,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .today-circle{background:var(--dw);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
 .add-btn{display:none}
 
-/* 오전/오후/종일 영역 */
-.dc-am{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+/* 오전/오후/종일 영역 - overflow:hidden을 빼서(대신 appendEvsWithMore의 max로 상한을 두므로 넘칠
+   일은 없음) 일정이 늘어나면 이 영역도, 부모 .dc(min-height)도 같이 커지게 함 */
+.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column}
 .dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
-.dc-pm{flex:1;padding:0 3px 2px;position:relative;overflow:hidden;display:flex;flex-direction:column}
-.dc-all{flex:1;padding:0 4px 3px;overflow:hidden;display:flex;flex-direction:column}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column}
+.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column}
 .zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
 
 /* 이벤트 칩 */
@@ -218,7 +221,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dl-row:hover{filter:brightness(.96)}
 
 /* 빈칸 */
-.ec{height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
+/* .dc처럼 min-height로 - 같은 주의 다른 칸이 일정이 많아 커지면 월 시작/끝의 빈 칸도 같이 늘어나야
+   줄 밑선이 들쭉날쭉해 보이지 않음 */
+.ec{min-height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
 .ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
 .ec:nth-child(7n){border-right:none}
 
@@ -498,7 +503,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
      달력 전체 세로 길이(칸 높이×최대 6줄)가 한 화면을 넘어가 스크롤이 너무 많이 생기고 "PC용 큰 달력을
      그대로 욱여넣은 느낌"이 난다는 지적으로 칸 높이만 한 단계 낮춤(글씨 크기는 안 건드림) */
   .cal-dh{font-size:12.5px!important;padding:9px 4px!important}
-  .dc,.ec{height:76px!important}
+  /* 데스크톱은 .dc가 이제 min-height라서(주간별로 일정 3건인 날엔 그 주만 커지게) 여기서 그냥
+     height만 주면 min-height(116px)가 바닥값으로 작용해 76px보다 커져버림 - min-height도 같이 눌러줌 */
+  .dc,.ec{height:76px!important;min-height:76px!important}
   .day-num{font-size:14px!important}
   .today-circle{width:22px!important;height:22px!important;font-size:12px!important}
 }
@@ -843,13 +850,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
              여기에 읽기전용으로 표시. 셀렉트와 자리를 바꿔가며 토글(showCrossMr/hideCrossMr) -->
         <div id="cross-mr-display" style="display:none;padding:4px 6px;font-size:13px;font-weight:600;color:#2F78B7"></div>
       </div>
+      <!-- 예전엔 오전/오후/종일을 직접 골라야 했는데, 어차피 시작 시간을 정하면 오전/오후는 자동으로
+           정해지는 거라 이중 입력이었음(13시부터 오후, 12시30분까지는 오전) - "종일"만 직접 켜고 끄는
+           토글로 바꾸고, 종일이 아니면 시작 시간으로부터 오전/오후를 자동 계산(onAlldayToggle/
+           timeSlotFromExact). inp-time은 계산된 값을 담는 hidden input으로 그대로 유지(저장 로직은 안 건드림) -->
       <div class="dm-field" id="timeslot-field">
-        <div class="dm-field-lbl">시간대</div>
-        <select id="inp-time" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer">
-          <option value="all">종일</option>
-          <option value="am">오전</option>
-          <option value="pm">오후</option>
-        </select>
+        <div class="dm-field-lbl">종일 여부</div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:3px 0">
+          <input type="checkbox" id="inp-allday" onchange="onAlldayToggle()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--dw)">
+          <span style="font-size:13px;font-weight:600;color:var(--t1)">종일</span>
+        </label>
+        <input type="hidden" id="inp-time" value="am">
       </div>
     </div>
     <div class="dm-fields" style="margin-top:8px" id="time-exact-fields">
@@ -910,14 +921,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="fld" id="leave-etc-label-fld" style="display:none">
         <label>기타 일정명</label>
         <input type="text" id="inp-etc-label" placeholder="예) 병원 방문, 교육 참석 등" autocomplete="off">
-      </div>
-      <div class="fld" id="leave-time-field">
-        <label>시간대</label>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">
-          <button type="button" class="type-btn" data-slot="all" onclick="setLeaveTimeSlot(this,'all')">종일</button>
-          <button type="button" class="type-btn" data-slot="am" onclick="setLeaveTimeSlot(this,'am')">오전</button>
-          <button type="button" class="type-btn" data-slot="pm" onclick="setLeaveTimeSlot(this,'pm')">오후</button>
-        </div>
       </div>
     </div>
     <div style="margin-top:10px">
@@ -2669,7 +2672,14 @@ function openTimeSheet(targetId){
   });
 }
 function pickTimeSheet(val){
-  if(TIME_SHEET_TARGET) setTimeFieldValue(TIME_SHEET_TARGET, val);
+  if(TIME_SHEET_TARGET){
+    setTimeFieldValue(TIME_SHEET_TARGET, val);
+    // 시작 시간을 고르면 오전/오후를 그 시간 기준으로 바로 재계산(직접 고르는 항목이 아니게 됨)
+    if(TIME_SHEET_TARGET==='inp-time-exact'){
+      var timeEl=document.getElementById('inp-time');
+      if(timeEl) timeEl.value=timeSlotFromExact(val);
+    }
+  }
   closeTimeSheet();
 }
 function closeTimeSheet(){
@@ -3536,7 +3546,7 @@ function renderCalendar(){
       var lbl=document.createElement('div');lbl.className='zone-lbl';lbl.textContent='종일';
       az.appendChild(lbl);
 
-      appendEvsWithMore(az,allEvs,true,zoneMax(3,2),d,'all');
+      appendEvsWithMore(az,allEvs,true,zoneMax(4,2),d,'all');
       cell.appendChild(az);
     } else {
       // 종일 일정이 있으면 상단에 띠로 표시 (오전/오후와 공존)
@@ -3551,7 +3561,7 @@ function renderCalendar(){
       var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.textContent='오전';
       am.appendChild(amlbl);
 
-      appendEvsWithMore(am,amEvs,false,zoneMax(2,1),d,'am');
+      appendEvsWithMore(am,amEvs,false,zoneMax(3,1),d,'am');
       var sep=document.createElement("div");sep.className="dc-sep";
       cell.appendChild(am);
       cell.appendChild(sep);
@@ -3560,7 +3570,7 @@ function renderCalendar(){
       var pmlbl=document.createElement('div');pmlbl.className='zone-lbl';pmlbl.textContent='오후';
       pm.appendChild(pmlbl);
   
-      appendEvsWithMore(pm,pmEvs,false,zoneMax(2,1),d,'pm');
+      appendEvsWithMore(pm,pmEvs,false,zoneMax(3,1),d,'pm');
       cell.appendChild(pm);
     }
     grid.appendChild(cell);
@@ -3643,10 +3653,12 @@ function buildChip(ev, isAll){
   } else if(isCross){
     // 타사무소 동도 방문: 담당자 고유색을 쓰면 너무 컬러풀하고 눈에 띈다는 피드백 -> 담당자 색과
     // 무관하게 항상 같은 색으로 통일. 이 빗금 느낌 자체는 마음에 든다는 피드백이라 유지하되,
-    // 연차/학소/웰다처럼 튀는(채도 높은) 색 빗금과는 결이 다르게 - 회색 바탕에 아이보리색 빗금이
-    // 지나가는 차분한 톤으로. 테두리는 여전히 뺌 - border-box라도 테두리 두께만큼 세로가 늘어나
-    // 일반 방문 칩(자애내과의원 등, 테두리 없음)보다 미세하게 길어 보인다는 예전 피드백이 그대로 적용됨
-    chip.style.backgroundImage='repeating-linear-gradient(135deg, #D9D6CE 0px, #D9D6CE 5px, #F2F0EC 5px, #F2F0EC 9px)';
+    // 연차/학소/웰다처럼 튀는(채도 높은) 색 빗금과는 결이 다르게 - 아이보리 바탕에 회색 빗금이
+    // 지나가는 차분한 톤으로(처음엔 회색 바탕+아이보리 빗금으로 했는데 너무 비슷한 톤이라 빗금이
+    // 거의 안 보인다는 피드백으로 명암 대비를 키움). 테두리는 여전히 뺌 - border-box라도 테두리
+    // 두께만큼 세로가 늘어나 일반 방문 칩(자애내과의원 등, 테두리 없음)보다 미세하게 길어 보인다는
+    // 예전 피드백이 그대로 적용됨
+    chip.style.backgroundImage='repeating-linear-gradient(135deg, #F2F0EC 0px, #F2F0EC 5px, #C4BFB1 5px, #C4BFB1 9px)';
     chip.style.color='var(--t2)';
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
@@ -3690,6 +3702,8 @@ function openAdd(day, zone){
   document.getElementById('inp-clinic').value='';
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
   document.getElementById('inp-time').value=zone;
+  document.getElementById('inp-allday').checked=(zone==='all');
+  document.getElementById('time-exact-fields').style.display=(zone==='all')?'none':'';
   setTimeFieldValue('inp-time-exact','');
   setTimeFieldValue('inp-time-exact-end','');
   document.getElementById('inp-patients').value='';
@@ -3719,6 +3733,8 @@ function openEditModal(ev){
   }
   document.getElementById('inp-clinic').value=ev.label;
   document.getElementById('inp-time').value=ev.time;
+  document.getElementById('inp-allday').checked=(ev.time==='all');
+  document.getElementById('time-exact-fields').style.display=(ev.time==='all')?'none':'';
   setTimeFieldValue('inp-time-exact', ev.exactTime||'');
   setTimeFieldValue('inp-time-exact-end', ev.exactTimeEnd||'');
   document.getElementById('inp-patients').value=ev.patients;
@@ -3803,11 +3819,14 @@ function saveEv(){
       closeAdd(); loadSchedules();
     });
   } else {
-    // 신규 거래처 방문: 요청으로 등록 (간호사 승낙 대기)
-    row.checked=false; row.status='pending';
+    // 신규 거래처 방문: 사무소(MR)가 넣으면 담당 간호사 승낙 대기(요청)로, 간호사 본인이 직접
+    // 넣을 땐 스스로 승낙할 대상이 없으므로 승낙 절차 없이 바로 캘린더에 반영
+    var isNurse=currentUser&&currentUser.role==='간호사';
+    row.checked=false; row.status=isNurse?'approved':'pending';
     db.from('schedules').insert(row).then(function(res){
       if(res.error){alert('저장 실패: '+res.error.message);return;}
       closeAdd(); loadSchedules();
+      if(isNurse) return;
       alert('📬 일정 요청이 등록됐어요!\n간호사 승낙 후 캘린더에 추가됩니다.');
     });
   }
@@ -5787,30 +5806,40 @@ function setEvType(btn,type){
   document.getElementById('leave-welda-label-fld').style.display=type==='welda'?'block':'none';
   updateLeaveTimeVisibility();
 }
-function setLeaveTimeSlot(btn,slot){
-  document.getElementById('inp-time').value=slot;
-  setLeaveTimeActive(slot);
+// 시작 시간으로 오전/오후를 자동 판정(13시부터 오후, 12시30분까지는 오전) - 오전/오후를 직접
+// 고르게 하면 시작 시간이랑 따로 놀 수 있어서(이중 입력) 시작 시간 하나로 통일
+function timeSlotFromExact(t){
+  if(!t) return 'am';
+  var parts=t.split(':'); var mins=parseInt(parts[0],10)*60+(parseInt(parts[1],10)||0);
+  return mins>=13*60 ? 'pm' : 'am';
 }
-function setLeaveTimeActive(slot){
-  document.querySelectorAll('#leave-time-field .type-btn').forEach(function(b){
-    b.classList.toggle('type-active', b.getAttribute('data-slot')===slot);
-  });
+// "종일" 토글 - 켜면 시작/종료 시간칸을 숨기고 inp-time을 'all'로, 끄면 시간칸을 보여주고
+// 이미 골라둔 시작 시간이 있으면 그걸로 오전/오후를 바로 재계산
+function onAlldayToggle(){
+  var allday=document.getElementById('inp-allday').checked;
+  document.getElementById('time-exact-fields').style.display=allday?'none':'';
+  if(allday){
+    document.getElementById('inp-time').value='all';
+    setTimeFieldValue('inp-time-exact','');
+    setTimeFieldValue('inp-time-exact-end','');
+  } else {
+    document.getElementById('inp-time').value=timeSlotFromExact(document.getElementById('inp-time-exact').value);
+  }
 }
 var EV_TYPE_LABELS={off:'연차',study:'학소',office:'내근'};
-// 연차/학소는 항상 종일 처리(시간 선택 자체를 숨김), 내근/기타는 종일/오전/오후 버튼 + 시작/종료시간 선택 가능
+// 연차/학소는 항상 종일 처리(시간 선택 자체를 숨김), 내근/웰다/기타는 "종일" 토글 + 시작/종료시간 선택 가능
 function updateLeaveTimeVisibility(){
   var isLeave=ADD_MODE==='leave';
   var type=document.getElementById('inp-type').value;
   var forceAllDay = isLeave && (type==='off'||type==='study');
-  document.getElementById('timeslot-field').style.display = isLeave?'none':'';
-  document.getElementById('leave-time-field').style.display = (isLeave && !forceAllDay)?'':'none';
-  document.getElementById('time-exact-fields').style.display = forceAllDay?'none':'';
+  document.getElementById('timeslot-field').style.display = forceAllDay?'none':'';
+  document.getElementById('time-exact-fields').style.display = (forceAllDay||document.getElementById('inp-allday').checked)?'none':'';
   if(forceAllDay){
+    document.getElementById('inp-allday').checked=true;
     document.getElementById('inp-time').value='all';
     setTimeFieldValue('inp-time-exact','');
     setTimeFieldValue('inp-time-exact-end','');
   }
-  if(isLeave) setLeaveTimeActive(document.getElementById('inp-time').value);
 }
 // 거래처 일정 <-> 거래처 외 일정(연차/학소/내근/기타) 모드 전환
 var ADD_MODE='visit';
