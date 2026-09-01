@@ -3663,9 +3663,9 @@ function buildChip(ev, isAll){
     // 타사무소 동도 방문: 담당자 고유색을 쓰면 너무 컬러풀하고 눈에 띈다는 피드백 -> 담당자 색과
     // 무관하게 항상 같은 색으로 통일. 이 빗금 느낌 자체는 마음에 든다는 피드백이라 유지하되,
     // 연차/학소/웰다처럼 튀는(채도 높은) 색 빗금과는 결이 다르게 - 아이보리 바탕에 회색 빗금이
-    // 지나가는 차분한 톤으로. 회색을 진하게 하니 대비는 확실했지만 글씨가 회색 위에 겹칠 때
-    // 안 읽힌다는 피드백으로, 빗금 느낌은 살아있되 글씨는 항상 잘 읽히는 아주 연한 회색으로 조정
-    chip.style.backgroundImage='repeating-linear-gradient(135deg, #F2F0EC 0px, #F2F0EC 5px, #DFDBD1 5px, #DFDBD1 9px)';
+    // 지나가는 차분한 톤으로. 여러 번 조정 끝에 "빗금이 있는 듯 없는 듯"할 정도로 두 색의 명암차를
+    // 아주 미세하게(거의 안 보일 정도로) 낮춰서, 타사무소라는 느낌만 은은하게 나고 글씨는 항상 확실히 읽히게 함
+    chip.style.backgroundImage='repeating-linear-gradient(135deg, #F2F0EC 0px, #F2F0EC 5px, #E9E5DB 5px, #E9E5DB 9px)';
     chip.style.color='var(--t2)';
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
