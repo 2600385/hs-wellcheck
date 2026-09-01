@@ -4513,8 +4513,15 @@ function stKpiData(){
   var newPatientsGain=r.reduce(function(s,c){var d=(c.patients||0)-cp(c); return s+(d>0?d:0);},0);
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievementGrade(achievement);
-  var bNeed=Math.max(0,Math.ceil(target*0.6)-active);
-  return {active:active,target:target,achievement:achievement,grade:grade,bNeed:bNeed,thresholdMet:thresholdMet,nonOnlyActive:nonOnlyActive,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
+  // "현재 활성처" 카드에 등급만 보여주고 정작 다음 등급까지 몇 처가 더 필요한지는 안 보여서 공백만
+  // 컸다는 지적 - 등급 경계(S 100%/A 80%/B 60%)를 그대로 재사용해서, 지금 등급 바로 위 등급까지
+  // 필요한 처수를 계산(사무소별 target이 이미 currentOffice 기준이라 사무소를 바꾸면 자동으로 그
+  // 사무소 기준으로 다시 계산됨). 이미 S등급이면 더 오를 등급이 없으므로 null.
+  var NEXT_GRADE_PCT={C:{grade:'B',pct:60},B:{grade:'A',pct:80},A:{grade:'S',pct:100}};
+  var nextGradeInfo=NEXT_GRADE_PCT[grade];
+  var nextGrade=nextGradeInfo?nextGradeInfo.grade:null;
+  var nextGradeNeed=nextGradeInfo?Math.max(0,Math.ceil(target*nextGradeInfo.pct/100)-active):0;
+  return {active:active,target:target,achievement:achievement,grade:grade,nextGrade:nextGrade,nextGradeNeed:nextGradeNeed,thresholdMet:thresholdMet,nonOnlyActive:nonOnlyActive,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
 }
 function renderStKPI(){
   var k=stKpiData();
@@ -4561,7 +4568,7 @@ function renderStKPI(){
     // "일만사&웰체크 TH명 이상 NN처"는 이제 바로 옆 빨간 카드(당월이력없음)에서 "OO처 중" 형태로 이미
     // 보여주므로 여기서는 중복 표기하지 않고, 이 카드에서만 알 수 있는 정보(②비일만사로 구제된 거래처 수)만
     // 표기한다 - 이제 항상(0이어도) 보여주고, 부정적 신호가 아니라 참고 정보라 파란색으로 표기.
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>','active'],
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'+(k.nextGrade?('<br><span style="color:#8A6800;font-weight:700">'+k.nextGrade+'등급까지 '+k.nextGradeNeed+'처 필요</span>'):'<br><span style="color:#145C38;font-weight:700">최고 등급(S) 달성</span>'),'active'],
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
     // 숫자)로 이 값을 보여주고, 하단엔 "TH명 이상 전체 처수 중 → 당월이력없음 처수"로 몇 처 중 몇 처가
     // 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
