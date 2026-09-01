@@ -3642,11 +3642,11 @@ function buildChip(ev, isAll){
     chip.style.border=st.border;
   } else if(isCross){
     // 타사무소 동도 방문: 담당자 고유색을 쓰면 너무 컬러풀하고 눈에 띈다는 피드백 -> 담당자 색과
-    // 무관하게 항상 같은 색으로 통일. 예전엔 옅은 회색 빗금이었는데 "전체적으로 조잡해 보인다"는
-    // 지적으로 빗금 대신 아주 옅은 회색빛 아이보리(앱 기본 --bg2)의 단색 배경으로 변경. 테두리는
-    // 여전히 뺌 - border-box라도 테두리 두께만큼 세로가 늘어나 일반 방문 칩(자애내과의원 등,
-    // 테두리 없음)보다 미세하게 길어 보인다는 예전 피드백이 그대로 적용됨
-    chip.style.background='var(--bg2)';
+    // 무관하게 항상 같은 색으로 통일. 이 빗금 느낌 자체는 마음에 든다는 피드백이라 유지하되,
+    // 연차/학소/웰다처럼 튀는(채도 높은) 색 빗금과는 결이 다르게 - 회색 바탕에 아이보리색 빗금이
+    // 지나가는 차분한 톤으로. 테두리는 여전히 뺌 - border-box라도 테두리 두께만큼 세로가 늘어나
+    // 일반 방문 칩(자애내과의원 등, 테두리 없음)보다 미세하게 길어 보인다는 예전 피드백이 그대로 적용됨
+    chip.style.backgroundImage='repeating-linear-gradient(135deg, #D9D6CE 0px, #D9D6CE 5px, #F2F0EC 5px, #F2F0EC 9px)';
     chip.style.color='var(--t2)';
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
@@ -3666,11 +3666,11 @@ function buildChip(ev, isAll){
   // 타사무소 동도 방문은 빗금 디자인만으로 이미 "다른 사무소"라는 게 구분되니, 문구/아이콘까지
   // 붙이면(예: "🤝 [타사무소 동도] ...") 길어져서 정작 거래처명이나 시간이 잘림 - 그냥 우리 사무소
   // 일정과 똑같이(아이콘 없이, 거래처명 그대로) 표시. 어느 사무소인지는 상세보기에서 확인 가능
-  var iconStr=isLeave?(EV_TYPE_ICON[ev.evType]||'📌')+' ':'';
-  // 웰다는 라벨이 "웰다 - 구로구보건소"처럼 저장되는데, 칩 폭이 좁아 그대로 쓰면 정작 중요한
-  // 장소명이 잘려 안 보임(아이콘이 이미 "웰다"라는 종류를 알려주니 접두어는 중복) - 칩 표시만
-  // "웰다 - " 접두어를 떼고 장소명 위주로 보여줌(저장값/수정폼은 그대로 "웰다 - 장소" 유지)
-  var chipLabel=ev.evType==='welda'?ev.label.replace(/^웰다\s*-\s*/,''):ev.label;
+  // 웰다는 작은 아이콘만으로는 뭔지 잘 안 와닿는다는 피드백 - 아이콘 대신 "웰다"라는 글자가 바로
+  // 보이는 게 더 직관적이라 아이콘을 빼고, 대신 좁은 칩 폭에서 장소명도 같이 보이도록 "웰다 - "
+  // (공백 포함 3글자)보다 짧은 가운뎃점(웰다·)으로 접두어를 압축(저장값/수정폼은 "웰다 - 장소" 유지)
+  var iconStr=(isLeave&&ev.evType!=='welda')?(EV_TYPE_ICON[ev.evType]||'📌')+' ':'';
+  var chipLabel=ev.evType==='welda'?ev.label.replace(/^웰다\s*-\s*/,'웰다·'):ev.label;
   txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+escapeHtml(chipLabel);
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
   chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
