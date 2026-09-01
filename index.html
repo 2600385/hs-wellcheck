@@ -3615,6 +3615,16 @@ function timeRangeLabel(ev){
   return compactTime(ev.exactTime)+(ev.exactTimeEnd?'~'+compactTime(ev.exactTimeEnd):'');
 }
 var EV_TYPE_ICON={off:'🌿',study:'📚',office:'🏢',welda:'🩺',etc:'📌'};
+// 거래처 외 일정(연차/학소/내근/웰다/기타)이 전부 똑같은 색이라 한눈에 구분이 안 된다는 피드백 -
+// 연차는 연핑크, 학소는 연두, 웰다는 노랑 빗금으로 따로 빼고, 내근/기타는 기존 색(은은한 회색빛
+// 하늘색)을 유지. 테두리도 각 빗금 색과 맞춤
+var EV_TYPE_STYLE={
+  off:   {bg:'repeating-linear-gradient(135deg, #FCE1EA 0px, #FCE1EA 5px, #ffffff 5px, #ffffff 9px)', color:'#8A4A63', border:'1.5px solid #E5A9C0'},
+  study: {bg:'repeating-linear-gradient(135deg, #E3F2D9 0px, #E3F2D9 5px, #ffffff 5px, #ffffff 9px)', color:'#3F6B34', border:'1.5px solid #A8CC8C'},
+  office:{bg:'repeating-linear-gradient(135deg, #E9F1F7 0px, #E9F1F7 5px, #ffffff 5px, #ffffff 9px)', color:'#3D5266', border:'1.5px solid #8FA6BA'},
+  welda: {bg:'repeating-linear-gradient(135deg, #FCEEBB 0px, #FCEEBB 5px, #ffffff 5px, #ffffff 9px)', color:'#8A6800', border:'1.5px solid #E0BE55'},
+  etc:   {bg:'repeating-linear-gradient(135deg, #E9F1F7 0px, #E9F1F7 5px, #ffffff 5px, #ffffff 9px)', color:'#3D5266', border:'1.5px solid #8FA6BA'}
+};
 function buildChip(ev, isAll){
   var m=getMR(ev.mr);
   var isLeave=ev.evType&&ev.evType!=='visit';
@@ -3624,18 +3634,20 @@ function buildChip(ev, isAll){
   // 똑같이 얇게 보여야 한다는 피드백이라, isCross면 종일 여부와 무관하게 항상 기본(얇은) 크기 유지
   chip.className='ev'+(isAll&&!isCross?' ev-allday':'')+(isLeave?' ev-leave':'')+(isCross?' ev-cross':'');
   if(isLeave){
-    // 거래처 외 일정(연차/학소/내근/기타)은 담당자 색과 무관하게 항상 같은 은은한 회색빛 하늘색 빗금으로 통일 -
-    // 담당자 색을 그대로 쓰면(특히 담당자 미지정 일정은 경고색 노랑/빨강까지 섞여서) 너무 튀어서 차분한 고정 색으로 변경
-    chip.style.backgroundImage='repeating-linear-gradient(135deg, #E9F1F7 0px, #E9F1F7 5px, #ffffff 5px, #ffffff 9px)';
-    chip.style.color='#3D5266';
-    chip.style.border='1.5px solid #8FA6BA';
+    // 담당자 색을 그대로 쓰면(특히 담당자 미지정 일정은 경고색 노랑/빨강까지 섞여서) 너무 튀어서
+    // 일정 종류별 고정 색으로 표시(위 EV_TYPE_STYLE)
+    var st=EV_TYPE_STYLE[ev.evType]||EV_TYPE_STYLE.etc;
+    chip.style.backgroundImage=st.bg;
+    chip.style.color=st.color;
+    chip.style.border=st.border;
   } else if(isCross){
     // 타사무소 동도 방문: 담당자 고유색을 쓰면 너무 컬러풀하고 눈에 띈다는 피드백 -> 담당자 색과
-    // 무관하게 항상 같은, 아주 옅은 회색 실선 빗금(얇은 줄무늬)으로 통일. 테두리는 뺌 - auto 크기
-    // 박스에서는 border-box를 써도 테두리 두께(1px)만큼 세로가 실제로 더 늘어나서, 일반 방문 칩
-    // (자애내과의원 등, 테두리 없음)보다 미세하게 더 길어 보인다는 피드백이 있었음 - 빗금만으로 구분
-    chip.style.backgroundImage='repeating-linear-gradient(135deg, #E5E5E5 0px, #E5E5E5 1.5px, #ffffff 1.5px, #ffffff 6px)';
-    chip.style.color='#666666';
+    // 무관하게 항상 같은 색으로 통일. 예전엔 옅은 회색 빗금이었는데 "전체적으로 조잡해 보인다"는
+    // 지적으로 빗금 대신 아주 옅은 회색빛 아이보리(앱 기본 --bg2)의 단색 배경으로 변경. 테두리는
+    // 여전히 뺌 - border-box라도 테두리 두께만큼 세로가 늘어나 일반 방문 칩(자애내과의원 등,
+    // 테두리 없음)보다 미세하게 길어 보인다는 예전 피드백이 그대로 적용됨
+    chip.style.background='var(--bg2)';
+    chip.style.color='var(--t2)';
   } else {
     chip.style.background=m.bg; chip.style.color=m.t;
   }
@@ -3655,7 +3667,11 @@ function buildChip(ev, isAll){
   // 붙이면(예: "🤝 [타사무소 동도] ...") 길어져서 정작 거래처명이나 시간이 잘림 - 그냥 우리 사무소
   // 일정과 똑같이(아이콘 없이, 거래처명 그대로) 표시. 어느 사무소인지는 상세보기에서 확인 가능
   var iconStr=isLeave?(EV_TYPE_ICON[ev.evType]||'📌')+' ':'';
-  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+escapeHtml(ev.label);
+  // 웰다는 라벨이 "웰다 - 구로구보건소"처럼 저장되는데, 칩 폭이 좁아 그대로 쓰면 정작 중요한
+  // 장소명이 잘려 안 보임(아이콘이 이미 "웰다"라는 종류를 알려주니 접두어는 중복) - 칩 표시만
+  // "웰다 - " 접두어를 떼고 장소명 위주로 보여줌(저장값/수정폼은 그대로 "웰다 - 장소" 유지)
+  var chipLabel=ev.evType==='welda'?ev.label.replace(/^웰다\s*-\s*/,''):ev.label;
+  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+escapeHtml(chipLabel);
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
   chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
   chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
@@ -3835,22 +3851,33 @@ function openDetail(id){
   document.getElementById('dm-save-memo-btn').style.display=isLeave?'none':'';
   if(!isLeave){
     document.getElementById('dm-checked').textContent=ev.checked?'✅ 방문 완료':'⬜ 방문 예정';
-    // 마지막 방문일: 같은 거래처의 체크된 이벤트 중 가장 최근
+    // 마지막 방문일 / 방문 이력: 같은 거래처의 체크된(방문 완료) 이벤트를 모아 실제 날짜로 정렬.
+    // 예전엔 (1) 방문 이력 목록이 어느 거래처든 항상 똑같은 가짜 문구 3줄로 고정돼 있었고,
+    // (2) 마지막 방문일도 그 이벤트의 실제 연/월이 아니라 "지금 보고 있는 달력의 연/월(curYear/curMonth)"을
+    // 그대로 붙여버려서, 예를 들어 9월 일정을 보다가 다른 달에 체크된 방문을 만나면 "9월" 방문한 것처럼
+    // 잘못 표시되는(심하면 미래 날짜로 보이는) 버그가 있었음 - 이벤트 자체의 year/month/day로 표시하고
+    // 실제 날짜 기준으로 정렬해서 진짜 방문 이력만 보여줌
     var allEvs2=[];
     Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(function(e){ if(e.label===ev.label) allEvs2.push(e); }); });
-    var visited=allEvs2.filter(function(e){return e.checked;});
-    document.getElementById('dm-lastvisit').textContent=visited.length>0?visited[visited.length-1].label+'('+curYear+'.'+curMonth+'.'+visited[visited.length-1].day+')':'방문 이력 없음';
+    var visited=allEvs2.filter(function(e){return e.checked;}).sort(function(a,b){
+      return new Date(a.year,a.month-1,a.day) - new Date(b.year,b.month-1,b.day);
+    });
+    var lastV=visited.length>0?visited[visited.length-1]:null;
+    document.getElementById('dm-lastvisit').textContent=lastV?ev.label+'('+lastV.year+'.'+lastV.month+'.'+lastV.day+')':'방문 이력 없음';
     var p=ev.patients||0;
     document.getElementById('dm-patients').textContent=p+'명';
     document.getElementById('dm-gauge').style.width=gw(p);
     document.getElementById('dm-gauge').style.background=gc(p);
     document.getElementById('dm-gauge-lbl').textContent=p>=40?'✅ 활성처 달성':p>=20?'⚠ MR 기준 달성':'❌ 기준 미달';
     var hist=document.getElementById('dm-hist');
-    hist.innerHTML=[
-      {date:'5/12',txt:'웰체크 세팅 완료, 간호사 교육 1회차'},
-      {date:'4/8', txt:'일만사 참여 안내, 원장님 긍정 반응'},
-      {date:'3/15',txt:'초기 상담, 디지털기기 관심 표명'}
-    ].map(function(h){return '<div class="hist-item"><span class="hist-date">'+h.date+'</span><span>'+h.txt+'</span></div>';}).join('');
+    var pastVisits=visited.slice().reverse().slice(0,8); // 최신순으로 최대 8건
+    hist.innerHTML=pastVisits.length
+      ? pastVisits.map(function(e){
+          var dstr=e.year+'.'+e.month+'.'+e.day;
+          var tstr=timeLabel(e.time)+(e.exactTime?' · '+timeRangeLabel(e):'');
+          return '<div class="hist-item"><span class="hist-date">'+dstr+'</span><span>'+tstr+' 방문 완료</span></div>';
+        }).join('')
+      : '<div style="font-size:11px;color:var(--t3)">방문 완료 이력이 없습니다</div>';
   }
   document.getElementById('dm-memo').value=MEMO_STORE[ev.label]||ev.memo||'';
   document.getElementById('detail-ov').classList.add('ov-open');
