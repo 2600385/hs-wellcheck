@@ -420,6 +420,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--dw);background:var(--white)}
 .fld textarea{min-height:70px;resize:vertical;line-height:1.5}
 .fld-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 거래처 수기 등록/수정 모달 - 메모가 맨 아래에 있어서 쓰려면 한참 스크롤해야 했다는 지적으로,
+   넓은 모달에서 왼쪽엔 기존 항목들을, 오른쪽엔 메모를 나란히 배치(처음부터 바로 보이고 세로로 길게
+   써지도록). 좁은 화면(모바일 등)에서는 modal-lg의 92vw 미디어쿼리로 폭이 줄면서 자연스럽게 한 줄로 다시 쌓임 */
+.ca-body{display:flex;gap:16px;align-items:stretch}
+.ca-body-left{flex:1.1;min-width:0}
+.ca-body-right{flex:1;min-width:0;display:flex;flex-direction:column}
+@media (max-width:640px){
+  .ca-body{flex-direction:column}
+}
 .modal-btns{display:flex;justify-content:flex-end;gap:6px;margin-top:14px}
 .btn{padding:7px 16px;font-size:12px;font-weight:600;border-radius:var(--r);cursor:pointer;font-family:inherit;border:0.5px solid var(--bd2);transition:.12s}
 .btn-cancel{background:var(--white);color:var(--t2)}.btn-cancel:hover{background:var(--bg2)}
@@ -6259,7 +6268,7 @@ function closeClinicChart(){
 
 <!-- 거래처 등록/수정 모달 -->
 <div class="ov" id="clinic-add-ov" style="display:none">
-  <div class="modal modal-sm" style="max-height:85vh;overflow-y:auto">
+  <div class="modal modal-lg" style="width:min(680px,92vw);max-height:85vh;overflow-y:auto">
     <div class="modal-head">
       <span class="modal-title" id="ca-title">거래처 수기 등록</span>
       <button class="modal-x" onclick="closeAddClinic()">✕</button>
@@ -6267,83 +6276,94 @@ function closeClinicChart(){
     <div class="fld"><label>거래처명 *</label>
       <input type="text" id="ca-name" placeholder="예) 연세내과의원" autocomplete="off">
     </div>
-    <div class="fld-2">
-      <div class="fld"><label>담당자 *</label>
-        <select id="ca-mr"></select>
+    <!-- 예전엔 항목들을 세로로 쭉 나열하고 메모를 맨 아래에 둬서, 메모를 쓰려면 스크롤을 한참 내려야
+         했음 - 넓은 모달로 바꾸고 왼쪽엔 기존 항목들을, 오른쪽엔 메모를 세로로 길게 둬서 처음부터
+         바로 보이고 쓰기 편하게 함(모바일 등 좁은 화면은 위 modal-lg 미디어쿼리로 폭 92vw로 줄면서
+         자연스럽게 세로로 다시 쌓임) -->
+    <div class="ca-body">
+      <div class="ca-body-left">
+        <div class="fld-2">
+          <div class="fld"><label>담당자 *</label>
+            <select id="ca-mr"></select>
+          </div>
+          <div class="fld"><label>지역</label>
+            <select id="ca-region"></select>
+          </div>
+        </div>
+        <div class="fld-2">
+          <div class="fld"><label>일만사</label>
+            <select id="ca-ilmansa">
+              <option value="미참여">미참여</option>
+              <option value="참여">참여</option>
+            </select>
+          </div>
+          <div class="fld"><label>웰체크</label>
+            <select id="ca-welcheck">
+              <option value="false">미가입</option>
+              <option value="true">가입</option>
+            </select>
+            <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ '가입'으로 설정해야 캘린더에서 이 거래처로 일정을 등록할 수 있어요.</div>
+          </div>
+        </div>
+        <div class="fld-2">
+          <div class="fld"><label>일만사&웰체크 환자수</label>
+            <input type="number" id="ca-patients" placeholder="0" min="0" value="0">
+          </div>
+          <div class="fld"><label>CM 방문</label>
+            <select id="ca-visited">
+              <option value="false">X (방문 전)</option>
+              <option value="true">O (방문 완료)</option>
+            </select>
+          </div>
+        </div>
+        <div class="fld-2">
+          <div class="fld"><label>웰체크 환자수</label>
+            <input type="number" id="ca-wcnt" placeholder="0" min="0" value="0">
+          </div>
+          <div class="fld"><label>일만사 환자수</label>
+            <input type="number" id="ca-icnt" placeholder="0" min="0" value="0">
+          </div>
+        </div>
+        <div class="fld-2">
+          <div class="fld"><label>교육이수</label>
+            <select id="ca-edu">
+              <option value="해당없음">해당없음</option>
+              <option value="미이수">미이수</option>
+              <option value="이수">이수</option>
+            </select>
+          </div>
+          <div class="fld"><label>의협회비</label>
+            <select id="ca-dues">
+              <option value="해당없음">해당없음</option>
+              <option value="납부">납부</option>
+              <option value="비납부">비납부</option>
+            </select>
+          </div>
+        </div>
+        <div class="fld-2">
+          <div class="fld"><label>교육이수일 <span style="font-weight:400;color:var(--t3)">(다음해 12/31까지 자격 유지)</span></label>
+            <input type="date" id="ca-edu-date">
+          </div>
+          <div class="fld"><label>의협회비 납부일</label>
+            <input type="date" id="ca-dues-date">
+          </div>
+        </div>
+        <div class="fld-2">
+          <div class="fld"><label>마지막 방문일</label>
+            <input type="text" id="ca-lastvisit" placeholder="예) 5/12" autocomplete="off">
+          </div>
+          <div class="fld"><label>사업자번호</label>
+            <input type="text" id="ca-bizno" placeholder="숫자만" autocomplete="off">
+            <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ 나중에 엑셀(활성처/청구현황)에 이 거래처가 처음 나올 때, 여기 적은 번호와 정확히 같아야 같은 거래처로 인식돼서 메모 등 기존 정보가 유지된 채 업데이트돼요. 지금 모르면 비워두고, 알게 되면 꼭 채워주세요.</div>
+          </div>
+        </div>
       </div>
-      <div class="fld"><label>지역</label>
-        <select id="ca-region"></select>
+      <div class="ca-body-right">
+        <div class="fld" style="height:100%;display:flex;flex-direction:column">
+          <label>메모</label>
+          <textarea id="ca-memo" placeholder="특이사항 등" style="flex:1;min-height:220px"></textarea>
+        </div>
       </div>
-    </div>
-    <div class="fld-2">
-      <div class="fld"><label>일만사</label>
-        <select id="ca-ilmansa">
-          <option value="미참여">미참여</option>
-          <option value="참여">참여</option>
-        </select>
-      </div>
-      <div class="fld"><label>웰체크</label>
-        <select id="ca-welcheck">
-          <option value="false">미가입</option>
-          <option value="true">가입</option>
-        </select>
-        <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ '가입'으로 설정해야 캘린더에서 이 거래처로 일정을 등록할 수 있어요.</div>
-      </div>
-    </div>
-    <div class="fld-2">
-      <div class="fld"><label>일만사&웰체크 환자수</label>
-        <input type="number" id="ca-patients" placeholder="0" min="0" value="0">
-      </div>
-      <div class="fld"><label>CM 방문</label>
-        <select id="ca-visited">
-          <option value="false">X (방문 전)</option>
-          <option value="true">O (방문 완료)</option>
-        </select>
-      </div>
-    </div>
-    <div class="fld-2">
-      <div class="fld"><label>웰체크 환자수</label>
-        <input type="number" id="ca-wcnt" placeholder="0" min="0" value="0">
-      </div>
-      <div class="fld"><label>일만사 환자수</label>
-        <input type="number" id="ca-icnt" placeholder="0" min="0" value="0">
-      </div>
-    </div>
-    <div class="fld-2">
-      <div class="fld"><label>교육이수</label>
-        <select id="ca-edu">
-          <option value="해당없음">해당없음</option>
-          <option value="미이수">미이수</option>
-          <option value="이수">이수</option>
-        </select>
-      </div>
-      <div class="fld"><label>의협회비</label>
-        <select id="ca-dues">
-          <option value="해당없음">해당없음</option>
-          <option value="납부">납부</option>
-          <option value="비납부">비납부</option>
-        </select>
-      </div>
-    </div>
-    <div class="fld-2">
-      <div class="fld"><label>교육이수일 <span style="font-weight:400;color:var(--t3)">(다음해 12/31까지 자격 유지)</span></label>
-        <input type="date" id="ca-edu-date">
-      </div>
-      <div class="fld"><label>의협회비 납부일</label>
-        <input type="date" id="ca-dues-date">
-      </div>
-    </div>
-    <div class="fld-2">
-      <div class="fld"><label>마지막 방문일</label>
-        <input type="text" id="ca-lastvisit" placeholder="예) 5/12" autocomplete="off">
-      </div>
-      <div class="fld"><label>사업자번호</label>
-        <input type="text" id="ca-bizno" placeholder="숫자만" autocomplete="off">
-        <div style="font-size:10.5px;color:var(--t3);margin-top:3px">⚠ 나중에 엑셀(활성처/청구현황)에 이 거래처가 처음 나올 때, 여기 적은 번호와 정확히 같아야 같은 거래처로 인식돼서 메모 등 기존 정보가 유지된 채 업데이트돼요. 지금 모르면 비워두고, 알게 되면 꼭 채워주세요.</div>
-      </div>
-    </div>
-    <div class="fld"><label>메모</label>
-      <textarea id="ca-memo" placeholder="특이사항 등"></textarea>
     </div>
     <div class="modal-btns">
       <button class="btn btn-del" id="ca-del" style="display:none;margin-right:auto" onclick="deleteClinic()">삭제</button>
