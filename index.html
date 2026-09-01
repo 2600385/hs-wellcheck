@@ -763,6 +763,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="office-board-badge"></div>
     </div>
     <input type="text" id="list-search" placeholder="🔍 거래처명 / 사업자등록번호 / 담당자명 검색" oninput="renderList()" style="padding:6px 10px;border:0.5px solid var(--bd2);border-radius:6px;font-size:12.5px;font-family:inherit">
+    <div id="renewal-warn"></div>
     <div class="fp-row" id="fp-row"></div>
   </div>
   <div class="list-content">
@@ -2763,14 +2764,26 @@ function ilmansaLicenseExpiry(c){
   if(!y) return null;
   return (y+1)+'-12-31';
 }
-// 'valid'(유효)/'soon'(60일 이내 만료 임박)/'expired'(만료)/null(교육이수일 자체가 없어 판단 불가)
+// 'valid'(유효)/'soon'(만료임박: 60일 이내이거나, 만료 연도가 올해라 연말 전에 재이수·재납부를
+// 미리 준비해야 함)/'expired'(만료)/null(교육이수일 자체가 없어 판단 불가)
+// 예: 25년 12월에 교육이수한 거래처는 자격기간이 26년 12/31까지라 딱 1년짜리인데, 60일 임박
+// 문턱만 쓰면 11월 초까지 아무 신호가 없어서 재이수를 준비할 시간이 부족하다는 지적 - 만료
+// 연도가 "올해"면 날짜 계산과 무관하게 곧바로 만료임박으로 잡아서 연초부터 미리 챙기게 함
 function ilmansaLicenseStatus(c){
   var exp=ilmansaLicenseExpiry(c);
   if(!exp) return null;
   var todayStr=new Date().toISOString().slice(0,10);
   if(exp<todayStr) return 'expired';
+  if(exp.slice(0,4)===String(new Date().getFullYear())) return 'soon';
   var diffDays=Math.floor((new Date(exp+'T00:00:00')-new Date())/86400000);
   return diffDays<=60?'soon':'valid';
+}
+// 일만사 참여 거래처 중 자격이 이미 만료됐거나(expired) 만료임박(soon - 60일 이내이거나 만료
+// 연도가 올해)인 곳 - "연말 전에 재이수·재납부를 다시 챙겨야 하는 거래처" 필터/배너에서 사용
+function isLicenseRenewalNeeded(c){
+  if(!c||c.ilmansa!=='참여') return false;
+  var st=ilmansaLicenseStatus(c);
+  return st==='expired'||st==='soon';
 }
 function licenseExpiryLabel(c){
   var exp=ilmansaLicenseExpiry(c);
@@ -3965,6 +3978,19 @@ function renderList(){
   if(listQuick==='low') data=data.filter(function(c){ return (c.patients||0)<activeThreshold(todayMonthStr()); });
   if(listQuick==='notyet') data=data.filter(function(c){ return c.edu==='미이수'; });
   if(listQuick==='unpaid') data=data.filter(function(c){ return c.dues==='비납부'; });
+  // 일만사 운영자격 재이수 필요(이미 만료됐거나, 만료 연도가 올해라 연말 전에 재이수·재납부를 준비해야
+  // 하는 거래처) - 언제 이수/납부했는지 자체보다 "연말 전에 다시 챙겨야 하는 곳이 어디인지"가 실제로
+  // 필요한 정보라는 지적으로, 눈에 띄는 경고 배너 + 원클릭 필터로 바로 찾을 수 있게 함
+  var renewalNeeded=officeRows().filter(isLicenseRenewalNeeded);
+  var renewalWarnEl=document.getElementById('renewal-warn');
+  if(renewalWarnEl){
+    renewalWarnEl.innerHTML=renewalNeeded.length
+      ? ('<div onclick="setQuickFilter(\'renewal\')" style="cursor:pointer;font-size:11.5px;font-weight:700;color:#B26A00;background:#FFF1DB;border:1px solid #F0D9A8;border-radius:6px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between">'
+        +'<span>⚠️ 일만사 운영자격 재이수 필요(만료·연내 만료) '+renewalNeeded.length+'처</span>'
+        +'<span>'+(listQuick==='renewal'?'전체 보기 ✕':'보기 ▸')+'</span></div>')
+      : '';
+  }
+  if(listQuick==='renewal') data=data.filter(isLicenseRenewalNeeded);
   var searchEl=document.getElementById('list-search');
   var searchQ=searchEl?searchEl.value.trim().toLowerCase():'';
   if(searchQ){
