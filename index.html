@@ -326,7 +326,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠. 테두리색은 주황 대신
    연보라 파스텔톤으로(다른 카드들과 안 겹치게) 변경 */
 .miniCard.mNext{border-top:4px solid #C6B8EA}
-.miniCard.mrGoal{border-top:4px solid #F6B37C}
+.mrGoalRow:hover{background:#FFF7EF}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 /* 9~12월 목표 카드의 달별 한 줄 */
@@ -618,11 +618,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
 
     <!-- 청구처 현황판 하위 - 웰체크 현황판(전체 현황/담당자별 현황/지역별 현황)과 같은 글씨 굵기·들여쓰기로
-         통일(동그라미 숫자 대신 sub-title). "거래처 리스트(담당자별)"는 웰체크의 "담당자별 현황"과 똑같이
-         담당자 하나하나가 하위 항목으로 펼쳐지는 아코디언으로 개편 -->
+         통일(동그라미 숫자 대신 sub-title). 담당자 하나하나가 하위 항목으로 펼쳐지는 아코디언 구조는
+         웰체크 쪽 "담당자별 현황"에서 그대로 가져왔지만, 이 화면 자체는 담당자 단위 요약이 아니라
+         거래처 하나하나의 세부 청구 현황(일만사/웰체크/DH품목 등)을 보는 표라서 "거래처별 현황"으로
+         이름을 바꿈(웰체크현황판 담당자별 현황과 이름이 같아 같은 기능처럼 헷갈린다는 지적) -->
     <div id="claimhub-sub" style="display:none">
       <div class="sub-item chub-sub-item sub-title sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">활성처 전략판</div>
-      <div class="acc-hd list-sub-hd chub-sub-item open" id="chub-sub-clinics" onclick="toggleAcc(this)">담당자별 현황<span class="cv">▾</span></div>
+      <div class="acc-hd list-sub-hd chub-sub-item open" id="chub-sub-clinics" onclick="toggleAcc(this)">거래처별 현황<span class="cv">▾</span></div>
       <div class="acc-body open" id="chub-mr-list"></div>
       <div class="sub-item chub-sub-item sub-title" id="chub-sub-claim" onclick="switchView('claim')">청구현황지표</div>
     </div>
@@ -796,7 +798,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="sectionTitle" style="margin-top:0">현재 지표</div>
     <div class="kpiGrid" id="st-kpi"></div>
     <div class="sectionTitle">담당자별 목표</div>
-    <div class="miniGrid" id="st-mr-cards"></div>
+    <div class="card" style="padding:8px 14px" id="st-mr-cards"></div>
     <div class="sectionTitle">평가기준 대응</div>
     <div class="miniGrid" id="st-mini"></div>
     <div class="sectionTitle">사무소 월별 활성환자 · 청구 추이</div>
@@ -1105,7 +1107,7 @@ function renderManagerUI(){
         +'<span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</div>';
     }).join('');
   }
-  // 청구처 현황판의 "담당자별 현황" 아코디언 - 웰체크 쪽과 똑같이 담당자 하나하나를 하위 항목으로
+  // 청구처 현황판의 "거래처별 현황" 아코디언 - 웰체크 쪽과 똑같이 담당자 하나하나를 하위 항목으로
   var chubMr=document.getElementById('chub-mr-list');
   if(chubMr){
     chubMr.innerHTML=officeManagers().map(function(m){
@@ -4755,20 +4757,29 @@ function renderStKPI(){
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
 }
-// 사무소 카드(현재 지표) 옆에 각 담당자별 카드도 있으면 좋겠다는 요청 - 담당자 하나하나가 지금 몇
+// 사무소 카드(현재 지표) 아래에 담당자별 목표도 있으면 좋겠다는 요청 - 담당자 하나하나가 지금 몇
 // 처를 확보했고 이번달 목표가 몇 처인지 한눈에 보여줌. 여러 사무소를 한 화면에 모아보는 기능까지는
 // 필요 없다고 확인돼서(우리 사무소 소속 담당자만 있으면 충분) officeManagers()로 항상 현재
-// 사무소 기준. 카드를 누르면 사무소 목표 대비 이 담당자의 월별(8~12월) 목표를 비교하는 팝업이 뜸.
+// 사무소 기준. 처음엔 담당자 한 명당 네모 카드 하나씩 만들었는데, 담당자가 많은(10명 이상) 사무소는
+// 카드가 줄줄이 늘어서 오히려 안 보기 불편할 수 있다는 지적 - 카드 여러 개 대신 카드 하나 안에
+// 표(한 줄=담당자 한 명)로 묶어서 담당자 수와 무관하게 항상 깔끔하게 보이도록 함. 표의 각 줄을
+// 누르면 기존과 동일하게 사무소 목표 대비 이 담당자의 월별(8~12월) 목표를 비교하는 팝업이 뜸.
 function renderStMrCards(){
   var el=document.getElementById('st-mr-cards');
   if(!el) return;
-  el.innerHTML=officeManagers().map(function(m){
-    var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
-    var active=mrActiveCount(m.code);
-    return '<div class="miniCard mrGoal" onclick="openMrTargetModal(\''+m.code+'\')">'
-      +'<div class="klbl">'+m.name+'담당 ▼</div><b>현재 '+active+'처</b>'
-      +'<div class="khint">'+(t!=null?('당월목표 '+t+'처'):'목표 데이터 없음')+'</div></div>';
-  }).join('');
+  var mgrs=officeManagers();
+  if(!mgrs.length){ el.innerHTML='<div class="sub" style="padding:8px 0">등록된 담당자가 없어요.</div>'; return; }
+  el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:7px 6px">담당자</th><th style="padding:7px 6px">현재 활성처</th><th style="padding:7px 6px">당월 목표</th></tr></thead><tbody>'
+    +mgrs.map(function(m){
+      var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
+      var active=mrActiveCount(m.code);
+      return '<tr class="mrGoalRow" onclick="openMrTargetModal(\''+m.code+'\')" style="border-bottom:0.5px solid var(--bd2);cursor:pointer">'
+        +'<td style="padding:7px 6px;font-weight:700">'+mrCircle(m)+' '+m.name+'</td>'
+        +'<td style="text-align:center;padding:7px 6px;font-weight:800">'+active+'처</td>'
+        +'<td style="text-align:center;padding:7px 6px;color:'+(t!=null?'#B01A1A':'var(--t3)')+';font-weight:700">'+(t!=null?(t+'처'):'목표 데이터 없음')+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
 }
 // 담당자 카드 클릭 시 - 사무소 전체 목표와 이 담당자 개인 목표를 월별(하반기 목표 파일이 있는 달만,
 // 1~7월은 데이터 자체가 없어 스킵)로 나란히 비교. 맨 아래엔 이 담당자 거래처만 바로 보러 가는 버튼.
