@@ -326,7 +326,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠. 테두리색은 주황 대신
    연보라 파스텔톤으로(다른 카드들과 안 겹치게) 변경 */
 .miniCard.mNext{border-top:4px solid #C6B8EA}
-.mrGoalRow:hover{background:#FFF7EF}
+.mrGoalChip{border:1px solid #F0D9A8;background:#FFFBF3;border-radius:12px;padding:9px 12px;cursor:pointer;min-width:132px}
+.mrGoalChip:hover{box-shadow:0 4px 12px rgba(178,106,0,.12);border-color:#F6B37C}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 /* 9~12월 목표 카드의 달별 한 줄 */
@@ -4760,26 +4761,25 @@ function renderStKPI(){
 // 사무소 카드(현재 지표) 아래에 담당자별 목표도 있으면 좋겠다는 요청 - 담당자 하나하나가 지금 몇
 // 처를 확보했고 이번달 목표가 몇 처인지 한눈에 보여줌. 여러 사무소를 한 화면에 모아보는 기능까지는
 // 필요 없다고 확인돼서(우리 사무소 소속 담당자만 있으면 충분) officeManagers()로 항상 현재
-// 사무소 기준. 처음엔 담당자 한 명당 네모 카드 하나씩 만들었는데, 담당자가 많은(10명 이상) 사무소는
-// 카드가 줄줄이 늘어서 오히려 안 보기 불편할 수 있다는 지적 - 카드 여러 개 대신 카드 하나 안에
-// 표(한 줄=담당자 한 명)로 묶어서 담당자 수와 무관하게 항상 깔끔하게 보이도록 함. 표의 각 줄을
-// 누르면 기존과 동일하게 사무소 목표 대비 이 담당자의 월별(8~12월) 목표를 비교하는 팝업이 뜸.
+// 사무소 기준. 표 형태로 한 번 바꿨었는데 카드 느낌이 더 낫다는 피드백 - 담당자 한 명당 큰 네모
+// 카드를 페이지에 죽 늘어놓으면(처음 버전) 담당자 많은 사무소에서 sprawl되는 문제가 있었으므로,
+// 카드 하나(섹션 박스) 안에 작은 칩형 카드를 담당자 수만큼 넣고 줄바꿈(flex-wrap)되게 해서
+// "카드 디자인"은 유지하면서 담당자가 몇 명이든 한 섹션 안에서 깔끔하게 정리되도록 함.
 function renderStMrCards(){
   var el=document.getElementById('st-mr-cards');
   if(!el) return;
   var mgrs=officeManagers();
   if(!mgrs.length){ el.innerHTML='<div class="sub" style="padding:8px 0">등록된 담당자가 없어요.</div>'; return; }
-  el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:7px 6px">담당자</th><th style="padding:7px 6px">현재 활성처</th><th style="padding:7px 6px">당월 목표</th></tr></thead><tbody>'
+  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:10px">'
     +mgrs.map(function(m){
       var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
       var active=mrActiveCount(m.code);
-      return '<tr class="mrGoalRow" onclick="openMrTargetModal(\''+m.code+'\')" style="border-bottom:0.5px solid var(--bd2);cursor:pointer">'
-        +'<td style="padding:7px 6px;font-weight:700">'+mrCircle(m)+' '+m.name+'</td>'
-        +'<td style="text-align:center;padding:7px 6px;font-weight:800">'+active+'처</td>'
-        +'<td style="text-align:center;padding:7px 6px;color:'+(t!=null?'#B01A1A':'var(--t3)')+';font-weight:700">'+(t!=null?(t+'처'):'목표 데이터 없음')+'</td></tr>';
+      return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
+        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당</div>'
+        +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처'):'목표 데이터 없음')+'</div></div>';
     }).join('')
-    +'</tbody></table>';
+    +'</div>';
 }
 // 담당자 카드 클릭 시 - 사무소 전체 목표와 이 담당자 개인 목표를 월별(하반기 목표 파일이 있는 달만,
 // 1~7월은 데이터 자체가 없어 스킵)로 나란히 비교. 맨 아래엔 이 담당자 거래처만 바로 보러 가는 버튼.
