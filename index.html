@@ -893,6 +893,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button type="button" class="btn btn-cancel" id="add-mode-toggle-btn" style="font-size:11px;padding:5px 10px;white-space:nowrap;border-radius:999px;color:#1F8A5F;border-color:#1F8A5F" onclick="toggleAddMode()">📋 거래처 외 일정</button>
       </div>
     </div>
+    <!-- 시간/세부내용은 수정되는데 날짜 자체를 바꿀 방법이 없다는 지적 - 등록 땐 그날 셀을 눌러서
+         날짜가 자동으로 정해지니 필요 없었지만, 수정 시엔 날짜를 바꿀 입력칸이 아예 빠져있었음.
+         날짜를 바꾸면(다른 달로 옮겨도) saveEv()가 이 값 기준으로 year/month/day를 다시 계산해서 저장 -->
+    <div class="dm-fields" style="margin-bottom:8px">
+      <div class="dm-field" style="grid-column:1/-1">
+        <div class="dm-field-lbl">날짜</div>
+        <input type="date" id="inp-date" style="width:100%;padding:4px 6px;font-size:13px;border:none;background:transparent;color:var(--t1);font-family:inherit;font-weight:600;cursor:pointer">
+      </div>
+    </div>
     <div class="dm-fields">
       <div class="dm-field" id="mr-field">
         <div class="dm-field-lbl" id="mr-field-lbl">담당자</div>
@@ -3797,10 +3806,13 @@ function changeMonth(d){curMonth+=d;if(curMonth>12){curMonth=1;curYear++;}if(cur
 function changeYear(d){curYear+=d;renderCalendar();}
 
 // ===== 일정 추가 모달 =====
+// 일정 추가/수정 모달의 <input type="date"> 값(YYYY-MM-DD)을 만들거나 반대로 읽어들일 때 씀
+function isoDateStr(y,m,d){ return y+'-'+(m<10?'0'+m:m)+'-'+(d<10?'0'+d:d); }
 function openAdd(day, zone){
   editingId=null; addDay=day; addZone=zone;
   clearCrossMr();
   document.getElementById('add-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 일정 추가';
+  document.getElementById('inp-date').value=isoDateStr(curYear,curMonth,day);
   document.getElementById('inp-clinic').value='';
   if(MANAGERS.length){ document.getElementById('inp-mr').value=MANAGERS[0].code; loadClinicsByMR(MANAGERS[0].code); updateAddBadge(); }
   document.getElementById('inp-time').value=zone;
@@ -3823,6 +3835,7 @@ function openAdd(day, zone){
 function openEditModal(ev){
   editingId=ev.id; addDay=ev.day;
   document.getElementById('add-title').textContent='일정 수정';
+  document.getElementById('inp-date').value=isoDateStr(ev.year,ev.month,ev.day);
   document.getElementById('inp-clinic').value=ev.label;
   if(ev.mrOffice){
     // 타사무소 동도 일정: ev.mr은 코드가 아니라 그 사무소 실제 담당자 "이름"이라 우리 사무소 셀렉트
@@ -3882,8 +3895,12 @@ function saveEv(){
       alert('거래처 상황 및 요청사항을 입력해주세요.'); return;
     }
   }
+  var dateVal=document.getElementById('inp-date').value;
+  if(!dateVal){ alert('날짜를 선택해주세요.'); return; }
+  var dateParts=dateVal.split('-');
+  var evYear=parseInt(dateParts[0],10), evMonth=parseInt(dateParts[1],10), evDay=parseInt(dateParts[2],10);
   var row={
-    year:curYear, month:curMonth, day:addDay,
+    year:evYear, month:evMonth, day:evDay,
     office:currentOffice,
     // 타사무소 동도(지원 방문): mr엔 그 거래처의 실제 담당자 "이름"이 들어가고(코드가 아님 -
     // 사무소마다 코드 namespace가 달라서 이름으로 저장해야 우리 사무소 코드와 절대 안 겹침),
