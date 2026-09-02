@@ -622,12 +622,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
          통일(동그라미 숫자 대신 sub-title). 담당자 하나하나가 하위 항목으로 펼쳐지는 아코디언 구조는
          웰체크 쪽 "담당자별 현황"에서 그대로 가져왔지만, 이 화면 자체는 담당자 단위 요약이 아니라
          거래처 하나하나의 세부 청구 현황(일만사/웰체크/DH품목 등)을 보는 표라서 "거래처별 현황"으로
-         이름을 바꿈(웰체크현황판 담당자별 현황과 이름이 같아 같은 기능처럼 헷갈린다는 지적) -->
+         이름을 바꿈(웰체크현황판 담당자별 현황과 이름이 같아 같은 기능처럼 헷갈린다는 지적). 세
+         항목(활성처 전략판/거래처별 현황/청구현황지표)이 같은 단위(형제 항목)로 보여야 하는데,
+         list-sub-hd(46px 들여쓰기)를 아코디언 헤더에만 넣어서 거래처별 현황만 유독 더 들여쓰기된
+         것처럼 보였음 - 웰체크현황판의 "전체 현황"도 list-sub-hd를 똑같이 쓰는 것과 동일하게,
+         나머지 두 항목에도 list-sub-hd를 넣어 셋 다 정확히 같은 들여쓰기로 맞춤 -->
     <div id="claimhub-sub" style="display:none">
-      <div class="sub-item chub-sub-item sub-title sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">활성처 전략판</div>
+      <div class="sub-item list-sub-hd chub-sub-item sub-title sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">활성처 전략판</div>
       <div class="acc-hd list-sub-hd chub-sub-item open" id="chub-sub-clinics" onclick="toggleAcc(this)">거래처별 현황<span class="cv">▾</span></div>
       <div class="acc-body open" id="chub-mr-list"></div>
-      <div class="sub-item chub-sub-item sub-title" id="chub-sub-claim" onclick="switchView('claim')">청구현황지표</div>
+      <div class="sub-item list-sub-hd chub-sub-item sub-title" id="chub-sub-claim" onclick="switchView('claim')">청구현황지표</div>
     </div>
 
     <div class="sb-div"></div>
@@ -718,7 +722,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="bot-panels">
       <div class="pnl">
         <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 교육이수 현황</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:8px">
           <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('all',event)">
             <div style="font-size:16px;font-weight:700;color:var(--t1)" id="edu-total">—</div>
             <div style="font-size:9px;color:var(--t2)">총 대상</div>
@@ -731,12 +735,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div style="font-size:16px;font-weight:700;color:#B01A1A" id="edu-notyet">—</div>
             <div style="font-size:9px;color:#B01A1A">미이수</div>
           </div>
+          <!-- 이수했어도 자격이 만료됐거나 연내 만료되는 곳(=재이수 필요) - 거래처현황판의 "운영자격
+               재이수 필요" 배너를 눌렀을 때와 완전히 같은 화면(전체 목록 필터)으로 이동 -->
+          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="goToRenewalList()">
+            <div style="font-size:16px;font-weight:700;color:#8A6800" id="edu-renewal">—</div>
+            <div style="font-size:9px;color:#8A6800">만료예정</div>
+          </div>
         </div>
 
       </div>
       <div class="pnl">
         <div class="pnl-title">💰 <span style="color:#8A6800">의협회비 납부 현황</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">
           <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('all',event)">
             <div style="font-size:15px;font-weight:700;color:var(--t1)" id="dues-total">—</div>
             <div style="font-size:9px;color:var(--t2)">총 대상</div>
@@ -748,6 +758,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('unpaid',event)">
             <div style="font-size:15px;font-weight:700;color:#B01A1A" id="dues-unpaid">—</div>
             <div style="font-size:9px;color:#B01A1A">미납</div>
+          </div>
+          <!-- 회비 재납부가 다음 자격 갱신(재이수)의 첫 단계라서, 교육이수 패널의 "만료예정"과 같은
+               대상(재이수 필요)을 여기서도 "당해 납부필요"로 보여주고 같은 화면으로 연결 -->
+          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="goToRenewalList()">
+            <div style="font-size:15px;font-weight:700;color:#8A6800" id="dues-renewal">—</div>
+            <div style="font-size:9px;color:#8A6800">당해 납부필요</div>
           </div>
         </div>
       </div>
@@ -781,8 +797,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <!-- 검색바가 너무 길어서 답답하다는 지적으로 1/3 정도로 축소(모바일에선 좁아서 다시 넓게) -->
     <input type="text" id="list-search" placeholder="🔍 거래처명 / 사업자등록번호 / 담당자명 검색" oninput="renderList()" style="padding:6px 10px;border:0.5px solid var(--bd2);border-radius:6px;font-size:12.5px;font-family:inherit;width:33%;min-width:220px">
-    <div id="renewal-warn"></div>
-    <div class="fp-row" id="fp-row"></div>
+    <!-- 재이수 필요 배너가 검색바 아래 자기 줄을 통째로 차지하니 눈에 안 띈다는 지적 - 필터 pill
+         줄(전체/담당자/지역...) 오른쪽의 빈 공간에 작은 배지로 넣어서 같은 줄에서 바로 보이게 함
+         (margin-left:auto라 fp-row가 숨겨질 때도 항상 오른쪽 끝에 붙음) -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="fp-row" id="fp-row"></div>
+      <div id="renewal-warn" style="margin-left:auto"></div>
+    </div>
   </div>
   <div class="list-content">
     <div id="list-body"></div>
@@ -4059,9 +4080,8 @@ function renderList(){
   var renewalWarnEl=document.getElementById('renewal-warn');
   if(renewalWarnEl){
     renewalWarnEl.innerHTML=renewalNeeded.length
-      ? ('<div onclick="setQuickFilter(\'renewal\')" style="cursor:pointer;font-size:11.5px;font-weight:700;color:#B26A00;background:#FFF1DB;border:1px solid #F0D9A8;border-radius:6px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between">'
-        +'<span>⚠️ 일만사 운영자격 재이수 필요(만료·연내 만료) '+renewalNeeded.length+'처</span>'
-        +'<span>'+(listQuick==='renewal'?'전체 보기 ✕':'보기 ▸')+'</span></div>')
+      ? ('<button onclick="setQuickFilter(\'renewal\')" style="cursor:pointer;font-size:11.5px;font-weight:700;color:#B26A00;background:#FFF1DB;border:1px solid #F0D9A8;border-radius:999px;padding:4px 10px;font-family:inherit;white-space:nowrap">'
+        +'⚠️ 재이수 필요 '+renewalNeeded.length+'처'+(listQuick==='renewal'?' · 전체 보기 ✕':' ▸')+'</button>')
       : '';
   }
   if(listQuick==='renewal') data=data.filter(isLicenseRenewalNeeded);
@@ -5545,6 +5565,13 @@ function updateEduStats(){
   if(du) du.textContent=dU+'곳';
   if(en) en.textContent=notyet+'곳';
 
+  // "만료예정"(교육이수 패널)/"당해 납부필요"(의협회비 패널) - 이수했더라도 자격이 이미 만료됐거나
+  // 연내 만료되는 곳으로, 거래처현황판의 "일만사 운영자격 재이수 필요"와 정확히 같은 대상(isLicenseRenewalNeeded)
+  var renewalCnt=rows.filter(isLicenseRenewalNeeded).length;
+  var eduRenewalEl=document.getElementById('edu-renewal'), duesRenewalEl=document.getElementById('dues-renewal');
+  if(eduRenewalEl) eduRenewalEl.textContent=renewalCnt+'곳';
+  if(duesRenewalEl) duesRenewalEl.textContent=renewalCnt+'곳';
+
   // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수가 아니면(=이수일이 없으면)
   // 판단 자체가 불가하니 총 대상에서도 제외한다("총 대상"이 유효+임박+만료 합과 항상 일치해야 함)
   var licRows=rows.filter(function(c){ return c.ilmansa==='참여' && ilmansaLicenseStatus(c)!=null; });
@@ -6077,6 +6104,16 @@ function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=d
 function setQuickFilter(v){
   listQuick = listQuick===v ? 'all' : v;
   renderList();
+}
+// 캘린더 홈의 "교육이수 현황"/"의협회비 납부 현황" 패널에 있는 "만료예정"/"당해 납부필요" 클릭 시 -
+// 회비납부가 교육이수 자격의 전제조건이라 사실상 같은 대상(재이수 필요)이므로, 거래처현황판의
+// "일만사 운영자격 재이수 필요" 배너를 눌렀을 때와 똑같은 화면(전체 목록에서 그 거래처들만 필터)으로
+// 이동한다 - 예전처럼 이름만 나열하는 작은 팝업이 아니라 상세 표로 바로 드릴다운해서 두 곳의
+// UX를 하나로 통일함.
+function goToRenewalList(){
+  switchView('list');
+  listMR='all'; listReg='all'; listVisit='all'; listQuick='all';
+  setQuickFilter('renewal');
 }
 
 // 거래처 표에서 방문/일만사/웰체크 클릭 토글
