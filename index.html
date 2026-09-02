@@ -178,7 +178,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* 날짜 셀 - height가 아니라 min-height라서, 한 주(같은 grid row)의 어느 날이든 일정이 많아 칸이
    커져야 하면(예: 오전 3건) CSS grid가 그 행 전체를 알아서 그만큼 늘려줌(구현은 appendEvsWithMore의
    max 상향 + 아래 zone 영역들의 overflow:visible 조합). 평소(2건 이하)엔 116px로 다른 주와 동일하게 유지 */
-.dc{min-height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s}
+/* overflow-y는 그대로 두되(줄 수만큼 세로로 자라야 하니까) overflow-x만 hidden으로 - 이게 없으면
+   CSS grid(.cal-grid, repeat(7,1fr))가 셀 안의 가장 긴 이벤트 칩(말줄임 되기 전 원래 텍스트 폭)을
+   기준으로 각 칸의 "최소 폭"을 잡아버려서, 좁은 모바일 화면에서 그리드 전체가 화면보다 넓어지고
+   토요일 칸이 잘려 안 보이거나 글자가 옆칸으로 삐져나오는 문제가 있었음(실측: 320px 화면에서 그리드
+   자체가 348px로 화면보다 넓어져 가로 스크롤이 생기고 칸이 잘림) */
+.dc{min-height:116px;overflow-x:hidden;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s}
 .dc:nth-child(7n){border-right:none}
 .dc:hover{background:var(--dw-l)}
 .dc-top{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none}
@@ -188,10 +193,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* 오전/오후/종일 영역 - overflow:hidden을 빼서(대신 appendEvsWithMore의 max로 상한을 두므로 넘칠
    일은 없음) 일정이 늘어나면 이 영역도, 부모 .dc(min-height)도 같이 커지게 함 */
-.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column}
+.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:hidden}
 .dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
-.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column}
-.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:hidden}
+.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column;overflow-x:hidden}
 .zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
 
 /* 이벤트 칩 */
@@ -228,7 +233,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* 빈칸 */
 /* .dc처럼 min-height로 - 같은 주의 다른 칸이 일정이 많아 커지면 월 시작/끝의 빈 칸도 같이 늘어나야
    줄 밑선이 들쭉날쭉해 보이지 않음 */
-.ec{min-height:116px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
+.ec{min-height:116px;overflow-x:hidden;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
 .ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
 .ec:nth-child(7n){border-right:none}
 
@@ -3425,7 +3430,7 @@ var OFFICE_REGIONS={
   '경기1':['수원시 권선구','수원시 영통구','수원시 장안구','수원시 팔달구','오산시','화성시'],
   '경기2':['안산시 단원구','안산시 상록구','안양시 동안구','안양시 만안구','군포시','수원시(일부)','의왕시'],
   '경기3':['안성시','용인시 기흥구','용인시 수지구','용인시 처인구','평택시','화성시'],
-  '경인1':['경기 김포시','경기 부천시','인천 강화군','인천 계양구','인천 부평구'],
+  '경인1':['경기 김포시','인천 계양구','인천 부평구'],
   '경인2':['인천 동구','인천 미추홀구','인천 서구','인천 옹진군','인천 중구'],
   '경인3':['인천 남동구','인천 연수구','경기 시흥시(66%)'],
   '경인4':['경기 광명시','경기 부천시','경기 시흥시(34%)'],
