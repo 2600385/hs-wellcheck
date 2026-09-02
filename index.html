@@ -777,7 +777,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
                   <div class="pnl">
         <div class="pnl-title">📝 거래처 방문 후 특이사항</div>
-        <textarea class="memo-area" id="visit-notes" placeholder="방문 후 특이사항을 기록하세요.
+        <textarea class="memo-area" id="visit-notes" style="min-height:220px" placeholder="방문 후 특이사항을 기록하세요.
 예) 5.14 성모누리의원 6/11 반드시 방문 요청함(환자내원예정)
 예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></textarea>
       </div>
@@ -2684,7 +2684,7 @@ var MEMO_STORE = {}; // 거래처명 → 메모 저장소 (clinic_memos 테이�
 function rowToEv(r){
   return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, mrOffice:r.mr_office||'', label:r.label,
     time:r.time_slot, exactTime:r.exact_time||'', exactTimeEnd:r.exact_time_end||'', evType:r.ev_type, region:r.region, patients:r.patients,
-    memo:r.memo||'', situation:r.situation||'', checked:r.checked, status:r.status};
+    memo:r.memo||'', situation:r.situation||'', checked:r.checked, checkedManual:!!r.checked_manual, status:r.status};
 }
 // "14:30" -> "2p30", "09:00" -> "9a", "14:00" -> "2p"
 function compactTime(t){
@@ -3778,7 +3778,11 @@ function buildChip(ev, isAll){
   var cb=document.createElement('input');cb.type='checkbox';cb.checked=ev.checked;
   cb.onclick=function(e){
     e.stopPropagation();ev.checked=cb.checked;
-    db.from('schedules').update({checked:cb.checked}).eq('id',ev.id).then(function(res){
+    // 사용자가 직접 체크박스를 조작하면 checked_manual을 true로 남겨서, 이후 autoCheckPastEvents가
+    // "지난 날짜인데 체크 안 됨"이라는 이유로 방금 사용자가 해지한 체크를 도로 자동 체크시키는 걸 막음
+    // (예전엔 이 구분이 없어서, 해지해도 캘린더가 다시 렌더링될 때마다 자동으로 다시 체크돼버렸음)
+    ev.checkedManual=true;
+    db.from('schedules').update({checked:cb.checked, checked_manual:true}).eq('id',ev.id).then(function(res){
       if(res.error) console.error(res.error);
     });
   };
@@ -6247,13 +6251,17 @@ function deleteClinic(){
 }
 
 // 지난 날짜 자동 체크
+// 날짜가 지나면 방문 체크를 자동으로 켜주는 기능(그대로 유지) - 다만 사용자가 그 체크를 직접
+// 손대서(체크/해지 어느 쪽이든) checkedManual이 true가 된 일정은 그 뒤로 이 자동 스윕이 손대지
+// 않는다. 이 구분이 없으면, 사용자가 방금 수동으로 해지한 체크가 캘린더 재렌더링(달 전환, 다른
+// 저장 등)마다 "지난 날짜인데 체크 안 됨"이라는 이유로 도로 자동 체크돼버리는 문제가 있었음.
 function autoCheckPastEvents(){
   var key=curYear+'-'+curMonth;
   var evs=EVENTS[key]||[];
   var changed=[];
   evs.forEach(function(ev){
     if(ev.evType&&ev.evType!=='visit') return;
-    if(ev.checked) return;
+    if(ev.checked||ev.checkedManual) return;
     if(curYear<TODAY.y||(curYear===TODAY.y&&curMonth<TODAY.m)||(curYear===TODAY.y&&curMonth===TODAY.m&&ev.day<TODAY.d)){
       ev.checked=true; changed.push(ev.id);
     }
