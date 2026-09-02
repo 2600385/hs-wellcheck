@@ -326,6 +326,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠. 테두리색은 주황 대신
    연보라 파스텔톤으로(다른 카드들과 안 겹치게) 변경 */
 .miniCard.mNext{border-top:4px solid #C6B8EA}
+.miniCard.mrGoal{border-top:4px solid #F6B37C}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 /* 9~12월 목표 카드의 달별 한 줄 */
@@ -794,6 +795,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="st-info" class="infoBar2"></div>
     <div class="sectionTitle" style="margin-top:0">현재 지표</div>
     <div class="kpiGrid" id="st-kpi"></div>
+    <div class="sectionTitle">담당자별 목표</div>
+    <div class="miniGrid" id="st-mr-cards"></div>
     <div class="sectionTitle">평가기준 대응</div>
     <div class="miniGrid" id="st-mini"></div>
     <div class="sectionTitle">사무소 월별 활성환자 · 청구 추이</div>
@@ -1093,19 +1096,13 @@ function renderManagerUI(){
     wrap.innerHTML=h;
     applyMRButtons();
   }
-  // 사이드바 담당자별 현황 - 이름만 있으면 이 사람이 지금 몇 처를 활성처로 확보했는지 클릭해서
-  // 들어가보기 전엔 알 수 없어서, 주 2회 RAW 파일로 바로 파악 가능한 "당월 목표/현재 활성처수"를
-  // 이름 아래 한 줄로 같이 보여줌(당월 목표라 매달 자동으로 그 달 기준으로 바뀜 - 개인별 목표 파일
-  // 자체가 8~12월분만 있어서 그 전 달은 목표가 없으면 배지 자체를 생략)
+  // 사이드바 담당자별 현황 - 당월 목표/현재 활성처수는 이 카테고리 목록엔 넣지 않고(목록이 지저분해짐),
+  // 대신 그 담당자로 실제 필터링된 화면(거래처현황판 제목 옆 배지)에서만 보여준다(renderList 참고)
   var sb=document.getElementById('sb-mr-list');
   if(sb){
     sb.innerHTML=officeManagers().map(function(m){
-      var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
-      var active=mrActiveCount(m.code);
-      var badge=t!=null?('<span style="font-size:9px;font-weight:700;color:#B01A1A;background:#FFF3D0;border-radius:999px;padding:1px 6px;margin-left:15px">당월목표 '+t+'처 · 현재 '+active+'처</span>'):'';
-      return '<div class="sub-item list-sub-child" style="flex-direction:column;align-items:flex-start;gap:2px" onclick="setSubNav(this);listFilter(\''+m.code+'\',\'all\')">'
-        +'<span style="display:flex;align-items:center;gap:7px"><span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</span>'
-        +badge+'</div>';
+      return '<div class="sub-item list-sub-child" onclick="setSubNav(this);listFilter(\''+m.code+'\',\'all\')">'
+        +'<span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</div>';
     }).join('');
   }
   // 청구처 현황판의 "담당자별 현황" 아코디언 - 웰체크 쪽과 똑같이 담당자 하나하나를 하위 항목으로
@@ -2907,13 +2904,35 @@ function doLogin(){
   }
   loadEmployees().then(function(){
     var emp=EMPLOYEES.find(function(e){return e.emp_no===input;});
-    if(!emp){ errEl.style.display='block'; return; }
-    currentUser=emp;
-    localStorage.setItem('wc_emp_no', input);
-    document.getElementById('login-ov').classList.add('login-hide');
-    switchView(homeViewForRole());
-    setCurrentOffice(emp.office||'경인1');
-    applyRoleGating();
+    if(emp){
+      currentUser=emp;
+      localStorage.setItem('wc_emp_no', input);
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(emp.office||'경인1');
+      applyRoleGating();
+      return;
+    }
+    // MR은 employees가 아니라 사무소별 managers 테이블에 사번(emp_no)이 있어서, employees에
+    // 없으면 managers를 사무소 구분 없이 전체 검색해서 한 번 더 찾아본다 - 찾으면 그 담당자가
+    // 실제 속한 사무소로 자동 입장(엑셀 자체에 담당자별 소속 사무소가 있으니 이걸 그대로 반영)
+    findMRBySabun(input).then(function(mgr){
+      if(!mgr){ errEl.style.display='block'; return; }
+      currentUser={id:0, emp_no:input, name:mgr.name, role:'MR', office:mgr.office, mr_code:mgr.code};
+      localStorage.setItem('wc_emp_no', input);
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(mgr.office);
+      applyRoleGating();
+    });
+  });
+}
+// 사번으로 담당자(MR) 찾기 - managers는 사무소별로만 로드되므로(loadManagers는 currentOffice
+// 스코프), 로그인 시점엔 사무소를 아직 모르니 여기서만 예외적으로 전사무소 통합 조회를 한다.
+function findMRBySabun(empNo){
+  return db.from('managers').select('*').eq('emp_no', empNo).then(function(res){
+    if(res.error||!res.data||!res.data.length) return null;
+    return res.data[0];
   });
 }
 function logout(){
@@ -2935,12 +2954,22 @@ function tryAutoLogin(){
   if(!saved) return;
   loadEmployees().then(function(){
     var emp=EMPLOYEES.find(function(e){return e.emp_no===saved;});
-    if(!emp) return;
-    currentUser=emp;
-    document.getElementById('login-ov').classList.add('login-hide');
-    switchView(homeViewForRole());
-    setCurrentOffice(emp.office||'경인1');
-    applyRoleGating();
+    if(emp){
+      currentUser=emp;
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(emp.office||'경인1');
+      applyRoleGating();
+      return;
+    }
+    findMRBySabun(saved).then(function(mgr){
+      if(!mgr) return; // 못 찾으면 그냥 로그인 화면 유지(자동 로그인 실패)
+      currentUser={id:0, emp_no:saved, name:mgr.name, role:'MR', office:mgr.office, mr_code:mgr.code};
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(mgr.office);
+      applyRoleGating();
+    });
   });
 }
 function applyRoleGating(){
@@ -4004,7 +4033,7 @@ function renderList(){
     if(mgr){
       var mt=mgr.emp_no?h2MrTarget(mgr.emp_no,todayMonthStr()):null;
       var ac=mrActiveCount(mgr.code);
-      mrBadgeEl.innerHTML=(mt!=null?('<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FFF3D0;border-radius:999px;padding:3px 9px">당월목표 '+mt+'처 · 현재 활성처수 '+ac+'처</span>'):'<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FFF3D0;border-radius:999px;padding:3px 9px">현재 활성처수 '+ac+'처</span>');
+      mrBadgeEl.innerHTML='<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FFF3D0;border:1px solid #F0D9A8;border-radius:6px;padding:3px 9px">'+(mt!=null?('당월목표 '+mt+'처 · 현재 활성처수 '+ac+'처'):('현재 활성처수 '+ac+'처'))+'</span>';
     } else {
       mrBadgeEl.innerHTML='';
     }
@@ -4279,6 +4308,7 @@ function renderStrategyView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot()]).then(function(){
     buildClaimMap();
     renderStKPI();
+    renderStMrCards();
     renderStTrend();
     renderClaimTypeTrend();
     renderStFilters();
@@ -4724,6 +4754,48 @@ function renderStKPI(){
     var arrow=clickable?' ▼':'';
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
+}
+// 사무소 카드(현재 지표) 옆에 각 담당자별 카드도 있으면 좋겠다는 요청 - 담당자 하나하나가 지금 몇
+// 처를 확보했고 이번달 목표가 몇 처인지 한눈에 보여줌. 여러 사무소를 한 화면에 모아보는 기능까지는
+// 필요 없다고 확인돼서(우리 사무소 소속 담당자만 있으면 충분) officeManagers()로 항상 현재
+// 사무소 기준. 카드를 누르면 사무소 목표 대비 이 담당자의 월별(8~12월) 목표를 비교하는 팝업이 뜸.
+function renderStMrCards(){
+  var el=document.getElementById('st-mr-cards');
+  if(!el) return;
+  el.innerHTML=officeManagers().map(function(m){
+    var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
+    var active=mrActiveCount(m.code);
+    return '<div class="miniCard mrGoal" onclick="openMrTargetModal(\''+m.code+'\')">'
+      +'<div class="klbl">'+m.name+'담당 ▼</div><b>현재 '+active+'처</b>'
+      +'<div class="khint">'+(t!=null?('당월목표 '+t+'처'):'목표 데이터 없음')+'</div></div>';
+  }).join('');
+}
+// 담당자 카드 클릭 시 - 사무소 전체 목표와 이 담당자 개인 목표를 월별(하반기 목표 파일이 있는 달만,
+// 1~7월은 데이터 자체가 없어 스킵)로 나란히 비교. 맨 아래엔 이 담당자 거래처만 바로 보러 가는 버튼.
+function openMrTargetModal(mrCode){
+  var m=officeManagers().find(function(x){return x.code===mrCode;});
+  if(!m) return;
+  var months=m.emp_no?H2_TARGETS.filter(function(r){return r.scope==='mr'&&r.mr_sabun===m.emp_no;}).map(function(r){return r.month.slice(0,7);}).sort():[];
+  var active=mrActiveCount(m.code);
+  var body='<div class="sub" style="margin-bottom:8px">현재 활성처 <b>'+active+'처</b>(주 2회 파일 기준 실시간) · 아래는 26년 하반기 목표 파일에 있는 달만 비교(1~7월은 이 파일에 데이터가 없어 표시하지 않음)</div>';
+  if(!months.length){
+    body+='<div class="sub">'+m.name+'님의 개인별 목표 데이터가 아직 없어요.</div>';
+  } else {
+    body+='<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">사무소 목표</th><th style="padding:5px 6px">'+m.name+'담당 목표</th></tr></thead><tbody>'
+      +months.map(function(mon){
+        var isCur=mon===todayMonthStr();
+        var rowStyle=isCur?'border-bottom:0.5px solid var(--bd2);background:#FFF7EF;font-weight:800':'border-bottom:0.5px solid var(--bd2);color:var(--t2)';
+        var oT=h2OfficeTarget(currentOffice, mon);
+        var mT=h2MrTarget(m.emp_no, mon);
+        return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+parseInt(mon.slice(5,7),10)+'월'+(isCur?' (당월)':(mon<todayMonthStr()?' (지남)':' (예상)'))+'</td>'
+          +'<td style="text-align:center;padding:5px 6px">'+(oT!=null?oT+'처':'-')+'</td>'
+          +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+(mT!=null?mT+'처':'-')+'</td></tr>';
+      }).join('')
+      +'</tbody></table>';
+  }
+  body+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'simple-modal-ov\').remove();switchView(\'clinicslist\');setStMR(\''+m.code+'\')" style="background:#F47920;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">'+m.name+'담당 거래처 보기 →</button></div>';
+  showSimpleModal(m.name+'담당 · 월별 목표', body);
 }
 function renderStTrend(){
   var ctx=document.getElementById('officeTrend');
