@@ -70,6 +70,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .chub-sub-item{color:#8A6800}
 .chub-sub-item:hover{background:#FBF3D9;color:#5C4600}
 .chub-sub-item.sub-active{background:#FBF3D9;color:#5C4600;font-weight:700}
+/* "담당자별 현황"을 웰체크 현황판과 같은 아코디언(.acc-hd)으로 만들면서, 뒤에 나오는 기본
+   .acc-hd:hover(회색)가 명시도가 같아 나중에 선언된 쪽이 이겨 amber 톤을 덮어써버림 - id 선택자로
+   명시도를 올려서 청구처 쪽 아코디언 헤더는 항상 amber 톤을 유지하게 함 */
+#claimhub-sub .acc-hd{color:#8A6800}
+#claimhub-sub .acc-hd:hover{background:#FBF3D9;color:#5C4600}
 
 /* 구분선 */
 .sb-div{height:0.5px;background:var(--bd);margin:6px 14px}
@@ -321,6 +326,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    ('다음달'은 매달 바뀌므로) 달과 무관한 고정 클래스명(mNext)으로 둠. 테두리색은 주황 대신
    연보라 파스텔톤으로(다른 카드들과 안 겹치게) 변경 */
 .miniCard.mNext{border-top:4px solid #C6B8EA}
+.mrGoalChip{border:1px solid #F0D9A8;background:#FFFBF3;border-radius:12px;padding:9px 12px;cursor:pointer;min-width:132px}
+.mrGoalChip:hover{box-shadow:0 4px 12px rgba(178,106,0,.12);border-color:#F6B37C}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
 /* 9~12월 목표 카드의 달별 한 줄 */
@@ -463,6 +470,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sb-backdrop{display:none;position:fixed;inset:0;background:rgba(45,41,38,.45);z-index:290}
 @media (max-width:768px){
   .mobile-menu-btn{display:flex}
+  /* 데스크톱에서만 검색바를 1/3로 줄인 것 - 모바일은 화면 자체가 좁아서 다시 원래대로 폭을 다 씀 */
+  #list-search{width:100%!important;min-width:0!important}
   body{position:relative}
   .sb{position:fixed;top:0;left:0;height:100%;z-index:300;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 24px rgba(0,0,0,.2)}
   .sb.sb-open{transform:translateX(0)}
@@ -609,11 +618,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="hub-cv" onclick="event.stopPropagation();toggleHubCollapse('claimhub-sub','cat-claimhub')">▾</span>
     </div>
 
-    <!-- 청구처 현황판 하위 -->
+    <!-- 청구처 현황판 하위 - 웰체크 현황판(전체 현황/담당자별 현황/지역별 현황)과 같은 글씨 굵기·들여쓰기로
+         통일(동그라미 숫자 대신 sub-title). 담당자 하나하나가 하위 항목으로 펼쳐지는 아코디언 구조는
+         웰체크 쪽 "담당자별 현황"에서 그대로 가져왔지만, 이 화면 자체는 담당자 단위 요약이 아니라
+         거래처 하나하나의 세부 청구 현황(일만사/웰체크/DH품목 등)을 보는 표라서 "거래처별 현황"으로
+         이름을 바꿈(웰체크현황판 담당자별 현황과 이름이 같아 같은 기능처럼 헷갈린다는 지적). 세
+         항목(활성처 전략판/거래처별 현황/청구현황지표)이 같은 단위(형제 항목)로 보여야 하는데,
+         list-sub-hd(46px 들여쓰기)를 아코디언 헤더에만 넣어서 거래처별 현황만 유독 더 들여쓰기된
+         것처럼 보였음 - 웰체크현황판의 "전체 현황"도 list-sub-hd를 똑같이 쓰는 것과 동일하게,
+         나머지 두 항목에도 list-sub-hd를 넣어 셋 다 정확히 같은 들여쓰기로 맞춤 -->
     <div id="claimhub-sub" style="display:none">
-      <div class="sub-item chub-sub-item sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">① 활성처 전략판</div>
-      <div class="sub-item chub-sub-item" id="chub-sub-clinics" onclick="switchView('clinicslist')">② 거래처 리스트 (담당자별)</div>
-      <div class="sub-item chub-sub-item" id="chub-sub-claim" onclick="switchView('claim')">③ 청구현황지표</div>
+      <div class="sub-item list-sub-hd chub-sub-item sub-title sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">활성처 전략판</div>
+      <div class="acc-hd list-sub-hd chub-sub-item open" id="chub-sub-clinics" onclick="toggleAcc(this)">거래처별 현황<span class="cv">▾</span></div>
+      <div class="acc-body open" id="chub-mr-list"></div>
+      <div class="sub-item list-sub-hd chub-sub-item sub-title" id="chub-sub-claim" onclick="switchView('claim')">청구현황지표</div>
     </div>
 
     <div class="sb-div"></div>
@@ -704,7 +722,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="bot-panels">
       <div class="pnl">
         <div class="pnl-title">⚠️ <span style="color:#B01A1A">2026년 교육이수 현황</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:8px">
           <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showEduList('all',event)">
             <div style="font-size:16px;font-weight:700;color:var(--t1)" id="edu-total">—</div>
             <div style="font-size:9px;color:var(--t2)">총 대상</div>
@@ -717,12 +735,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div style="font-size:16px;font-weight:700;color:#B01A1A" id="edu-notyet">—</div>
             <div style="font-size:9px;color:#B01A1A">미이수</div>
           </div>
+          <!-- 이수했어도 자격이 만료됐거나 연내 만료되는 곳(=재이수 필요) - 거래처현황판의 "운영자격
+               재이수 필요" 배너를 눌렀을 때와 완전히 같은 화면(전체 목록 필터)으로 이동 -->
+          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="goToRenewalList()">
+            <div style="font-size:16px;font-weight:700;color:#8A6800" id="edu-renewal">—</div>
+            <div style="font-size:9px;color:#8A6800">만료예정</div>
+          </div>
         </div>
 
       </div>
       <div class="pnl">
         <div class="pnl-title">💰 <span style="color:#8A6800">의협회비 납부 현황</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">
           <div style="background:var(--bg2);border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('all',event)">
             <div style="font-size:15px;font-weight:700;color:var(--t1)" id="dues-total">—</div>
             <div style="font-size:9px;color:var(--t2)">총 대상</div>
@@ -734,6 +758,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div style="background:#FEEEEE;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="showDuesList('unpaid',event)">
             <div style="font-size:15px;font-weight:700;color:#B01A1A" id="dues-unpaid">—</div>
             <div style="font-size:9px;color:#B01A1A">미납</div>
+          </div>
+          <!-- 회비 재납부가 다음 자격 갱신(재이수)의 첫 단계라서, 교육이수 패널의 "만료예정"과 같은
+               대상(재이수 필요)을 여기서도 "당해 납부필요"로 보여주고 같은 화면으로 연결 -->
+          <div style="background:#FFF1DB;border-radius:var(--r);padding:7px 8px;text-align:center;cursor:pointer" onclick="goToRenewalList()">
+            <div style="font-size:15px;font-weight:700;color:#8A6800" id="dues-renewal">—</div>
+            <div style="font-size:9px;color:#8A6800">당해 납부필요</div>
           </div>
         </div>
       </div>
@@ -759,11 +789,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="view-list" class="view-panel">
   <div class="list-head" style="flex-direction:column;align-items:stretch;gap:6px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div class="list-head-title" id="list-title">경인1 웰체크 거래처 현황판</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="list-head-title" id="list-title">경인1 웰체크 거래처 현황판</div>
+        <div id="mr-target-badge"></div>
+      </div>
       <div id="office-board-badge"></div>
     </div>
-    <input type="text" id="list-search" placeholder="🔍 거래처명 / 사업자등록번호 / 담당자명 검색" oninput="renderList()" style="padding:6px 10px;border:0.5px solid var(--bd2);border-radius:6px;font-size:12.5px;font-family:inherit">
-    <div class="fp-row" id="fp-row"></div>
+    <!-- 검색바가 너무 길어서 답답하다는 지적으로 1/3 정도로 축소(모바일에선 좁아서 다시 넓게) -->
+    <input type="text" id="list-search" placeholder="🔍 거래처명 / 사업자등록번호 / 담당자명 검색" oninput="renderList()" style="padding:6px 10px;border:0.5px solid var(--bd2);border-radius:6px;font-size:12.5px;font-family:inherit;width:33%;min-width:220px">
+    <!-- 재이수 필요 배너가 검색바 아래 자기 줄을 통째로 차지하니 눈에 안 띈다는 지적 - 필터 pill
+         줄(전체/담당자/지역...) 오른쪽의 빈 공간에 작은 배지로 넣어서 같은 줄에서 바로 보이게 함
+         (margin-left:auto라 fp-row가 숨겨질 때도 항상 오른쪽 끝에 붙음) -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="fp-row" id="fp-row"></div>
+      <div id="renewal-warn" style="margin-left:auto"></div>
+    </div>
   </div>
   <div class="list-content">
     <div id="list-body"></div>
@@ -779,6 +819,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="st-info" class="infoBar2"></div>
     <div class="sectionTitle" style="margin-top:0">현재 지표</div>
     <div class="kpiGrid" id="st-kpi"></div>
+    <div class="sectionTitle">담당자별 목표</div>
+    <div class="card" style="padding:8px 14px" id="st-mr-cards"></div>
     <div class="sectionTitle">평가기준 대응</div>
     <div class="miniGrid" id="st-mini"></div>
     <div class="sectionTitle">사무소 월별 활성환자 · 청구 추이</div>
@@ -1078,11 +1120,20 @@ function renderManagerUI(){
     wrap.innerHTML=h;
     applyMRButtons();
   }
-  // 사이드바 담당자별 현황
+  // 사이드바 담당자별 현황 - 당월 목표/현재 활성처수는 이 카테고리 목록엔 넣지 않고(목록이 지저분해짐),
+  // 대신 그 담당자로 실제 필터링된 화면(거래처현황판 제목 옆 배지)에서만 보여준다(renderList 참고)
   var sb=document.getElementById('sb-mr-list');
   if(sb){
     sb.innerHTML=officeManagers().map(function(m){
-      return '<div class="sub-item list-sub-child" onclick="setSubNav(this);listFilter(\''+m.code+'\',\'all\')"><span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</div>';
+      return '<div class="sub-item list-sub-child" onclick="setSubNav(this);listFilter(\''+m.code+'\',\'all\')">'
+        +'<span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</div>';
+    }).join('');
+  }
+  // 청구처 현황판의 "거래처별 현황" 아코디언 - 웰체크 쪽과 똑같이 담당자 하나하나를 하위 항목으로
+  var chubMr=document.getElementById('chub-mr-list');
+  if(chubMr){
+    chubMr.innerHTML=officeManagers().map(function(m){
+      return '<div class="sub-item list-sub-child chub-sub-item" onclick="setSubNav(this);switchView(\'clinicslist\');setStMR(\''+m.code+'\')"><span class="sub-dot" style="background:'+m.bg+';border:1.5px solid '+m.fg+'"></span>'+m.name+'</div>';
     }).join('');
   }
   renderFilterPills();
@@ -2763,14 +2814,26 @@ function ilmansaLicenseExpiry(c){
   if(!y) return null;
   return (y+1)+'-12-31';
 }
-// 'valid'(유효)/'soon'(60일 이내 만료 임박)/'expired'(만료)/null(교육이수일 자체가 없어 판단 불가)
+// 'valid'(유효)/'soon'(만료임박: 60일 이내이거나, 만료 연도가 올해라 연말 전에 재이수·재납부를
+// 미리 준비해야 함)/'expired'(만료)/null(교육이수일 자체가 없어 판단 불가)
+// 예: 25년 12월에 교육이수한 거래처는 자격기간이 26년 12/31까지라 딱 1년짜리인데, 60일 임박
+// 문턱만 쓰면 11월 초까지 아무 신호가 없어서 재이수를 준비할 시간이 부족하다는 지적 - 만료
+// 연도가 "올해"면 날짜 계산과 무관하게 곧바로 만료임박으로 잡아서 연초부터 미리 챙기게 함
 function ilmansaLicenseStatus(c){
   var exp=ilmansaLicenseExpiry(c);
   if(!exp) return null;
   var todayStr=new Date().toISOString().slice(0,10);
   if(exp<todayStr) return 'expired';
+  if(exp.slice(0,4)===String(new Date().getFullYear())) return 'soon';
   var diffDays=Math.floor((new Date(exp+'T00:00:00')-new Date())/86400000);
   return diffDays<=60?'soon':'valid';
+}
+// 일만사 참여 거래처 중 자격이 이미 만료됐거나(expired) 만료임박(soon - 60일 이내이거나 만료
+// 연도가 올해)인 곳 - "연말 전에 재이수·재납부를 다시 챙겨야 하는 거래처" 필터/배너에서 사용
+function isLicenseRenewalNeeded(c){
+  if(!c||c.ilmansa!=='참여') return false;
+  var st=ilmansaLicenseStatus(c);
+  return st==='expired'||st==='soon';
 }
 function licenseExpiryLabel(c){
   var exp=ilmansaLicenseExpiry(c);
@@ -2865,13 +2928,35 @@ function doLogin(){
   }
   loadEmployees().then(function(){
     var emp=EMPLOYEES.find(function(e){return e.emp_no===input;});
-    if(!emp){ errEl.style.display='block'; return; }
-    currentUser=emp;
-    localStorage.setItem('wc_emp_no', input);
-    document.getElementById('login-ov').classList.add('login-hide');
-    switchView(homeViewForRole());
-    setCurrentOffice(emp.office||'경인1');
-    applyRoleGating();
+    if(emp){
+      currentUser=emp;
+      localStorage.setItem('wc_emp_no', input);
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(emp.office||'경인1');
+      applyRoleGating();
+      return;
+    }
+    // MR은 employees가 아니라 사무소별 managers 테이블에 사번(emp_no)이 있어서, employees에
+    // 없으면 managers를 사무소 구분 없이 전체 검색해서 한 번 더 찾아본다 - 찾으면 그 담당자가
+    // 실제 속한 사무소로 자동 입장(엑셀 자체에 담당자별 소속 사무소가 있으니 이걸 그대로 반영)
+    findMRBySabun(input).then(function(mgr){
+      if(!mgr){ errEl.style.display='block'; return; }
+      currentUser={id:0, emp_no:input, name:mgr.name, role:'MR', office:mgr.office, mr_code:mgr.code};
+      localStorage.setItem('wc_emp_no', input);
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(mgr.office);
+      applyRoleGating();
+    });
+  });
+}
+// 사번으로 담당자(MR) 찾기 - managers는 사무소별로만 로드되므로(loadManagers는 currentOffice
+// 스코프), 로그인 시점엔 사무소를 아직 모르니 여기서만 예외적으로 전사무소 통합 조회를 한다.
+function findMRBySabun(empNo){
+  return db.from('managers').select('*').eq('emp_no', empNo).then(function(res){
+    if(res.error||!res.data||!res.data.length) return null;
+    return res.data[0];
   });
 }
 function logout(){
@@ -2893,12 +2978,22 @@ function tryAutoLogin(){
   if(!saved) return;
   loadEmployees().then(function(){
     var emp=EMPLOYEES.find(function(e){return e.emp_no===saved;});
-    if(!emp) return;
-    currentUser=emp;
-    document.getElementById('login-ov').classList.add('login-hide');
-    switchView(homeViewForRole());
-    setCurrentOffice(emp.office||'경인1');
-    applyRoleGating();
+    if(emp){
+      currentUser=emp;
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(emp.office||'경인1');
+      applyRoleGating();
+      return;
+    }
+    findMRBySabun(saved).then(function(mgr){
+      if(!mgr) return; // 못 찾으면 그냥 로그인 화면 유지(자동 로그인 실패)
+      currentUser={id:0, emp_no:saved, name:mgr.name, role:'MR', office:mgr.office, mr_code:mgr.code};
+      document.getElementById('login-ov').classList.add('login-hide');
+      switchView(homeViewForRole());
+      setCurrentOffice(mgr.office);
+      applyRoleGating();
+    });
   });
 }
 function applyRoleGating(){
@@ -3954,6 +4049,19 @@ function fpClick(btn, mr, reg){
 }
 function renderList(){
   if(listMR==='all'&&listReg==='all') document.getElementById('list-title').textContent=currentOffice+' 웰체크 거래처 현황판';
+  // 특정 담당자로 필터링된 화면이면 제목 옆에 "당월목표/현재 활성처수"를 바로 보여줌(주 2회 RAW
+  // 파일로 파악 가능한 값이라 클릭해서 목록을 세어보지 않아도 한눈에 확인 가능하게)
+  var mrBadgeEl=document.getElementById('mr-target-badge');
+  if(mrBadgeEl){
+    var mgr=listMR!=='all'?officeManagers().find(function(m){return m.code===listMR;}):null;
+    if(mgr){
+      var mt=mgr.emp_no?h2MrTarget(mgr.emp_no,todayMonthStr()):null;
+      var ac=mrActiveCount(mgr.code);
+      mrBadgeEl.innerHTML='<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FFF3D0;border:1px solid #F0D9A8;border-radius:6px;padding:3px 9px">'+(mt!=null?('당월목표 '+mt+'처 · 현재 활성처수 '+ac+'처'):('현재 활성처수 '+ac+'처'))+'</span>';
+    } else {
+      mrBadgeEl.innerHTML='';
+    }
+  }
   var fpRow=document.getElementById('fp-row');
   if(fpRow) fpRow.style.display=(listMR==='all'&&listReg==='all')?'flex':'none';
   var data=officeRows().filter(function(c){
@@ -3965,6 +4073,18 @@ function renderList(){
   if(listQuick==='low') data=data.filter(function(c){ return (c.patients||0)<activeThreshold(todayMonthStr()); });
   if(listQuick==='notyet') data=data.filter(function(c){ return c.edu==='미이수'; });
   if(listQuick==='unpaid') data=data.filter(function(c){ return c.dues==='비납부'; });
+  // 일만사 운영자격 재이수 필요(이미 만료됐거나, 만료 연도가 올해라 연말 전에 재이수·재납부를 준비해야
+  // 하는 거래처) - 언제 이수/납부했는지 자체보다 "연말 전에 다시 챙겨야 하는 곳이 어디인지"가 실제로
+  // 필요한 정보라는 지적으로, 눈에 띄는 경고 배너 + 원클릭 필터로 바로 찾을 수 있게 함
+  var renewalNeeded=officeRows().filter(isLicenseRenewalNeeded);
+  var renewalWarnEl=document.getElementById('renewal-warn');
+  if(renewalWarnEl){
+    renewalWarnEl.innerHTML=renewalNeeded.length
+      ? ('<button onclick="setQuickFilter(\'renewal\')" style="cursor:pointer;font-size:11.5px;font-weight:700;color:#B26A00;background:#FFF1DB;border:1px solid #F0D9A8;border-radius:999px;padding:4px 10px;font-family:inherit;white-space:nowrap">'
+        +'⚠️ 재이수 필요 '+renewalNeeded.length+'처'+(listQuick==='renewal'?' · 전체 보기 ✕':' ▸')+'</button>')
+      : '';
+  }
+  if(listQuick==='renewal') data=data.filter(isLicenseRenewalNeeded);
   var searchEl=document.getElementById('list-search');
   var searchQ=searchEl?searchEl.value.trim().toLowerCase():'';
   if(searchQ){
@@ -4211,6 +4331,7 @@ function renderStrategyView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot()]).then(function(){
     buildClaimMap();
     renderStKPI();
+    renderStMrCards();
     renderStTrend();
     renderClaimTypeTrend();
     renderStFilters();
@@ -4476,6 +4597,10 @@ function prevMonthNum(){ var cur=new Date().getMonth()+1; return cur===1?12:cur-
 // parseDailyMAU 주석 참고). "4명 이상인데 공식 활성처가 아닌"(=당월이력없음) 거래처 수는 stKpiData의
 // noSyncExcluded로 별도 집계해서 카드에 표시한다.
 function liveActive(c){ return !!c.isActive; }
+// 담당자 한 명의 현재 활성처수 - 사무소 KPI("현재 활성처")와 같은 공식 판정 기준(liveActive) 그대로,
+// 이 사람 담당 거래처만 필터링. 주 2회 올라오는 RAW 파일로 갱신되는 값이라 사이드바/헤더 등에서
+// 그때그때 최신 활성처수를 바로 보여줄 수 있음
+function mrActiveCount(mrCode){ return officeRows().filter(function(c){ return c.mr===mrCode && liveActive(c); }).length; }
 // "전월" 기준 환자수는 베이스라인/clinic_claims가 아니라 RAW 파일(주 2회 갱신, "전월 환자수(일만사)"
 // 컬럼을 그 자체로 신뢰)의 prevPatients를 그대로 쓴다. 한때 clinic_claims 기준으로 바꿔봤지만, 베이스라인은
 // 그 달 실적이 다음달 말에야 확정되는 파일이라 진행 중인 달(예: 7월)의 clinic_claims 값이 아직 일부
@@ -4514,14 +4639,14 @@ function stKpiData(){
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievementGrade(achievement);
   // "현재 활성처" 카드에 등급만 보여주고 정작 다음 등급까지 몇 처가 더 필요한지는 안 보여서 공백만
-  // 컸다는 지적 - 등급 경계(S 100%/A 80%/B 60%)를 그대로 재사용해서, 지금 등급 바로 위 등급까지
-  // 필요한 처수를 계산(사무소별 target이 이미 currentOffice 기준이라 사무소를 바꾸면 자동으로 그
-  // 사무소 기준으로 다시 계산됨). 이미 S등급이면 더 오를 등급이 없으므로 null.
-  var NEXT_GRADE_PCT={C:{grade:'B',pct:60},B:{grade:'A',pct:80},A:{grade:'S',pct:100}};
-  var nextGradeInfo=NEXT_GRADE_PCT[grade];
-  var nextGrade=nextGradeInfo?nextGradeInfo.grade:null;
-  var nextGradeNeed=nextGradeInfo?Math.max(0,Math.ceil(target*nextGradeInfo.pct/100)-active):0;
-  return {active:active,target:target,achievement:achievement,grade:grade,nextGrade:nextGrade,nextGradeNeed:nextGradeNeed,thresholdMet:thresholdMet,nonOnlyActive:nonOnlyActive,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
+  // 컸다는 지적 - 등급 경계(S 100%/A 80%/B 60%)를 그대로 재사용해서, 아직 못 넘은 등급들까지
+  // 필요한 처수를 전부 계산(사무소별 target이 이미 currentOffice 기준이라 사무소를 바꾸면 자동으로
+  // 그 사무소 기준으로 다시 계산됨). 예를 들어 C등급이면 B/A/S 셋 다, B등급이면 A/S만 표시.
+  // 이미 S등급이면(더 오를 등급이 없으면) 빈 배열.
+  var GRADE_PCTS=[{grade:'B',pct:60},{grade:'A',pct:80},{grade:'S',pct:100}];
+  var gradeNeeds=GRADE_PCTS.filter(function(g){ return achievement<g.pct; })
+    .map(function(g){ return {grade:g.grade, need:Math.max(0,Math.ceil(target*g.pct/100)-active)}; });
+  return {active:active,target:target,achievement:achievement,grade:grade,gradeNeeds:gradeNeeds,thresholdMet:thresholdMet,nonOnlyActive:nonOnlyActive,newly:newly,crossed:crossed,newPatientsGain:newPatientsGain,threshold:TH,noSyncExcluded:noSyncExcluded};
 }
 function renderStKPI(){
   var k=stKpiData();
@@ -4568,7 +4693,7 @@ function renderStKPI(){
     // "일만사&웰체크 TH명 이상 NN처"는 이제 바로 옆 빨간 카드(당월이력없음)에서 "OO처 중" 형태로 이미
     // 보여주므로 여기서는 중복 표기하지 않고, 이 카드에서만 알 수 있는 정보(②비일만사로 구제된 거래처 수)만
     // 표기한다 - 이제 항상(0이어도) 보여주고, 부정적 신호가 아니라 참고 정보라 파란색으로 표기.
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'+(k.nextGrade?('<br><span style="color:#8A6800;font-weight:700">'+k.nextGrade+'등급까지 '+k.nextGradeNeed+'처 필요</span>'):'<br><span style="color:#145C38;font-weight:700">최고 등급(S) 달성</span>'),'active'],
+    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'+(k.gradeNeeds.length?('<br><span style="color:#8A6800;font-weight:700;word-break:keep-all">'+k.gradeNeeds.map(function(g){return g.grade+'등급까지 '+g.need+'처';}).join(' · ')+' 필요</span>'):'<br><span style="color:#145C38;font-weight:700">최고 등급(S) 달성</span>'),'active'],
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
     // 숫자)로 이 값을 보여주고, 하단엔 "TH명 이상 전체 처수 중 → 당월이력없음 처수"로 몇 처 중 몇 처가
     // 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
@@ -4652,6 +4777,56 @@ function renderStKPI(){
     var arrow=clickable?' ▼':'';
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
+}
+// 사무소 카드(현재 지표) 아래에 담당자별 목표도 있으면 좋겠다는 요청 - 담당자 하나하나가 지금 몇
+// 처를 확보했고 이번달 목표가 몇 처인지 한눈에 보여줌. 여러 사무소를 한 화면에 모아보는 기능까지는
+// 필요 없다고 확인돼서(우리 사무소 소속 담당자만 있으면 충분) officeManagers()로 항상 현재
+// 사무소 기준. 표 형태로 한 번 바꿨었는데 카드 느낌이 더 낫다는 피드백 - 담당자 한 명당 큰 네모
+// 카드를 페이지에 죽 늘어놓으면(처음 버전) 담당자 많은 사무소에서 sprawl되는 문제가 있었으므로,
+// 카드 하나(섹션 박스) 안에 작은 칩형 카드를 담당자 수만큼 넣고 줄바꿈(flex-wrap)되게 해서
+// "카드 디자인"은 유지하면서 담당자가 몇 명이든 한 섹션 안에서 깔끔하게 정리되도록 함.
+function renderStMrCards(){
+  var el=document.getElementById('st-mr-cards');
+  if(!el) return;
+  var mgrs=officeManagers();
+  if(!mgrs.length){ el.innerHTML='<div class="sub" style="padding:8px 0">등록된 담당자가 없어요.</div>'; return; }
+  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:10px">'
+    +mgrs.map(function(m){
+      var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
+      var active=mrActiveCount(m.code);
+      return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
+        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당</div>'
+        +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처'):'목표 데이터 없음')+'</div></div>';
+    }).join('')
+    +'</div>';
+}
+// 담당자 카드 클릭 시 - 사무소 전체 목표와 이 담당자 개인 목표를 월별(하반기 목표 파일이 있는 달만,
+// 1~7월은 데이터 자체가 없어 스킵)로 나란히 비교. 맨 아래엔 이 담당자 거래처만 바로 보러 가는 버튼.
+function openMrTargetModal(mrCode){
+  var m=officeManagers().find(function(x){return x.code===mrCode;});
+  if(!m) return;
+  var months=m.emp_no?H2_TARGETS.filter(function(r){return r.scope==='mr'&&r.mr_sabun===m.emp_no;}).map(function(r){return r.month.slice(0,7);}).sort():[];
+  var active=mrActiveCount(m.code);
+  var body='<div class="sub" style="margin-bottom:8px">현재 활성처 <b>'+active+'처</b>(주 2회 파일 기준 실시간) · 아래는 26년 하반기 목표 파일에 있는 달만 비교(1~7월은 이 파일에 데이터가 없어 표시하지 않음)</div>';
+  if(!months.length){
+    body+='<div class="sub">'+m.name+'님의 개인별 목표 데이터가 아직 없어요.</div>';
+  } else {
+    body+='<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">사무소 목표</th><th style="padding:5px 6px">'+m.name+'담당 목표</th></tr></thead><tbody>'
+      +months.map(function(mon){
+        var isCur=mon===todayMonthStr();
+        var rowStyle=isCur?'border-bottom:0.5px solid var(--bd2);background:#FFF7EF;font-weight:800':'border-bottom:0.5px solid var(--bd2);color:var(--t2)';
+        var oT=h2OfficeTarget(currentOffice, mon);
+        var mT=h2MrTarget(m.emp_no, mon);
+        return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+parseInt(mon.slice(5,7),10)+'월'+(isCur?' (당월)':(mon<todayMonthStr()?' (지남)':' (예상)'))+'</td>'
+          +'<td style="text-align:center;padding:5px 6px">'+(oT!=null?oT+'처':'-')+'</td>'
+          +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+(mT!=null?mT+'처':'-')+'</td></tr>';
+      }).join('')
+      +'</tbody></table>';
+  }
+  body+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'simple-modal-ov\').remove();switchView(\'clinicslist\');setStMR(\''+m.code+'\')" style="background:#F47920;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">'+m.name+'담당 거래처 보기 →</button></div>';
+  showSimpleModal(m.name+'담당 · 월별 목표', body);
 }
 function renderStTrend(){
   var ctx=document.getElementById('officeTrend');
@@ -5390,6 +5565,13 @@ function updateEduStats(){
   if(du) du.textContent=dU+'곳';
   if(en) en.textContent=notyet+'곳';
 
+  // "만료예정"(교육이수 패널)/"당해 납부필요"(의협회비 패널) - 이수했더라도 자격이 이미 만료됐거나
+  // 연내 만료되는 곳으로, 거래처현황판의 "일만사 운영자격 재이수 필요"와 정확히 같은 대상(isLicenseRenewalNeeded)
+  var renewalCnt=rows.filter(isLicenseRenewalNeeded).length;
+  var eduRenewalEl=document.getElementById('edu-renewal'), duesRenewalEl=document.getElementById('dues-renewal');
+  if(eduRenewalEl) eduRenewalEl.textContent=renewalCnt+'곳';
+  if(duesRenewalEl) duesRenewalEl.textContent=renewalCnt+'곳';
+
   // 일만사 운영자격(교육이수일 기준 다음해 12/31까지 유효) - 이수가 아니면(=이수일이 없으면)
   // 판단 자체가 불가하니 총 대상에서도 제외한다("총 대상"이 유효+임박+만료 합과 항상 일치해야 함)
   var licRows=rows.filter(function(c){ return c.ilmansa==='참여' && ilmansaLicenseStatus(c)!=null; });
@@ -5922,6 +6104,16 @@ function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=d
 function setQuickFilter(v){
   listQuick = listQuick===v ? 'all' : v;
   renderList();
+}
+// 캘린더 홈의 "교육이수 현황"/"의협회비 납부 현황" 패널에 있는 "만료예정"/"당해 납부필요" 클릭 시 -
+// 회비납부가 교육이수 자격의 전제조건이라 사실상 같은 대상(재이수 필요)이므로, 거래처현황판의
+// "일만사 운영자격 재이수 필요" 배너를 눌렀을 때와 똑같은 화면(전체 목록에서 그 거래처들만 필터)으로
+// 이동한다 - 예전처럼 이름만 나열하는 작은 팝업이 아니라 상세 표로 바로 드릴다운해서 두 곳의
+// UX를 하나로 통일함.
+function goToRenewalList(){
+  switchView('list');
+  listMR='all'; listReg='all'; listVisit='all'; listQuick='all';
+  setQuickFilter('renewal');
 }
 
 // 거래처 표에서 방문/일만사/웰체크 클릭 토글
