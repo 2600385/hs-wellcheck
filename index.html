@@ -5074,12 +5074,17 @@ function renderStTable(){
   });
   var title=stTitles()[stFilter]||'거래처 리스트';
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
-  el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed">'+CLINIC_LIST_COLGROUP+'<thead>'
+  el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:640px">'+CLINIC_LIST_COLGROUP+'<thead>'
     +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px;font-weight:400">전월 마감 대비 오늘 기준 최신 현황 반영</small><span style="display:inline-block;margin-top:5px;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프 조회 가능</span></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows)+'</tbody></table></div>';
 }
 // 담당자 필터를 바꿔도 컬럼 폭이 유지되도록 고정 colgroup (내용 길이에 따라 표가 좌우로 흔들리는 문제 방지)
+// table-layout:fixed에 %컬럼폭만 주면 표가 항상 컨테이너(.claimTableWrap) 폭에 딱 맞게 줄어들기만
+// 해서, 모바일처럼 화면이 좁을 때 각 칸이 1~2글자만 겨우 보이게 짜부라지고 - 표 자체가 컨테이너보다
+// 커지질 않으니 .claimTableWrap의 overflow-x:auto가 있어도 스크롤할 게 없어서 드래그가 안 먹혔음
+// (실제 사용자 스크린샷으로 확인된 버그). <table>에 min-width를 줘서 좁은 화면에서는 표가 그 폭
+// 밑으로는 안 줄어들고 대신 옆으로 스크롤되게 함.
 var CLINIC_LIST_COLGROUP='<colgroup><col style="width:26%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:16%"><col style="width:10%"></colgroup>';
 // 청구현황판의 거래처 리스트는 거래처현황판보다 자세하게, 케어플랜/교육상담/환자관리/점검평가 건수 4개 컬럼을 추가로 보여줌
 var CLINIC_LIST_DETAILED_COLGROUP='<colgroup><col style="width:19%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:11%"><col style="width:8%"></colgroup>';
@@ -5091,7 +5096,7 @@ function renderClinicsListTable(){
   });
   var title=stMR==='all'?'전체 담당자':getMR(stMR).name;
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
-  el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
+  el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:880px">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
     +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</span></div></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
