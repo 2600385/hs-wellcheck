@@ -482,8 +482,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .mobile-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:250;height:60px;padding-bottom:env(safe-area-inset-bottom);background:var(--dw-l);border-top:2px solid var(--dw);box-shadow:0 -2px 12px rgba(0,0,0,.07);overflow:visible}
   .mtab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:none;background:none;font-family:inherit;color:var(--t2);cursor:pointer;padding:0}
   .mtab.mtab-active{color:var(--dw)}
-  .mtab-ic{font-size:18px;line-height:1}
+  .mtab-ic{position:relative;font-size:18px;line-height:1}
   .mtab-lbl{font-size:9.5px;font-weight:600;line-height:1}
+  /* 메뉴 탭 안내 점 - 처음 방문 때만 initMenuDot()이 보여주고, 메뉴를 한 번이라도 열면
+     즉시 사라지며 localStorage에 기록돼 재방문 시엔 다시 뜨지 않음 */
+  .mtab-dot{display:none;position:absolute;top:-2px;right:-5px;width:7px;height:7px;border-radius:50%;background:var(--dw)}
+  .mtab-dot.mtab-dot-show{display:block}
   /* 캘린더 홈: 다른 3개 탭과 동급 아이콘이 아니라, 원형으로 띄운 배지 스타일을 줘서
      탭바 한가운데(활성처/청구처 사이)에서 시선을 끄는 중심점 역할을 하게 함 */
   /* 처음엔 진한 주황 원형에 그림자까지 줘서 알림/오류 배지처럼 튀어 보인다는 피드백을 받고,
@@ -561,16 +565,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- 모바일 전용 하단 탭바(카톡처럼 최상위 카테고리를 한 번에 누를 수 있게) - PC에서는 CSS가 항상
      display:none이라 이 블록이 PC 레이아웃/로직에 전혀 영향을 안 준다. position:fixed라 다른
      요소들의 배치도 안 밀어내고(각 화면의 스크롤 영역에 이 바 높이만큼 padding-bottom만 추가로 줌),
-     클릭 시엔 사이드바 버튼들과 완전히 같은 기존 함수(goHome/switchView/toggleMobileSidebar)를
+     클릭 시엔 사이드바 버튼들과 완전히 같은 기존 함수(goHome/switchView/toggleMobileSidebar/logout)를
      그대로 재사용 - 새 네비게이션 로직은 만들지 않음. "전국 사업부 현황"은 화면이 아니라 사이드바
      안에서 펼쳐지는 목록이라 별도 탭 대신 "메뉴"(사이드바 열기)에 포함시킴(카톡의 "더보기"와 같은 자리).
-     캘린더 홈은 활성처/청구처 사이 가운데 자리에 두고 원형 배지로 띄워 시선이 먼저 가는 중심점으로
-     삼았다. id는 예전 그대로(mtab-welcheck 등) 유지해서 syncMobileTabbar()는 손대지 않아도 됨 -->
+     메뉴/로그아웃을 양 끝에 두고 활성처·청구처가 그 안쪽, 캘린더 홈이 5칸 중 정가운데(3번째)에 오도록
+     배치해 수학적으로도 진짜 중앙이 되게 함. id는 예전 그대로(mtab-welcheck 등) 유지해서
+     syncMobileTabbar()는 손대지 않아도 됨. 메뉴 탭의 점(dot)은 initMenuDot()이 처음 한 번만
+     보여주고, 탭 시 곧장 사라짐(localStorage로 재방문시엔 다시 안 뜨게) -->
 <div class="mobile-tabbar" id="mobile-tabbar">
+  <button class="mtab" id="mtab-menu" onclick="toggleMobileSidebar()"><span class="mtab-ic"><span class="mtab-dot" id="mtab-menu-dot"></span>☰</span><span class="mtab-lbl">메뉴</span></button>
   <button class="mtab" id="mtab-welcheck" onclick="switchView('welcheckhub')"><span class="mtab-ic">📋</span><span class="mtab-lbl">활성처</span></button>
   <button class="mtab" id="mtab-home" onclick="goHome()"><span class="mtab-ic mtab-home-badge">🏠</span><span class="mtab-lbl">캘린더 홈</span></button>
   <button class="mtab" id="mtab-claim" onclick="switchView('claimhub')"><span class="mtab-ic">💰</span><span class="mtab-lbl">청구처</span></button>
-  <button class="mtab" id="mtab-menu" onclick="toggleMobileSidebar()"><span class="mtab-ic">☰</span><span class="mtab-lbl">메뉴</span></button>
+  <button class="mtab" id="mtab-logout" onclick="mobileLogoutTap()"><span class="mtab-ic">🚪</span><span class="mtab-lbl">로그아웃</span></button>
 </div>
 
 <!-- ===== 로그인 화면 ===== -->
@@ -3725,6 +3732,25 @@ function goHome(){
 function toggleMobileSidebar(){
   document.querySelector('.sb').classList.toggle('sb-open');
   document.getElementById('sb-backdrop').classList.toggle('sb-open');
+  dismissMenuDot();
+}
+// 하단 탭바의 "메뉴" 탭에 처음 한 번만 안내 점을 띄운다 - 메뉴를 한 번이라도 열면(탭이든
+// 다른 경로든) 바로 사라지고 localStorage에 기록돼 재방문 시엔 다시 뜨지 않는다
+function initMenuDot(){
+  var dot=document.getElementById('mtab-menu-dot');
+  if(dot && !localStorage.getItem('wc_menu_seen')) dot.classList.add('mtab-dot-show');
+}
+function dismissMenuDot(){
+  var dot=document.getElementById('mtab-menu-dot');
+  if(dot && dot.classList.contains('mtab-dot-show')){
+    dot.classList.remove('mtab-dot-show');
+    localStorage.setItem('wc_menu_seen','1');
+  }
+}
+// 하단 탭바는 활성처/청구처 등 다른 탭과 나란히 있어 사이드바의 로그아웃 링크보다 오탭
+// 위험이 커서, 여기서만 한 번 더 확인을 거친 뒤 기존 logout()을 그대로 호출한다
+function mobileLogoutTap(){
+  if(confirm('로그아웃 하시겠습니까?')) logout();
 }
 function closeMobileSidebar(){
   document.querySelector('.sb').classList.remove('sb-open');
@@ -5620,6 +5646,7 @@ function closeOfficeCompareModal(){ document.getElementById('ocm-ov').classList.
 
 // ===== 초기화 =====
 tryAutoLogin();
+initMenuDot();
 loadImportLog();
 switchView('cal');
 renderCalendar();
