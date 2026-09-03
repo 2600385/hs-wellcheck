@@ -473,8 +473,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ===== 모바일 반응형 ===== */
 .mobile-menu-btn{display:none;position:fixed;top:10px;left:10px;z-index:150;width:38px;height:38px;border-radius:10px;border:0.5px solid var(--bd2);background:var(--white);box-shadow:0 4px 12px rgba(0,0,0,.12);font-size:18px;align-items:center;justify-content:center;cursor:pointer;color:var(--t1)}
 .sb-backdrop{display:none;position:fixed;inset:0;background:rgba(45,41,38,.45);z-index:290}
+/* 하단 탭바 - PC에서는 항상 display:none(아래 모바일 미디어쿼리에서만 flex로 켜짐)이라
+   PC 레이아웃에는 어떤 영향도 없음 */
+.mobile-tabbar{display:none}
 @media (max-width:768px){
   .mobile-menu-btn{display:flex}
+  .mobile-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:250;height:54px;padding-bottom:env(safe-area-inset-bottom);background:var(--white);border-top:0.5px solid var(--bd);box-shadow:0 -2px 10px rgba(0,0,0,.05)}
+  .mtab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:none;background:none;font-family:inherit;color:var(--t3);cursor:pointer;padding:0}
+  .mtab.mtab-active{color:var(--dw)}
+  .mtab-ic{font-size:18px;line-height:1}
+  .mtab-lbl{font-size:9.5px;font-weight:600;line-height:1}
+  /* 하단 탭바가 고정 높이를 차지하는 만큼, 각 화면의 스크롤 영역 맨 아래 내용이 그 밑에 가려지지
+     않도록 여백을 더해줌(화면별 콘텐츠 자체는 안 건드리고 스크롤 컨테이너에만 padding 추가) */
+  .cal-content,.list-content{padding-bottom:calc(54px + env(safe-area-inset-bottom) + 12px)!important}
   /* 데스크톱에서만 검색바를 1/3로 줄인 것 - 모바일은 화면 자체가 좁아서 다시 원래대로 폭을 다 씀 */
   #list-search{width:100%!important;min-width:0!important}
   body{position:relative}
@@ -538,6 +549,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileSidebar()" title="메뉴">☰</button>
 <div class="sb-backdrop" id="sb-backdrop" onclick="toggleMobileSidebar()"></div>
+
+<!-- 모바일 전용 하단 탭바(카톡처럼 최상위 카테고리를 한 번에 누를 수 있게) - PC에서는 CSS가 항상
+     display:none이라 이 블록이 PC 레이아웃/로직에 전혀 영향을 안 준다. position:fixed라 다른
+     요소들의 배치도 안 밀어내고(각 화면의 스크롤 영역에 이 바 높이만큼 padding-bottom만 추가로 줌),
+     클릭 시엔 사이드바 버튼들과 완전히 같은 기존 함수(goHome/switchView/toggleMobileSidebar)를
+     그대로 재사용 - 새 네비게이션 로직은 만들지 않음. "전국 사업부 현황"은 화면이 아니라 사이드바
+     안에서 펼쳐지는 목록이라 별도 탭 대신 "메뉴"(사이드바 열기)에 포함시킴(카톡의 "더보기"와 같은 자리) -->
+<div class="mobile-tabbar" id="mobile-tabbar">
+  <button class="mtab" id="mtab-home" onclick="goHome()"><span class="mtab-ic">🏠</span><span class="mtab-lbl">홈</span></button>
+  <button class="mtab" id="mtab-welcheck" onclick="switchView('welcheckhub')"><span class="mtab-ic">📋</span><span class="mtab-lbl">웰체크</span></button>
+  <button class="mtab" id="mtab-claim" onclick="switchView('claimhub')"><span class="mtab-ic">💰</span><span class="mtab-lbl">청구처</span></button>
+  <button class="mtab" id="mtab-menu" onclick="toggleMobileSidebar()"><span class="mtab-ic">☰</span><span class="mtab-lbl">메뉴</span></button>
+</div>
 
 <!-- ===== 로그인 화면 ===== -->
 <div class="login-ov" id="login-ov">
@@ -3543,6 +3567,15 @@ function switchView(v){
   if(v==='strategy') renderStrategyView();
   if(v==='clinicslist') renderClinicsListView();
   closeMobileSidebar();
+  syncMobileTabbar(v==='cal', v==='list', isClaimGroup);
+}
+// 모바일 하단 탭바의 활성 탭 표시 - 사이드바의 cat-active와 같은 기준(캘린더/웰체크/청구처)을
+// 그대로 재사용. "메뉴" 탭은 화면이 아니라 사이드바를 여는 버튼이라 활성 상태 자체가 없음.
+function syncMobileTabbar(isHome, isWelcheck, isClaimGroup){
+  var home=document.getElementById('mtab-home'), wc=document.getElementById('mtab-welcheck'), cl=document.getElementById('mtab-claim');
+  if(home) home.classList.toggle('mtab-active', isHome);
+  if(wc) wc.classList.toggle('mtab-active', isWelcheck);
+  if(cl) cl.classList.toggle('mtab-active', isClaimGroup);
 }
 // 좌측 상단 로고/타이틀 클릭 시(사이드바 "홈" 메뉴도 동일) - "홈을 누르면 캘린더가 나와야하는데
 // 전략판이 나온다"는 지적으로, 역할과 무관하게 무조건 캘린더로 감(로그인 직후 첫 화면은 기존대로
