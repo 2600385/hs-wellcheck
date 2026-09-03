@@ -3169,8 +3169,131 @@ function loadClinics(){
     if(res.error){ console.error(res.error); alert('거래처 목록을 불러오지 못했습니다: '+res.error.message); return; }
     CLINICS = res.data.map(rowToClinic);
     renderOfficeSelect();
+    return loadClinicDoctors();
+  }).then(function(){
     updateEduStats();
     if(document.getElementById('view-list').classList.contains('v-active')) renderList();
+  });
+}
+// ===== 원장님별 교육이수/의협회비 관리 =====
+// 한 의원에 원장님이 여러 명이면, 원장님마다 교육이수일/회비납부일이 다를 수 있음(예: 원장님A는
+// 올해 자격 만료, 원장님B는 내년 만료). 거래처현황판/캘린더홈에 표시되는 대표 상태는 "가장 빨리
+// 도래하는(=가장 급한) 원장님" 기준으로 계산해서 clinics.edu/edu_completed_date/dues/
+// dues_paid_date에 그대로 반영한다(다른 코드는 그 필드들을 그대로 읽으므로 별도 수정 불필요).
+// 원장님을 한 명도 등록 안 한 거래처는 기존처럼 그 거래처 단일 필드를 그대로 씀(하위호환).
+var CLINIC_DOCTORS=[];
+function loadClinicDoctors(){
+  return fetchAllRows('clinic_doctors','*').then(function(res){
+    if(res.error){ console.error(res.error); CLINIC_DOCTORS=[]; return; }
+    CLINIC_DOCTORS=res.data;
+    applyEffectiveDoctorStatus();
+  });
+}
+function clinicDoctors(clinicId){
+  return CLINIC_DOCTORS.filter(function(d){ return d.clinic_id===clinicId; })
+    .sort(function(a,b){ return (a.sort||0)-(b.sort||0) || a.id-b.id; });
+}
+// 교육이수일 하나로부터 자격 만료일 계산(ilmansaLicenseExpiry와 동일 규칙: 이수일 다음해 12/31)
+function doctorLicenseExpiry(eduDateStr){
+  if(!eduDateStr) return null;
+  var y=parseInt(String(eduDateStr).slice(0,4),10);
+  if(!y) return null;
+  return (y+1)+'-12-31';
+}
+// 이 거래처의 원장님들 중 자격이 가장 빨리 도래하는(가장 급한) 원장님 - 이수한 원장님이 하나도
+// 없으면 null(=전원 미이수 취급)
+function representativeDoctor(clinicId){
+  var completed=clinicDoctors(clinicId).filter(function(d){ return !!d.edu_completed_date; });
+  if(!completed.length) return null;
+  completed.sort(function(a,b){
+    var ea=doctorLicenseExpiry(a.edu_completed_date), eb=doctorLicenseExpiry(b.edu_completed_date);
+    return ea<eb?-1:ea>eb?1:0;
+  });
+  return completed[0];
+}
+function applyDoctorStatusToClinic(c){
+  var docs=clinicDoctors(c.id);
+  if(!docs.length) return; // 원장님별 관리를 아직 안 쓰는 거래처는 기존 단일 필드 그대로 유지
+  var rep=representativeDoctor(c.id);
+  if(rep){
+    c.edu='이수'; c.eduDate=rep.edu_completed_date;
+    c.dues=rep.dues_paid_date?'납부':'비납부'; c.duesDate=rep.dues_paid_date||null;
+  } else {
+    c.edu='미이수'; c.eduDate=null;
+    c.dues=docs.some(function(d){ return d.dues_paid_date; })?'납부':'비납부'; c.duesDate=null;
+  }
+}
+function applyEffectiveDoctorStatus(){ CLINICS.forEach(applyDoctorStatusToClinic); }
+function addClinicDoctor(clinicId, name){
+  return db.from('clinic_doctors').insert({clinic_id:clinicId, name:name||''}).select().then(function(res){
+    if(res.error){ alert('원장님 추가 실패: '+res.error.message); return; }
+    CLINIC_DOCTORS.push(res.data[0]);
+  });
+}
+function updateClinicDoctor(doctorId, fields){
+  return db.from('clinic_doctors').update(fields).eq('id',doctorId).then(function(res){
+    if(res.error){ alert('저장 실패: '+res.error.message); return; }
+    var d=CLINIC_DOCTORS.find(function(x){ return x.id===doctorId; });
+    if(d) Object.assign(d, fields);
+  });
+}
+function deleteClinicDoctor(doctorId){
+  return db.from('clinic_doctors').delete().eq('id',doctorId).then(function(res){
+    if(res.error){ alert('삭제 실패: '+res.error.message); return; }
+    CLINIC_DOCTORS=CLINIC_DOCTORS.filter(function(x){ return x.id!==doctorId; });
+  });
+}
+// 원장님 정보가 바뀐 뒤 공통으로 해줘야 하는 일 - 대표 상태 재계산 + clinics 테이블에 반영(다른
+// 화면·리포트가 clinics.edu 등을 직접 읽어도 최신 상태가 보이게) + 팝업/표 다시 그리기.
+// el(팝업을 띄운 원래 버튼)이 renderList()로 화면이 다시 그려지면 stale해지므로, el을 쓰는 팝업
+// 재오픈은 renderList()보다 먼저 해야 함(팝업 자체는 body에 붙은 독립 요소라 renderList 영향은 없지만
+// el.getBoundingClientRect() 재계산은 el이 아직 문서에 붙어있을 때만 유효).
+function afterDoctorChange(c, el, whichPopup){
+  applyDoctorStatusToClinic(c);
+  saveClinicField(c, {edu:c.edu, edu_completed_date:c.eduDate, dues:c.dues, dues_paid_date:c.duesDate});
+  if(whichPopup==='edu') showEduPopup(el); else showDuesPopup(el);
+  renderList();
+  updateEduStats();
+}
+// 원장님 목록 렌더링(교육이수 팝업/의협회비 팝업 공용) - dateField로 어느 팝업인지에 맞는 날짜만 보여줌
+function doctorListHtml(clinicId, dateField, dateLabel){
+  var docs=clinicDoctors(clinicId);
+  var rep=representativeDoctor(clinicId);
+  var rows=docs.map(function(d){
+    var isRep=!!(rep && d.id===rep.id);
+    return '<div class="doc-row" style="display:flex;align-items:center;gap:5px;margin-bottom:5px;background:'+(isRep?'#FFF7EF':'#f8f8f8')+';border:1px solid '+(isRep?'#F0D9A8':'transparent')+';border-radius:6px;padding:5px 7px">'
+      +'<input type="text" value="'+String(d.name||'').replace(/"/g,'&quot;')+'" placeholder="원장님 성함" data-doc-id="'+d.id+'" class="doc-name-input" style="flex:1;min-width:0;border:none;background:transparent;font-size:11.5px;font-family:inherit;font-weight:700;color:#333">'
+      +'<input type="date" value="'+(d[dateField]||'')+'" data-doc-id="'+d.id+'" data-field="'+dateField+'" class="doc-date-input" style="width:126px;font-size:11px;border:0.5px solid #ccc;border-radius:4px;padding:2px 4px;font-family:inherit">'
+      +(isRep?'<span title="현황판에 표시되는 대표 원장님(자격 만료가 가장 빠름)" style="font-size:9px;font-weight:700;color:#B26A00;white-space:nowrap">★대표</span>':'')
+      +'<button data-doc-id="'+d.id+'" class="doc-del-btn" title="삭제" style="border:none;background:none;color:#B01A1A;cursor:pointer;font-size:13px;padding:0 2px;line-height:1">✕</button>'
+      +'</div>';
+  }).join('');
+  return '<div style="margin:8px 0 4px;font-size:10px;color:#888">원장님별 '+dateLabel+' (한 의원에 원장님이 여러 명이면 각자 등록 - 현황판엔 가장 빨리 도래하는 원장님 기준으로 표시)</div>'
+    +'<div class="doc-list">'+rows+'</div>'
+    +'<button class="doc-add-btn" style="width:100%;padding:5px;font-size:11px;border:1px dashed #ccc;border-radius:6px;background:none;color:#666;cursor:pointer;margin-top:2px">+ 원장님 추가</button>';
+}
+// 교육이수/의협회비 팝업의 원장님 목록에 이벤트 위임(이름 입력/날짜 변경/삭제/추가) - 팝업이 다시
+// 그려질 때마다 새로 붙여야 하므로 팝업 렌더링 함수(showEduPopup/showDuesPopup) 안에서 호출
+function wireDoctorList(div, c, el, dateField, whichPopup){
+  div.addEventListener('change', function(e){
+    var t=e.target;
+    if(t.classList.contains('doc-date-input')){
+      var upd={}; upd[t.dataset.field]=t.value||null;
+      updateClinicDoctor(parseInt(t.dataset.docId,10), upd).then(function(){ afterDoctorChange(c, el, whichPopup); });
+    } else if(t.classList.contains('doc-name-input')){
+      updateClinicDoctor(parseInt(t.dataset.docId,10), {name:t.value});
+    }
+  });
+  div.addEventListener('click', function(e){
+    var t=e.target;
+    if(t.classList.contains('doc-del-btn')){
+      if(!confirm('이 원장님 정보를 삭제할까요?')) return;
+      deleteClinicDoctor(parseInt(t.dataset.docId,10)).then(function(){ afterDoctorChange(c, el, whichPopup); });
+    } else if(t.classList.contains('doc-add-btn')){
+      var name=prompt('원장님 성함을 입력하세요(나중에 수정 가능)','');
+      if(name===null) return;
+      addClinicDoctor(c.id, name.trim()).then(function(){ afterDoctorChange(c, el, whichPopup); });
+    }
   });
 }
 // 거래처 관리(전국 검색) - 사업자번호/사번/담당자명 혼동 방지를 위해 37개 사무소 거래처를 한곳에서 검색
@@ -5729,43 +5852,62 @@ function showEduPopup(el){
   var todayIso=new Date().toISOString().slice(0,10);
   var dateVal=(c&&c.eduDate)||todayIso;
   var duesOk=!!(c&&c.duesDate);
+  // 원장님이 한 명이라도 등록된 거래처는 아래 원장님별 목록으로 관리(대표 원장님 자동 계산) -
+  // 단일 편집 UI는 숨기고 목록만 보여줌. 한 명도 없으면(대부분의 기존 거래처) 예전 그대로 단일
+  // 편집 UI를 쓰되, 그 아래에 "+ 원장님 추가"를 같이 둬서 필요할 때 여러 원장님 관리로 넘어갈 수 있게 함.
+  var docs=c?clinicDoctors(c.id):[];
+  var multiMode=docs.length>0;
   div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">교육이수 현황</div>'
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
     +(isTarget
       ?(!duesOk?'<div style="background:#FFF1DB;border-radius:8px;padding:8px 10px;font-size:11px;color:#8A6800;margin-bottom:8px">⚠ 의협회비 납부일이 아직 없어요 - 회비 납부가 교육이수 자격의 전제조건입니다.</div>':'')
-        +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
-        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
-        +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">교육이수일</label>'
-        +'<input type="date" id="edu-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
-        +'<div id="edu-expiry-preview" style="margin-top:6px;font-size:11px"></div>'
-        +'</div>'
-        +'<div style="display:flex;gap:6px">'
-        +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수로 저장</button>'
-        +'<button id="edu-yet-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">미이수</button>'
-        +'<button onclick="closeEduPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
-        +'</div>'
+        +(multiMode
+          ?'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+            +'<div style="margin-bottom:2px">현재(대표 원장님 기준): <b style="color:'+(current==='이수'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+            +doctorListHtml(c.id,'edu_completed_date','교육이수일')
+            +'</div>'
+            +'<button onclick="closeEduPopup()" style="width:100%;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+          :'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+            +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='이수'?'#145C38':'#B01A1A')+'">'+current+'</b></div>'
+            +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">교육이수일</label>'
+            +'<input type="date" id="edu-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
+            +'<div id="edu-expiry-preview" style="margin-top:6px;font-size:11px"></div>'
+            +'</div>'
+            +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+            +'<button id="edu-done-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">이수로 저장</button>'
+            +'<button id="edu-yet-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">미이수</button>'
+            +'</div>'
+            // 원장님이 여러 명인 의원을 위한 진입점 - 처음엔 목록이 비어있고, 추가하는 순간부터 위 multiMode로 전환됨
+            +'<div style="border-top:1px dashed #ddd;padding-top:8px;margin-bottom:8px">'+doctorListHtml(c.id,'edu_completed_date','교육이수일')+'</div>'
+            +'<button onclick="closeEduPopup()" style="width:100%;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+          )
       :'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;color:#888;margin-bottom:10px">일만사 미참여 — 해당없음</div>'
         +'<button onclick="closeEduPopup()" style="width:100%;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
     );
   document.body.appendChild(div);
   clampPopupVertical(div, rect);
   if(isTarget){
-    var dateInput=document.getElementById('edu-date-input');
-    var preview=document.getElementById('edu-expiry-preview');
-    function updatePreview(){
-      var v=dateInput.value;
-      if(!v){ preview.textContent=''; return; }
-      var y=parseInt(v.slice(0,4),10);
-      preview.innerHTML='이 날짜로 저장하면 일만사 운영 자격 유효기한: <b style="color:#B01A1A">'+(y+1)+'년 12월 31일</b>까지';
+    if(multiMode){
+      wireDoctorList(div, c, el, 'edu_completed_date', 'edu');
+    } else {
+      var dateInput=document.getElementById('edu-date-input');
+      var preview=document.getElementById('edu-expiry-preview');
+      function updatePreview(){
+        var v=dateInput.value;
+        if(!v){ preview.textContent=''; return; }
+        var y=parseInt(v.slice(0,4),10);
+        preview.innerHTML='이 날짜로 저장하면 일만사 운영 자격 유효기한: <b style="color:#B01A1A">'+(y+1)+'년 12월 31일</b>까지';
+      }
+      updatePreview();
+      dateInput.addEventListener('input', updatePreview);
+      document.getElementById('edu-done-btn').onclick=function(){
+        var v=dateInput.value||todayIso;
+        if(c){c.edu='이수';c.eduDate=v;saveClinicField(c,{edu:'이수',edu_completed_date:v});renderList();updateEduStats();}
+        div.remove();
+      };
+      document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';saveClinicField(c,{edu:'미이수'});renderList();updateEduStats();} div.remove(); };
+      wireDoctorList(div, c, el, 'edu_completed_date', 'edu');
     }
-    updatePreview();
-    dateInput.addEventListener('input', updatePreview);
-    document.getElementById('edu-done-btn').onclick=function(){
-      var v=dateInput.value||todayIso;
-      if(c){c.edu='이수';c.eduDate=v;saveClinicField(c,{edu:'이수',edu_completed_date:v});renderList();updateEduStats();}
-      div.remove();
-    };
-    document.getElementById('edu-yet-btn').onclick=function(){ if(c){c.edu='미이수';saveClinicField(c,{edu:'미이수'});renderList();updateEduStats();} div.remove(); };
   }
   setTimeout(function(){
     document.addEventListener('click',function handler(e){
@@ -5789,26 +5931,41 @@ function showDuesPopup(el){
   div.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
   var todayIso=new Date().toISOString().slice(0,10);
   var dateVal=(c&&c.duesDate)||todayIso;
+  var docs=c?clinicDoctors(c.id):[];
+  var multiMode=docs.length>0;
   div.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:4px">의협회비 납부 현황</div>'
     +'<div style="font-size:11px;color:#888;margin-bottom:10px">'+clinicName+'</div>'
-    +'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
-    +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b></div>'
-    +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (교육이수 자격의 전제조건)</label>'
-    +'<input type="date" id="dues-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
-    +'</div>'
-    +'<div style="display:flex;gap:6px">'
-    +'<button id="dues-paid-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">납부로 저장</button>'
-    +'<button id="dues-unpaid-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">비납부</button>'
-    +'<button onclick="closeDuesPopup()" style="flex:1;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
-    +'</div>';
+    +(multiMode
+      ?'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+        +'<div style="margin-bottom:2px">현재(대표 원장님 기준): <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b></div>'
+        +doctorListHtml(c.id,'dues_paid_date','회비납부일')
+        +'</div>'
+        +'<button onclick="closeDuesPopup()" style="width:100%;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+      :'<div style="background:#f8f8f8;border-radius:8px;padding:10px;font-size:12px;margin-bottom:10px">'
+        +'<div style="margin-bottom:6px">현재: <b style="color:'+(current==='납부'?'#145C38':current==='비납부'?'#B01A1A':'#888')+'">'+current+'</b></div>'
+        +'<label style="display:block;font-size:11px;color:#888;margin-bottom:3px">납부일 (교육이수 자격의 전제조건)</label>'
+        +'<input type="date" id="dues-date-input" value="'+dateVal+'" style="width:100%;box-sizing:border-box;padding:5px;font-size:12px;border:0.5px solid #ccc;border-radius:6px;font-family:inherit">'
+        +'</div>'
+        +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+        +'<button id="dues-paid-btn" style="flex:1;padding:6px;font-size:11px;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:6px;cursor:pointer">납부로 저장</button>'
+        +'<button id="dues-unpaid-btn" style="flex:1;padding:6px;font-size:11px;background:#FEEEEE;color:#B01A1A;border:1px solid #B01A1A;border-radius:6px;cursor:pointer">비납부</button>'
+        +'</div>'
+        +'<div style="border-top:1px dashed #ddd;padding-top:8px;margin-bottom:8px">'+doctorListHtml(c.id,'dues_paid_date','회비납부일')+'</div>'
+        +'<button onclick="closeDuesPopup()" style="width:100%;padding:6px;font-size:11px;border:0.5px solid #ccc;border-radius:6px;cursor:pointer">닫기</button>'
+    );
   document.body.appendChild(div);
   clampPopupVertical(div, rect);
-  document.getElementById('dues-paid-btn').onclick=function(){
-    var v=document.getElementById('dues-date-input').value||todayIso;
-    if(c){c.dues='납부';c.duesDate=v;saveClinicField(c,{dues:'납부',dues_paid_date:v});renderList();}
-    div.remove();
-  };
-  document.getElementById('dues-unpaid-btn').onclick=function(){ if(c){c.dues='비납부';saveClinicField(c,{dues:'비납부'});renderList();} div.remove(); };
+  if(multiMode){
+    wireDoctorList(div, c, el, 'dues_paid_date', 'dues');
+  } else {
+    document.getElementById('dues-paid-btn').onclick=function(){
+      var v=document.getElementById('dues-date-input').value||todayIso;
+      if(c){c.dues='납부';c.duesDate=v;saveClinicField(c,{dues:'납부',dues_paid_date:v});renderList();}
+      div.remove();
+    };
+    document.getElementById('dues-unpaid-btn').onclick=function(){ if(c){c.dues='비납부';saveClinicField(c,{dues:'비납부'});renderList();} div.remove(); };
+    wireDoctorList(div, c, el, 'dues_paid_date', 'dues');
+  }
   setTimeout(function(){
     document.addEventListener('click',function handler(e){
       if(!div.contains(e.target)&&!el.contains(e.target)){div.remove();document.removeEventListener('click',handler);}
