@@ -456,7 +456,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .login-logo{display:flex;align-items:center;gap:10px;margin-bottom:18px}
 .login-title{font-size:16px;font-weight:800;color:var(--t1)}
 .login-sub{font-size:11px;color:var(--t3)}
-.login-hint{font-size:11px;color:var(--t3);margin-top:10px;text-align:center}
+.login-hint{font-size:11.5px;color:var(--t2);font-weight:700;margin-top:10px;text-align:center;line-height:1.7}
 .btn-del{background:var(--white);color:#B01A1A;border-color:#F7C1C1}.btn-del:hover{background:#FEEEEE}
 /* 상세 모달 */
 .dm-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-top:4px}
@@ -618,7 +618,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div id="login-error" style="color:#e53e3e;font-size:12px;margin:-4px 0 10px;display:none">사번/사무소명을 찾을 수 없습니다. 담당자에게 문의해주세요.</div>
     <button class="btn btn-save" style="width:100%;padding:10px" onclick="doLogin()">로그인</button>
-    <div class="login-hint">담당 CM: 사번 · 소장님, 사무소원: 사무소명으로 로그인 (예: 경인1)</div>
+    <div class="login-hint">
+      <div>담당자/CM - 사번으로 로그인</div>
+      <div>소장님/사무소원 - 사무소명으로 로그인 (예: 경인1)</div>
+    </div>
   </div>
 </div>
 
