@@ -2748,11 +2748,18 @@ function commitH2Targets(parsed, status){
 // ===== 달력 데이터 (Supabase schedules 테이블에서 로드) =====
 var EVENTS = {};
 var MEMO_STORE = {}; // 거래처명 → 메모 저장소 (clinic_memos 테이블과 동기화)
+// 체크박스를 손댄 직후 다른 저장 동작이 곧바로 loadSchedules()를 다시 부르면(예: 체크 해지 직후
+// 바로 다른 일정을 저장), 방금 보낸 update가 서버에 반영되기 전에 재조회가 먼저 끝나버려서
+// checked_manual이 아직 false인 옛 값으로 EVENTS가 덮어써지고, 그 상태로 autoCheckPastEvents가
+// "해지 안 된 지난 일정"으로 오인해 다시 체크해버리는 경합(race) 문제가 있었음. 이 세션 동안
+// 한 번이라도 수동으로 손댄 id는 여기 남겨두고, rowToEv에서 서버 값과 상관없이 항상 true로
+// 병합해서 이 경합 창을 원천 차단한다(서버에도 결국 같은 값이 반영되므로 다음 로드부턴 자연히 일치)
+var MANUAL_CHECK_IDS = new Set();
 
 function rowToEv(r){
   return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, mrOffice:r.mr_office||'', label:r.label,
     time:r.time_slot, exactTime:r.exact_time||'', exactTimeEnd:r.exact_time_end||'', evType:r.ev_type, region:r.region, patients:r.patients,
-    memo:r.memo||'', situation:r.situation||'', checked:r.checked, checkedManual:!!r.checked_manual, status:r.status};
+    memo:r.memo||'', situation:r.situation||'', checked:r.checked, checkedManual:(!!r.checked_manual)||MANUAL_CHECK_IDS.has(r.id), status:r.status};
 }
 // "14:30" -> "2p30", "09:00" -> "9a", "14:00" -> "2p"
 function compactTime(t){
@@ -4005,8 +4012,11 @@ function buildChip(ev, isAll){
     e.stopPropagation();ev.checked=cb.checked;
     // 사용자가 직접 체크박스를 조작하면 checked_manual을 true로 남겨서, 이후 autoCheckPastEvents가
     // "지난 날짜인데 체크 안 됨"이라는 이유로 방금 사용자가 해지한 체크를 도로 자동 체크시키는 걸 막음
-    // (예전엔 이 구분이 없어서, 해지해도 캘린더가 다시 렌더링될 때마다 자동으로 다시 체크돼버렸음)
+    // (예전엔 이 구분이 없어서, 해지해도 캘린더가 다시 렌더링될 때마다 자동으로 다시 체크돼버렸음).
+    // MANUAL_CHECK_IDS에도 남겨서, 이 update가 서버에 반영되기 전에 다른 저장 동작이 먼저
+    // loadSchedules()를 다시 불러버리는 경합 상황에서도 checkedManual이 false로 되돌아가지 않게 함
     ev.checkedManual=true;
+    MANUAL_CHECK_IDS.add(ev.id);
     db.from('schedules').update({checked:cb.checked, checked_manual:true}).eq('id',ev.id).then(function(res){
       if(res.error) console.error(res.error);
     });
@@ -6308,12 +6318,14 @@ function setEvType(btn,type){
   document.getElementById('leave-welda-label-fld').style.display=type==='welda'?'block':'none';
   updateLeaveTimeVisibility();
 }
-// 시작 시간으로 오전/오후를 자동 판정(13시부터 오후, 12시30분까지는 오전) - 오전/오후를 직접
-// 고르게 하면 시작 시간이랑 따로 놀 수 있어서(이중 입력) 시작 시간 하나로 통일
+// 시작 시간으로 오전/오후를 자동 판정(12시30분부터 오후) - 오전/오후를 직접 고르게 하면 시작
+// 시간이랑 따로 놀 수 있어서(이중 입력) 시작 시간 하나로 통일.
+// 예전엔 13시부터를 오후 기준으로 잡아서 12시~12시29분 일정이 오전 칸에 걸려 있었는데(정오를
+// 넘겼는데도 오전으로 집계), 12시30분을 기준으로 바꿈
 function timeSlotFromExact(t){
   if(!t) return 'am';
   var parts=t.split(':'); var mins=parseInt(parts[0],10)*60+(parseInt(parts[1],10)||0);
-  return mins>=13*60 ? 'pm' : 'am';
+  return mins>=12*60+30 ? 'pm' : 'am';
 }
 // "종일" 토글 - 켜면 시작/종료 시간칸을 숨기고 inp-time을 'all'로, 끄면 시간칸을 보여주고
 // 이미 골라둔 시작 시간이 있으면 그걸로 오전/오후를 바로 재계산
