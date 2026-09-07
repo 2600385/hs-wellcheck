@@ -1482,18 +1482,45 @@ function loadImportLog(){
     renderImportLog();
   });
 }
+// 전 사무소의 "활성처 베이스라인"(raw_monthly_snapshot 월마감 확정, is_baseline=true) 최신 월을
+// 사이드바 "데이터 기준일" 줄에 표시하기 위해 한 번만 로드. is_baseline=true 행은 사무소당 거래처
+// 수만큼 쌓여서(현재 4천건대) 기본 페이지 한도(1000건)를 넘길 수 있어 range()로 끝까지 이어받는다.
+var RAW_BASELINE_BY_OFFICE={}; // office -> 가장 최근 잠긴 월('YYYY-MM-01')
+function loadRawBaselineLocks(){
+  var PAGE=1000;
+  function loop(from, acc){
+    return db.from('raw_monthly_snapshot').select('office,month').eq('is_baseline',true).order('id').range(from, from+PAGE-1).then(function(res){
+      if(res.error){ console.error(res.error); return {data:acc, error:res.error}; }
+      acc=acc.concat(res.data);
+      if(res.data.length<PAGE) return {data:acc, error:null};
+      return loop(from+PAGE, acc);
+    });
+  }
+  return loop(0, []).then(function(res){
+    if(res.error) return;
+    var m={};
+    (res.data||[]).forEach(function(r){ if(!m[r.office]||r.month>m[r.office]) m[r.office]=r.month; });
+    RAW_BASELINE_BY_OFFICE=m;
+    renderImportLog();
+  });
+}
+// "베이스라인"(import_log의 import_type='baseline')은 청구현황(office_claims/clinic_claims) 월마감
+// 파일의 기준일인데, 라벨이 그냥 "베이스라인"이라 새로 생긴 "활성처 베이스라인"(월마감 확정 잠금)과
+// 헷갈린다는 지적으로 "청구처 베이스라인"으로 명확히 구분하고, 활성처 쪽 베이스라인도 같은 줄에 추가함
 function renderImportLog(){
   var el=document.getElementById('import-log-line');
   if(el){
     var rows=IMPORT_LOG.filter(function(x){return x.office===currentOffice;});
-    var labels={current:'활성처', baseline:'베이스라인', daily:'MAU'};
-    if(!rows.length){ el.textContent=''; }
-    else{
-      el.textContent='데이터 기준일: '+rows.map(function(r){
-        var d=r.source_date?r.source_date.slice(5).replace('-','.'):'?';
-        return labels[r.import_type]+' '+d;
-      }).join(' · ');
-    }
+    var byType={};
+    rows.forEach(function(r){ byType[r.import_type]=r; });
+    function fmtDate(r){ return r&&r.source_date?r.source_date.slice(5).replace('-','.'):null; }
+    var parts=[];
+    var curD=fmtDate(byType.current); if(curD) parts.push('활성처 '+curD);
+    var lockedMonth=RAW_BASELINE_BY_OFFICE[currentOffice];
+    if(lockedMonth) parts.push('활성처 베이스라인 '+parseInt(lockedMonth.slice(5,7),10)+'월 마감');
+    var baseD=fmtDate(byType.baseline); if(baseD) parts.push('청구처 베이스라인 '+baseD);
+    var dailyD=fmtDate(byType.daily); if(dailyD) parts.push('MAU '+dailyD);
+    el.textContent = parts.length ? ('데이터 기준일: '+parts.join(' · ')) : '';
   }
   renderOfficeBoardBadge();
   renderClaimBoardBadge();
@@ -2127,6 +2154,7 @@ function lockMonthlySnapshot(rows, asOf){
   if(!payload.length) return Promise.resolve();
   return db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}).then(function(res){
     if(res.error) console.error('월마감 확정 저장 실패:', res.error);
+    else loadRawBaselineLocks(); // 사이드바 "활성처 베이스라인" 표시를 방금 잠근 달로 바로 갱신
   });
 }
 // 청구현황지표(office_claims)는 원래 "청구현황 베이스라인(월마감)" 파일로만 갱신했는데, 마감 파일이
@@ -5759,6 +5787,7 @@ function closeOfficeCompareModal(){ document.getElementById('ocm-ov').classList.
 tryAutoLogin();
 initMenuDot();
 loadImportLog();
+loadRawBaselineLocks();
 switchView('cal');
 renderCalendar();
 renderRequests();
