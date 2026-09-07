@@ -697,6 +697,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
          나머지 두 항목에도 list-sub-hd를 넣어 셋 다 정확히 같은 들여쓰기로 맞춤 -->
     <div id="claimhub-sub" style="display:none">
       <div class="sub-item list-sub-hd chub-sub-item sub-title sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">활성처 전략판</div>
+      <!-- 웰체크현황판의 "전체 현황"(담당자별 현황 아코디언 위, setStMR('all')과 동급의 listFilter('all','all'))과
+           똑같이, 여기도 "거래처별 현황"을 펼쳐서 담당자를 고르지 않고 바로 전체 거래처를 한 번에 볼 수
+           있는 진입점을 최상단에 둠. setStMR('all')은 표 위쪽의 "전체 담당자" 탭을 누른 것과 완전히 동일 -->
+      <div class="sub-item list-sub-hd chub-sub-item sub-title" id="chub-sub-all" onclick="setSubNav(this);switchView('clinicslist');setStMR('all')">전체 현황</div>
       <div class="acc-hd list-sub-hd chub-sub-item open" id="chub-sub-clinics" onclick="toggleAcc(this)">거래처별 현황<span class="cv">▾</span></div>
       <div class="acc-body open" id="chub-mr-list"></div>
       <div class="sub-item list-sub-hd chub-sub-item sub-title" id="chub-sub-claim" onclick="switchView('claim')">청구현황지표</div>
@@ -1719,7 +1723,8 @@ function runImport(){
   function finishParse(parsed){
     if(!parsed || parsed.error){ status.textContent=(parsed&&parsed.error)||'파일을 해석하지 못했습니다.'; return; }
     status.textContent=autoCorrectMsg;
-    PENDING_IMPORT={type:type, parsed:parsed};
+    var lockEl=document.getElementById('lock-month-baseline');
+    PENDING_IMPORT={type:type, parsed:parsed, lockMonth:(type==='current'&&lockEl&&lockEl.checked)};
     showImportValidation(type, parsed);
   }
   reader.onload=function(e){
@@ -1801,9 +1806,9 @@ function confirmImportApply(){
   document.getElementById('import-validation').style.display='none';
   document.getElementById('import-btns-step2').style.display='none';
   status.textContent='반영 중...';
-  var type=PENDING_IMPORT.type, parsed=PENDING_IMPORT.parsed;
+  var type=PENDING_IMPORT.type, parsed=PENDING_IMPORT.parsed, lockMonth=PENDING_IMPORT.lockMonth;
   PENDING_IMPORT=null;
-  if(type==='current') commitCurrentRaw(parsed, status);
+  if(type==='current') commitCurrentRaw(parsed, status, lockMonth);
   else if(type==='daily') commitDailyMAU(parsed, status);
   else if(type==='h2target') commitH2Targets(parsed, status);
   else commitBaseline(parsed, status);
@@ -2082,15 +2087,46 @@ function shiftMonthStr(monthStr, delta){
 // "전월 환자수" 컬럼(그 시점 회사가 직접 보고하는 전월 마감 수치)이 항상 같이 있으므로, 이걸로 전월
 // 스냅샷도 같이 upsert해서 새 파일이 올라올 때마다 전월 값이 더 최신(더 신뢰할 수 있는) 보고치로
 // 스스로 갱신되게 한다.
+// 지정된 월들 중 이미 "월마감 확정"(is_baseline=true) 표시된 (office,biz_no,month) 키 집합을 조회.
+// saveRawMonthlySnapshot()이 그 키는 절대 덮어쓰지 않도록 걸러내는 데 씀.
+function lockedSnapshotKeys(months){
+  return db.from('raw_monthly_snapshot').select('office,biz_no,month').eq('is_baseline',true).in('month',months).then(function(res){
+    var s=new Set();
+    if(!res.error&&res.data) res.data.forEach(function(r){ s.add(r.office+'|'+r.biz_no+'|'+r.month); });
+    return s;
+  });
+}
+// [8월 데이터가 두 번이나 이 경로로 뭉개진 사고 이후 도입한 재발 방지 장치] RAW 파일에 담긴
+// "전월 환자수" 컬럼이 가끔(회사 쪽 파일 오류로) 근사 0으로 깨져 들어오는 경우가 있는데, 예전엔
+// 이게 그대로 prevPayload를 통해 이미 정확했던 전월 스냅샷을 덮어써버렸다. 관리자가 "월마감 확정"
+// 체크박스로 한 번 잠가둔(is_baseline=true) 달은, 이후 어떤 RAW 파일이 올라와도(현재 달이든 전월
+// 컬럼이든) 그 값을 절대 덮어쓰지 않도록 미리 걸러낸다.
 function saveRawMonthlySnapshot(rows, asOf){
   var month=String(asOf||'').slice(0,7)+'-01';
   var prevMonth=shiftMonthStr(month,-1);
   var payload=(rows||[]).filter(function(r){return r.biz_no;}).map(function(r){ return {office:r.office, biz_no:r.biz_no, month:month, patients:r.patients||0}; });
   var prevPayload=(rows||[]).filter(function(r){return r.biz_no&&r.prev_patients!=null;}).map(function(r){ return {office:r.office, biz_no:r.biz_no, month:prevMonth, patients:r.prev_patients||0}; });
-  var p1=payload.length?db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}):Promise.resolve({error:null});
-  var p2=prevPayload.length?db.from('raw_monthly_snapshot').upsert(prevPayload, {onConflict:'office,biz_no,month'}):Promise.resolve({error:null});
-  return Promise.all([p1,p2]).then(function(resArr){
-    resArr.forEach(function(res){ if(res&&res.error) console.error('raw_monthly_snapshot 저장 실패:', res.error); });
+  return lockedSnapshotKeys([month,prevMonth]).then(function(locked){
+    if(locked.size){
+      payload=payload.filter(function(r){ return !locked.has(r.office+'|'+r.biz_no+'|'+r.month); });
+      prevPayload=prevPayload.filter(function(r){ return !locked.has(r.office+'|'+r.biz_no+'|'+r.month); });
+    }
+    var p1=payload.length?db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}):Promise.resolve({error:null});
+    var p2=prevPayload.length?db.from('raw_monthly_snapshot').upsert(prevPayload, {onConflict:'office,biz_no,month'}):Promise.resolve({error:null});
+    return Promise.all([p1,p2]).then(function(resArr){
+      resArr.forEach(function(res){ if(res&&res.error) console.error('raw_monthly_snapshot 저장 실패:', res.error); });
+    });
+  });
+}
+// "월마감 확정" 체크박스를 켜고 올린 RAW 파일의 경우, 그 파일이 보고하는 이번 회차(asOf) 월의
+// 환자수를 raw_monthly_snapshot에 is_baseline=true로 확정 표시한다. 이후로는 saveRawMonthlySnapshot()의
+// 보호 로직이 이 (사무소,사업자번호,월) 조합을 다른 RAW 파일로부터 영구히 지켜준다.
+function lockMonthlySnapshot(rows, asOf){
+  var month=String(asOf||'').slice(0,7)+'-01';
+  var payload=(rows||[]).filter(function(r){return r.biz_no;}).map(function(r){ return {office:r.office, biz_no:r.biz_no, month:month, patients:r.patients||0, is_baseline:true}; });
+  if(!payload.length) return Promise.resolve();
+  return db.from('raw_monthly_snapshot').upsert(payload, {onConflict:'office,biz_no,month'}).then(function(res){
+    if(res.error) console.error('월마감 확정 저장 실패:', res.error);
   });
 }
 // 청구현황지표(office_claims)는 원래 "청구현황 베이스라인(월마감)" 파일로만 갱신했는데, 마감 파일이
@@ -2138,7 +2174,7 @@ function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
     if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
   });
 }
-function commitCurrentRaw(parsed, status){
+function commitCurrentRaw(parsed, status, lockMonth){
   var updates=parsed.updates, asOf=parsed.asOf;
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   status.textContent=updates.length+'개 거래처 반영 중...';
@@ -2222,6 +2258,7 @@ function commitCurrentRaw(parsed, status){
         // 항상 "그 파일이 말하는 달(asOf)" 기준으로 채우는 거라, 과거 파일이어도 정확히 그 과거 달의
         // 마감 스냅샷·청구현황을 확정하는 게 목적 그 자체다("현재"만 안 건드리면 됨).
         saveRawMonthlySnapshot(safeRows, asOf);
+        if(lockMonth) lockMonthlySnapshot(safeRows, asOf);
         // "📅 업데이트 이력" 모달(data_snapshots)이 베이스라인 업로드 때만 기록되고 RAW/MAU 업로드 땐 전혀
         // 안 남아서, RAW를 여러 번 새로 올려도 이력 화면이 마지막 베이스라인 날짜(예: 7/20)에 계속 멈춰있는
         // 것처럼 보이는 문제가 있었음(실제 데이터는 정상 갱신되고 있었음) - RAW 커밋 때도 현재 사무소 기준
@@ -2261,7 +2298,7 @@ function commitCurrentRaw(parsed, status){
           if(document.getElementById('view-list').classList.contains('v-active')) renderList();
           if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
           var staleMsg=staleOfficeNames.length?(' · '+staleOfficeNames.length+'개 사무소('+staleOfficeNames.slice(0,3).join(',')+(staleOfficeNames.length>3?' 외':'')+')는 이미 더 최신 데이터가 있어 "현재" 상태는 그대로 두고 '+asOf.slice(0,7)+' 마감 스냅샷·청구현황만 반영함'):'';
-          status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictCount+'건(기존 배정 유지)'):'')+staleMsg+' 청구현황지표도 그 달 공식 베이스라인이 아직 없으면 진행중(추정)으로 같이 갱신됩니다.';
+          status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 사무소 불일치로 보호되어 건너뛴 거래처 '+conflictCount+'건(기존 배정 유지)'):'')+staleMsg+' 청구현황지표도 그 달 공식 베이스라인이 아직 없으면 진행중(추정)으로 같이 갱신됩니다.'+(lockMonth?(' 🔒 '+asOf.slice(0,7)+' 환자수는 월마감 확정되어 이후 다른 RAW 파일이 덮어쓸 수 없습니다.'):'');
         });
       });
     });
@@ -2280,11 +2317,13 @@ function commitCurrentRaw(parsed, status){
     var unmatched=updates.filter(function(u,i){ return !results[i].error&&(!results[i].data||!results[i].data.length); });
     if(unmatched.length) saveUnmatchedClinics(unmatched, 'current');
     logImport('current', asOf);
-    saveRawMonthlySnapshot(updates.map(function(u){ return {office:currentOffice, biz_no:u.biz_no, patients:u.patients, prev_patients:u.prev_patients}; }), asOf);
+    var snapRows=updates.map(function(u){ return {office:currentOffice, biz_no:u.biz_no, patients:u.patients, prev_patients:u.prev_patients}; });
+    saveRawMonthlySnapshot(snapRows, asOf);
+    if(lockMonth) lockMonthlySnapshot(snapRows, asOf);
     loadClinics().then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
-      status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 거래처현황판만 갱신됨)';
+      status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 거래처현황판만 갱신됨)'+(lockMonth?(' 🔒 '+asOf.slice(0,7)+' 환자수는 월마감 확정되어 이후 다른 RAW 파일이 덮어쓸 수 없습니다.'):'');
     });
   });
 }
@@ -4792,6 +4831,33 @@ function stEvalConversion(){
     gap:(lastOfficial.claim_ilmansa_amt||0)-(lastOfficial.eval_score||0), evalCnt:lastOfficial.eval_clinic_cnt, claimCnt:lastOfficial.claim_clinic_cnt||0,
     patientCnt:lastOfficial.cum_patient||0, official:true};
 }
+// "일만사 평가·청구"(GAP) 카드 클릭 시 - 1월부터 지금까지 월별 실제청구금액/청구건수/평가실적/GAP을
+// 표로 드릴다운. stOfficeClaims()가 이미 로드해둔(현재 사무소, month 오름차순) office_claims를 그대로
+// 씀 - 별도 조회 없이 바로 표시 가능. 이번달처럼 아직 공식 마감이 없는 달은 stEvalConversion()과 같은
+// 기준(est_* 컬럼)으로 "추정" 배지를 달아 보여줌
+function openOfficeClaimGapBreakdown(){
+  var rows=stOfficeClaims();
+  if(!rows.length){ showSimpleModal('월별 청구 GAP', '<div class="sub" style="padding:10px 0">아직 청구현황 데이터가 없어요.</div>'); return; }
+  var body='<div class="sub" style="margin-bottom:8px">달마다 마감(베이스라인) 기준 청구건수·실제청구금액·평가실적·GAP(청구금액-평가실적)이에요. "추정"은 그 달 공식 마감 전, RAW 파일 기준 진행중 값이에요.</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">청구건수</th><th style="padding:5px 6px">실제청구금액</th><th style="padding:5px 6px">평가실적</th><th style="padding:5px 6px">GAP</th></tr></thead><tbody>'
+    +rows.map(function(r){
+      var official=!!r.eval_clinic_cnt;
+      var claimAmt=official?(r.claim_ilmansa_amt||0):(r.est_claim_amt||0);
+      var claimCnt=official?(r.claim_clinic_cnt||0):(r.est_claim_cnt||0);
+      var evalScore=official?(r.eval_score||0):((r.est_ilmansa_patient||0)*10000);
+      var gap=claimAmt-evalScore;
+      var gapColor=gap>=0?'#1048A0':'#B01A1A';
+      var badge=official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px">추정</span>';
+      return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월'+badge+'</td>'
+        +'<td style="text-align:center;padding:5px 6px">'+claimCnt+'처</td>'
+        +'<td style="text-align:right;padding:5px 6px">'+companyMoney(claimAmt)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px">'+companyMoney(evalScore)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;font-weight:800;color:'+gapColor+'">'+(gap>=0?'+':'')+companyMoney(gap)+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  showSimpleModal(currentOffice+' · 월별 청구 GAP 내역', body);
+}
 function renderClinicsListView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
     buildClaimMap();
@@ -5028,8 +5094,11 @@ function renderStKPI(){
     ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=35&&p<=39;}).length+'처','일만사&웰체크 35~39명처','cand40']
   ]);
   document.getElementById('st-mini').innerHTML=minis.map(function(x){
-    var clickable=!!x[4];
-    var attr=clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"';
+    // "일만사 평가·청구"(GAP) 카드는 다른 미니카드처럼 목록 필터가 아니라 월별 드릴다운 팝업을 여는
+    // 특수 케이스라, setStFilter가 아니라 별도 함수를 바로 붙임
+    var isGapCard=x[0]==='evalScore';
+    var clickable=!!x[4]||isGapCard;
+    var attr=isGapCard?' onclick="openOfficeClaimGapBreakdown()"':(clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"');
     var arrow=clickable?' ▼':'';
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
@@ -5284,10 +5353,14 @@ function clinicRowsTbodyHtml(rows, detailed){
     // 이 4개는 clinics 테이블의 "가장 최근 마감 기준 누적" 스냅샷이라 다음 마감 전까진 고정돼 보이는데,
     // 실제로는 이미 로드해둔 clinic_claims(거래처×월)에 달마다 내역이 쌓여있어서 클릭하면 월별로 볼 수 있음
     var svcClick=' onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" style="cursor:pointer" title="클릭하면 월별 내역을 볼 수 있어요"';
-    var svcCells=detailed?('<td'+svcClick+'>'+(c.care_plan_cnt||0)+'건</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건</td>'):'';
+    // 청구처현황판(거래처별 현황, detailed=true)에서만 웰체크현황판처럼 구간 구분 세로선을 추가함
+    // (거래처+담당자 "이름" 구간 다음, 그리고 증감 다음=케어플랜부터 "청구현황" 구간 시작 지점).
+    // 활성처 전략판의 간단 표(detailed=false)는 그대로 둔다(요청 범위가 청구처현황판 표였음).
+    var colSep=detailed?' style="border-left:2px solid var(--bd2)"':'';
+    var svcCells=detailed?('<td'+colSep+svcClick+'>'+(c.care_plan_cnt||0)+'건</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건</td>'):'';
     return '<tr onclick="openClinicChartModal('+idx+',event)" title="클릭하면 활성환자·청구 추이 그래프가 열립니다"><td><span style="opacity:.5;margin-right:4px" title="클릭 시 그래프 보기">📊</span><b>'+c.name+'</b>'+nb+'</td>'
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
-      +'<td>'+prev+'명</td><td>'+nowCell+'</td>'
+      +'<td'+colSep+'>'+prev+'명</td><td>'+nowCell+'</td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
       +svcCells
       +'<td>'+(cl?money(cl.cum):'-')+'</td>'
@@ -5328,7 +5401,7 @@ function renderClinicsListTable(){
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:880px">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
     +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</span></div></th></tr>'
-    +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
+    +'<tr><th>거래처</th><th>담당자</th><th style="border-left:2px solid var(--bd2)">전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th style="border-left:2px solid var(--bd2)">케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
 }
 
@@ -6965,6 +7038,17 @@ function closeClinicChart(){
         <label style="display:block;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><input type="radio" name="import-type" value="current" checked><b style="font-size:12.5px">활성처 현황 (RAW 파일, 주 2회)</b><span id="current-badge" style="font-size:9.5px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:2px 7px;white-space:nowrap;margin-left:auto">전체 사무소 반영</span></div>
           <div id="current-desc" style="font-size:10.5px;color:var(--t3);margin:4px 0 0 20px;line-height:1.5"></div>
+          <!-- 재발 방지: RAW 파일의 "전월 환자수" 컬럼이 가끔 깨져서(근사 0) 올라와, 이미 정확했던
+               전월 마감 스냅샷을 조용히 덮어써버리는 사고가 반복됨(8월 데이터가 두 번 뭉개짐) - 관리자가
+               "이 파일이 그 달의 진짜 마감"이라고 확정할 방법을 열어줌. 체크하면 이 파일이 보고하는
+               이번 회차 월의 환자수가 lockMonthlySnapshot()으로 is_baseline=true 처리되어, 이후 어떤
+               RAW 파일도 이 값을 덮어쓸 수 없게 saveRawMonthlySnapshot()이 보호한다 -->
+          <div style="margin:8px 0 0 20px;padding:6px 8px;background:#FFF8E8;border-radius:6px">
+            <label style="display:flex;align-items:flex-start;gap:6px;font-size:11px;font-weight:700;color:#8A6800;cursor:pointer">
+              <input type="checkbox" id="lock-month-baseline" style="margin-top:2px">
+              <span>🔒 이 파일을 월마감 확정으로 표시 (이후 다른 RAW 파일이 이 달 환자수를 덮어쓰지 못하도록 보호)</span>
+            </label>
+          </div>
         </label>
         <label style="display:block;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;cursor:pointer">
           <div style="display:flex;align-items:center;gap:6px"><input type="radio" name="import-type" value="daily"><b style="font-size:12.5px">일일 MAU 파일 (선택)</b></div>
