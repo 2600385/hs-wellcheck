@@ -303,6 +303,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .primaryKpi .kval{font-size:40px;color:#F47920}
 .primaryKpi .smallTarget{font-size:24px;color:#9b8d82}
 .gradePill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fee6e9;color:#c92f3f;font-weight:950;margin-left:6px;font-size:13px}
+/* 드릴다운(클릭하면 상세 팝업/모달) 가능한 셀 표시 - 정렬 화살표(sth/thArrow)와 같은 언어로,
+   평소엔 옅은 회색 작은 세모만 보이다가 마우스를 올리면 브랜드색(주황)으로 진해지고 배경도
+   살짝 깔려서 "여기 누르면 더 볼 수 있다"는 게 눈에 띔 - 예전엔 커서 포인터·밑줄점선뿐이라
+   기능이 있는지 잘 안 보인다는 지적이 있었음 */
+.drill-ic{display:inline-block;font-size:10px;color:var(--t3);margin-left:3px;vertical-align:1px}
+td.drillable{cursor:pointer}
+td.drillable:hover{background:var(--dw-l)}
+td.drillable:hover .drill-ic{color:var(--dw)}
 /* 7~12월 등급 카드용 - 확정(청구마감 반영)은 기존 gradePill 그대로(꽉 찬 배경), 예상(현재 활성처
    기준)은 옅은 테두리만 있는 형태로 눈에 덜 튀게 - 배지 텍스트를 따로 안 붙여도 한눈에 구분되도록 함 */
 .gradePill-confirmed{background:#fee6e9;color:#c92f3f}
@@ -4493,7 +4501,7 @@ function renderList(){
       +'<td style="text-align:center;border-left:2px solid #C8D8C0;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'visited\')">'+visitMark+'</td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
-      +'<td style="cursor:pointer" title="클릭하면 활성환자·청구 추이 그래프가 열립니다" onclick="openClinicChartModal('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
+      +'<td class="drillable" title="클릭하면 활성환자·청구 추이 그래프가 열립니다" onclick="openClinicChartModal('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span><span class="drill-ic">▾</span></div></td>'
       +(function(){
         var gap=clinicEvalGap(c);
         var gapTxt=gap===null?'-':((gap>=0?'+':'')+companyMoney(gap));
@@ -4502,7 +4510,7 @@ function renderList(){
         // 청구금액을 최우선으로 쓰고(clinics.raw_claim), 아직 그 값이 없으면(예: RAW 재업로드 전)
         // MAU가 매일 갱신하는 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가로 역산 추정한다.
         var monthlyEst=(c.raw_claim!=null)?c.raw_claim:clinicMonthlyClaimEstimate(c);
-        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
+        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td class="drillable" style="text-align:right;font-size:10px;font-weight:600" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'<span class="drill-ic">▾</span></td>';
       })()
       +(function(){
         var lStatus=ilmansaLicenseStatus(c);
@@ -5432,21 +5440,24 @@ function clinicRowsTbodyHtml(rows, detailed){
     var nowCell='<b>'+now+'명</b>'+(nonNow>0?'<br><span style="color:#B01A1A;font-size:10.5px;font-weight:700">비일만사 '+nonNow+'명</span>':'');
     // 이 4개는 clinics 테이블의 "가장 최근 마감 기준 누적" 스냅샷이라 다음 마감 전까진 고정돼 보이는데,
     // 실제로는 이미 로드해둔 clinic_claims(거래처×월)에 달마다 내역이 쌓여있어서 클릭하면 월별로 볼 수 있음
-    var svcClick=' onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" style="cursor:pointer" title="클릭하면 월별 내역을 볼 수 있어요"';
+    // class="drillable"이 cursor/hover를 다 처리해서 svcClick/claimClick엔 style을 안 둔다 - colSep의
+    // style(구분선)과 합쳐질 때 style 속성이 두 번 생겨서 하나가 무시되는 걸 피하기 위함
+    var drillIc='<span class="drill-ic">▾</span>';
+    var svcClick=' class="drillable" onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" title="클릭하면 월별 내역을 볼 수 있어요"';
     // "누적청구" 셀도 웰체크현황판의 "당월청구(추정)" 셀처럼 클릭하면 월별 항목별(케어플랜/교육상담/
     // 환자관리/점검평가) 금액 내역을 바로 볼 수 있게 함 - 그 전엔 행 전체 클릭(그래프)만 됐음
-    var claimClick=' onclick="event.stopPropagation();openClinicClaimAmountBreakdown('+idx+')" style="cursor:pointer;text-decoration:underline dotted" title="클릭하면 월별 청구금액 내역을 볼 수 있어요"';
+    var claimClick=' class="drillable" onclick="event.stopPropagation();openClinicClaimAmountBreakdown('+idx+')" title="클릭하면 월별 청구금액 내역을 볼 수 있어요"';
     // 청구처현황판(거래처별 현황, detailed=true)에서만 웰체크현황판처럼 구간 구분 세로선을 추가함
     // (거래처+담당자 "이름" 구간 다음, 그리고 증감 다음=케어플랜부터 "청구현황" 구간 시작 지점).
     // 활성처 전략판의 간단 표(detailed=false)는 그대로 둔다(요청 범위가 청구처현황판 표였음).
     var colSep=detailed?' style="border-left:2px solid var(--bd2)"':'';
-    var svcCells=detailed?('<td'+colSep+svcClick+'>'+(c.care_plan_cnt||0)+'건</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건</td>'):'';
+    var svcCells=detailed?('<td'+colSep+svcClick+'>'+(c.care_plan_cnt||0)+'건'+drillIc+'</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건'+drillIc+'</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건'+drillIc+'</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건'+drillIc+'</td>'):'';
     return '<tr onclick="openClinicChartModal('+idx+',event)" title="클릭하면 활성환자·청구 추이 그래프가 열립니다"><td><span style="opacity:.5;margin-right:4px" title="클릭 시 그래프 보기">📊</span><b>'+c.name+'</b>'+nb+'</td>'
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
       +'<td'+colSep+'>'+prev+'명</td><td>'+nowCell+'</td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
       +svcCells
-      +'<td'+claimClick+'>'+(cl?money(cl.cum):'-')+'</td>'
+      +'<td'+claimClick+'>'+(cl?money(cl.cum):'-')+drillIc+'</td>'
       +'<td>'+stPill(c)+'</td></tr>';
   }).join('');
 }
