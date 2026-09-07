@@ -697,6 +697,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
          나머지 두 항목에도 list-sub-hd를 넣어 셋 다 정확히 같은 들여쓰기로 맞춤 -->
     <div id="claimhub-sub" style="display:none">
       <div class="sub-item list-sub-hd chub-sub-item sub-title sub-active" id="chub-sub-strategy" onclick="switchView('strategy')">활성처 전략판</div>
+      <!-- 웰체크현황판의 "전체 현황"(담당자별 현황 아코디언 위, setStMR('all')과 동급의 listFilter('all','all'))과
+           똑같이, 여기도 "거래처별 현황"을 펼쳐서 담당자를 고르지 않고 바로 전체 거래처를 한 번에 볼 수
+           있는 진입점을 최상단에 둠. setStMR('all')은 표 위쪽의 "전체 담당자" 탭을 누른 것과 완전히 동일 -->
+      <div class="sub-item list-sub-hd chub-sub-item sub-title" id="chub-sub-all" onclick="setSubNav(this);switchView('clinicslist');setStMR('all')">전체 현황</div>
       <div class="acc-hd list-sub-hd chub-sub-item open" id="chub-sub-clinics" onclick="toggleAcc(this)">거래처별 현황<span class="cv">▾</span></div>
       <div class="acc-body open" id="chub-mr-list"></div>
       <div class="sub-item list-sub-hd chub-sub-item sub-title" id="chub-sub-claim" onclick="switchView('claim')">청구현황지표</div>
@@ -4792,6 +4796,33 @@ function stEvalConversion(){
     gap:(lastOfficial.claim_ilmansa_amt||0)-(lastOfficial.eval_score||0), evalCnt:lastOfficial.eval_clinic_cnt, claimCnt:lastOfficial.claim_clinic_cnt||0,
     patientCnt:lastOfficial.cum_patient||0, official:true};
 }
+// "일만사 평가·청구"(GAP) 카드 클릭 시 - 1월부터 지금까지 월별 실제청구금액/청구건수/평가실적/GAP을
+// 표로 드릴다운. stOfficeClaims()가 이미 로드해둔(현재 사무소, month 오름차순) office_claims를 그대로
+// 씀 - 별도 조회 없이 바로 표시 가능. 이번달처럼 아직 공식 마감이 없는 달은 stEvalConversion()과 같은
+// 기준(est_* 컬럼)으로 "추정" 배지를 달아 보여줌
+function openOfficeClaimGapBreakdown(){
+  var rows=stOfficeClaims();
+  if(!rows.length){ showSimpleModal('월별 청구 GAP', '<div class="sub" style="padding:10px 0">아직 청구현황 데이터가 없어요.</div>'); return; }
+  var body='<div class="sub" style="margin-bottom:8px">달마다 마감(베이스라인) 기준 청구건수·실제청구금액·평가실적·GAP(청구금액-평가실적)이에요. "추정"은 그 달 공식 마감 전, RAW 파일 기준 진행중 값이에요.</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">청구건수</th><th style="padding:5px 6px">실제청구금액</th><th style="padding:5px 6px">평가실적</th><th style="padding:5px 6px">GAP</th></tr></thead><tbody>'
+    +rows.map(function(r){
+      var official=!!r.eval_clinic_cnt;
+      var claimAmt=official?(r.claim_ilmansa_amt||0):(r.est_claim_amt||0);
+      var claimCnt=official?(r.claim_clinic_cnt||0):(r.est_claim_cnt||0);
+      var evalScore=official?(r.eval_score||0):((r.est_ilmansa_patient||0)*10000);
+      var gap=claimAmt-evalScore;
+      var gapColor=gap>=0?'#1048A0':'#B01A1A';
+      var badge=official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px">추정</span>';
+      return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월'+badge+'</td>'
+        +'<td style="text-align:center;padding:5px 6px">'+claimCnt+'처</td>'
+        +'<td style="text-align:right;padding:5px 6px">'+companyMoney(claimAmt)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px">'+companyMoney(evalScore)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;font-weight:800;color:'+gapColor+'">'+(gap>=0?'+':'')+companyMoney(gap)+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  showSimpleModal(currentOffice+' · 월별 청구 GAP 내역', body);
+}
 function renderClinicsListView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
     buildClaimMap();
@@ -5028,8 +5059,11 @@ function renderStKPI(){
     ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=35&&p<=39;}).length+'처','일만사&웰체크 35~39명처','cand40']
   ]);
   document.getElementById('st-mini').innerHTML=minis.map(function(x){
-    var clickable=!!x[4];
-    var attr=clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"';
+    // "일만사 평가·청구"(GAP) 카드는 다른 미니카드처럼 목록 필터가 아니라 월별 드릴다운 팝업을 여는
+    // 특수 케이스라, setStFilter가 아니라 별도 함수를 바로 붙임
+    var isGapCard=x[0]==='evalScore';
+    var clickable=!!x[4]||isGapCard;
+    var attr=isGapCard?' onclick="openOfficeClaimGapBreakdown()"':(clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"');
     var arrow=clickable?' ▼':'';
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
@@ -5284,10 +5318,14 @@ function clinicRowsTbodyHtml(rows, detailed){
     // 이 4개는 clinics 테이블의 "가장 최근 마감 기준 누적" 스냅샷이라 다음 마감 전까진 고정돼 보이는데,
     // 실제로는 이미 로드해둔 clinic_claims(거래처×월)에 달마다 내역이 쌓여있어서 클릭하면 월별로 볼 수 있음
     var svcClick=' onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" style="cursor:pointer" title="클릭하면 월별 내역을 볼 수 있어요"';
-    var svcCells=detailed?('<td'+svcClick+'>'+(c.care_plan_cnt||0)+'건</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건</td>'):'';
+    // 청구처현황판(거래처별 현황, detailed=true)에서만 웰체크현황판처럼 구간 구분 세로선을 추가함
+    // (거래처+담당자 "이름" 구간 다음, 그리고 증감 다음=케어플랜부터 "청구현황" 구간 시작 지점).
+    // 활성처 전략판의 간단 표(detailed=false)는 그대로 둔다(요청 범위가 청구처현황판 표였음).
+    var colSep=detailed?' style="border-left:2px solid var(--bd2)"':'';
+    var svcCells=detailed?('<td'+colSep+svcClick+'>'+(c.care_plan_cnt||0)+'건</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건</td>'):'';
     return '<tr onclick="openClinicChartModal('+idx+',event)" title="클릭하면 활성환자·청구 추이 그래프가 열립니다"><td><span style="opacity:.5;margin-right:4px" title="클릭 시 그래프 보기">📊</span><b>'+c.name+'</b>'+nb+'</td>'
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
-      +'<td>'+prev+'명</td><td>'+nowCell+'</td>'
+      +'<td'+colSep+'>'+prev+'명</td><td>'+nowCell+'</td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
       +svcCells
       +'<td>'+(cl?money(cl.cum):'-')+'</td>'
@@ -5328,7 +5366,7 @@ function renderClinicsListTable(){
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:880px">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
     +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</span></div></th></tr>'
-    +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
+    +'<tr><th>거래처</th><th>담당자</th><th style="border-left:2px solid var(--bd2)">전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th style="border-left:2px solid var(--bd2)">케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
 }
 
