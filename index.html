@@ -335,8 +335,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mrGoalChip:hover{box-shadow:0 4px 12px rgba(178,106,0,.12);border-color:#F6B37C}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
-/* 9~12월 목표 카드의 달별 한 줄 */
-.month-line{display:block;font-size:14px;font-weight:700;margin-top:6px}
+/* 7~12월 등급 카드의 달별 한 줄 - 6개월치라 한 줄씩 세로로 쌓으면 카드가(그리고 grid라서 옆 카드들까지)
+   너무 길어져서 2열로 나눠 배치(month-grid) */
+.month-line{display:block;font-size:14px;font-weight:700}
+.month-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin-top:6px}
 .gradePill-sm{padding:1px 7px;font-size:10.5px;margin-left:2px}
 /* 일만사 평가·청구 카드의 청구금액/평가실적/GAP 줄 - GAP만 한 단계 더 크게(모바일에서도 비율
    유지되도록 폰트 크기를 인라인이 아니라 클래스로 둠) */
@@ -529,7 +531,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .gradePill{font-size:10.5px!important;padding:2px 6px!important;margin-left:4px!important}
   /* 평가기준대응 카드(9~12월/일만사 평가·청구/청구전환율)도 인라인 스타일이 아니라 클래스로 되어
      있어서 여기서 같이 줄인다 */
-  .month-line{font-size:12px!important;margin-top:5px!important}
+  .month-line{font-size:12px!important}
+  .month-grid{grid-template-columns:1fr!important;gap:4px!important;margin-top:5px!important}
   .eval-row-lbl{font-size:10.5px!important}
   .eval-row-val{font-size:16px!important}
   .eval-row-lbl-big{font-size:12.5px!important}
@@ -5070,33 +5073,32 @@ function renderStKPI(){
     return '<div class="kcard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><div class="kval">'+x[2]+'</div><div class="khint">'+x[3]+'</div></div>';
   }).join('');
   var r=officeRows();
-  // "평가기준 대응": 예전엔 9~12월을 각각 카드로 펼쳐서 최대 4개였는데, 카드 수가 많아지니 복잡해
-  // 보인다는 지적 - 바로 다음달(예: 9월)만 단독 카드로 두고, 그 이후(예: 10~12월)는 한 카드에
-  // 압축해서 보여준다. "이번달"이 넘어가면 자동으로 다음달로 옮겨감(nextMonthStr 기준).
+  // "평가기준 대응": 예전엔 익월부터 12월까지("미래"만) 목표 대비 예상등급만 보여줬는데, 지난달들은
+  // 실제로 몇 등급이었는지 안 보여서 알기 어렵다는 지적 - 7~12월(하반기 목표 파일이 커버하는 전체
+  // 구간) 전부를 한 카드에 놓고, 이미 공식 마감된 달(office_claims에 eval_clinic_cnt가 있는 달)은
+  // "그 달 실제 활성처수 → 확정등급", 아직 마감 전인 달(이번달 포함 미래)은 "현재 활성처수 기준 →
+  // 예상등급"으로 구분해서 보여준다. h2_targets 파일 자체가 7~12월만 담고 있어 범위 고정.
   var thisYear=new Date().getFullYear();
-  var nextStr=nextMonthStr(); // 'YYYY-MM' - 항상 "익월"부터 시작
-  var nextYear=parseInt(nextStr.slice(0,4),10), startMonth=parseInt(nextStr.slice(5,7),10);
   function monthAchv(mm){
     var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
     var mTh=h2OfficeTarget(currentOffice, mStr);
-    var mPct=mTh?Math.round(k.active/mTh*100):null;
-    return {th:mTh, pct:mPct};
+    var ocRow=oc.find(function(o){ return o.month.slice(0,7)===mStr; });
+    var official=!!(ocRow&&ocRow.eval_clinic_cnt); // 그 달 청구현황 베이스라인(월마감)으로 확정된 값인지
+    var cnt=official?ocRow.eval_clinic_cnt:k.active; // 확정 전이면 현재 실시간 활성처수로 대체(예상)
+    var mPct=mTh?Math.round(cnt/mTh*100):null;
+    return {th:mTh, pct:mPct, cnt:cnt, official:official};
   }
   var monthMinis=[];
-  // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
-  // "OO월 목표 OO처인데 현재 OO처면 달성률 OO%"는 줄줄이 늘어놔서 읽기 불편하다는 지적 - "현재 OO처"는
-  // 위 KPI 카드에 이미 있는 정보라 빼고, "OO월 OO처 → 달성률 OO% 등급"으로 짧게 정리한다.
-  if(nextYear===thisYear){
-    var monthsList=[];
-    for(var mmX=startMonth; mmX<=12; mmX++) monthsList.push(mmX);
-    var monthLines=monthsList.map(function(mm){
-      var a=monthAchv(mm);
-      if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
-      return '<span class="month-line">'+mm+'월 '+a.th+'처 → 달성률 '+a.pct+'% <span class="gradePill gradePill-sm">'+achievementGrade(a.pct)+'등급</span></span>';
-    }).join('');
-    var monthLabel=monthsList.length>1?(monthsList[0]+'~'+monthsList[monthsList.length-1]+'월 목표'):(monthsList[0]+'월 목표');
-    monthMinis.push(['mNext', monthLabel, monthLines, '', 'active']);
-  }
+  var monthsList=[7,8,9,10,11,12];
+  var monthLines='<div class="month-grid">'+monthsList.map(function(mm){
+    var a=monthAchv(mm);
+    if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
+    var tag=a.official
+      ?'<span style="font-size:9px;font-weight:700;color:#145C38;background:#E3F5EA;border-radius:999px;padding:1px 5px;margin-left:3px">확정</span>'
+      :'<span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px;margin-left:3px">예상</span>';
+    return '<span class="month-line">'+mm+'월 '+a.cnt+'/'+a.th+'처 → '+a.pct+'% <span class="gradePill gradePill-sm">'+achievementGrade(a.pct)+'등급</span>'+tag+'</span>';
+  }).join('')+'</div>';
+  monthMinis.push(['mNext', '7~12월 등급 현황', monthLines, '', 'active']);
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
   // 일만사 평가실적+청구금액을 한 카드, 청구전환율을 한 카드로. GAP(청구금액-평가실적)은 청구금액과
   // 바로 비교되도록 평가실적 옆(같은 카드) 아래에 색으로 표기 - 마이너스(빨강)/플러스(파랑).
