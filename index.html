@@ -303,6 +303,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .primaryKpi .kval{font-size:40px;color:#F47920}
 .primaryKpi .smallTarget{font-size:24px;color:#9b8d82}
 .gradePill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fee6e9;color:#c92f3f;font-weight:950;margin-left:6px;font-size:13px}
+/* 7~12월 등급 카드용 - 확정(청구마감 반영)은 기존 gradePill 그대로(꽉 찬 배경), 예상(현재 활성처
+   기준)은 옅은 테두리만 있는 형태로 눈에 덜 튀게 - 배지 텍스트를 따로 안 붙여도 한눈에 구분되도록 함 */
+.gradePill-confirmed{background:#fee6e9;color:#c92f3f}
+.gradePill-projected{background:transparent;color:#c92f3f;border:1.3px solid #f3c3ca}
 .redCard{background:#FFF6F6!important;border:2px solid #E9B9B9!important}
 .redCard .kval,.redCard .klbl{color:#B84242!important}
 .diffKpi{background:#F3FBF6!important;border:2px solid #BDE4CC!important}
@@ -4819,6 +4823,30 @@ function openClinicMonthlyBreakdown(idx){
   }
   showSimpleModal(c.name+' · 월별 케어플랜/교육상담/환자관리/점검평가', body);
 }
+// "누적청구" 셀 클릭 시 - 위 openClinicMonthlyBreakdown()이 건수(件)를 보여주는 것과 짝을 이루는
+// 금액(원) 버전. clinic_claims에 이미 항목별 금액(care_amt/edu_amt/mgmt_amt/check_amt)과 그 달
+// 청구금액(claim)·누적청구(cum_claim)가 다 쌓여있어서 별도 계산 없이 그대로 표로 나열한다.
+function openClinicClaimAmountBreakdown(idx){
+  var c=CLINICS[idx];
+  if(!c) return;
+  var rows=CLINIC_CLAIMS.filter(function(cc){ return cc.clinic_id===c.id; }).sort(function(a,b){ return a.month<b.month?-1:1; });
+  var body;
+  if(!rows.length){
+    body='<div class="sub" style="padding:10px 0">'+c.name+'은(는) 아직 월별 마감 데이터(clinic_claims)가 없어요. 이 사무소의 월마감(베이스라인) 파일이 처음 올라오면 그때부터 거래처별 월별 청구금액을 볼 수 있어요.</div>';
+  } else {
+    body='<div class="sub" style="margin-bottom:8px">달마다 실제로 청구된 금액이에요(누적 아님) · 맨 오른쪽 누적청구는 표에 보이는 값과 같아요.</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11.5px">'
+      +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">케어플랜</th><th style="padding:5px 6px">교육상담</th><th style="padding:5px 6px">환자관리</th><th style="padding:5px 6px">점검평가</th><th style="padding:5px 6px">당월청구</th><th style="padding:5px 6px">누적청구</th></tr></thead><tbody>'
+      +rows.map(function(r){
+        return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월</td>'
+          +'<td style="text-align:right;padding:5px 6px">'+money(r.care_amt||0)+'</td><td style="text-align:right;padding:5px 6px">'+money(r.edu_amt||0)+'</td>'
+          +'<td style="text-align:right;padding:5px 6px">'+money(r.mgmt_amt||0)+'</td><td style="text-align:right;padding:5px 6px">'+money(r.check_amt||0)+'</td>'
+          +'<td style="text-align:right;padding:5px 6px;font-weight:700">'+money(r.claim||0)+'</td><td style="text-align:right;padding:5px 6px;font-weight:800">'+money(r.cum_claim||0)+'</td></tr>';
+      }).join('')
+      +'</tbody></table>';
+  }
+  showSimpleModal(c.name+' · 월별 청구금액 내역', body);
+}
 // 간단한 내용을 보여줄 범용 팝업(따로 전용 모달 마크업을 안 만들고 재사용)
 function showSimpleModal(title, bodyHtml){
   var old=document.getElementById('simple-modal-ov');
@@ -5090,13 +5118,16 @@ function renderStKPI(){
   }
   var monthMinis=[];
   var monthsList=[7,8,9,10,11,12];
-  var monthLines='<div class="month-grid">'+monthsList.map(function(mm){
+  // 배지 텍스트("확정"/"예상")를 매 줄마다 따로 안 붙이고, 등급 배지 자체의 스타일(꽉 참=확정,
+  // 테두리만=예상)로 구분해서 줄마다 정보량을 줄임 - 범례는 카드 맨 위에 한 번만 표기.
+  var legend='<div style="font-size:9.5px;color:var(--t3);font-weight:700;margin-bottom:4px">'
+    +'<span class="gradePill gradePill-sm gradePill-confirmed" style="margin-left:0">확정</span> 청구마감 반영 · '
+    +'<span class="gradePill gradePill-sm gradePill-projected">예상</span> 현재 활성처 기준</div>';
+  var monthLines=legend+'<div class="month-grid">'+monthsList.map(function(mm){
     var a=monthAchv(mm);
     if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
-    var tag=a.official
-      ?'<span style="font-size:9px;font-weight:700;color:#145C38;background:#E3F5EA;border-radius:999px;padding:1px 5px;margin-left:3px">확정</span>'
-      :'<span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px;margin-left:3px">예상</span>';
-    return '<span class="month-line">'+mm+'월 '+a.cnt+'/'+a.th+'처 → '+a.pct+'% <span class="gradePill gradePill-sm">'+achievementGrade(a.pct)+'등급</span>'+tag+'</span>';
+    var pillCls=a.official?'gradePill-confirmed':'gradePill-projected';
+    return '<span class="month-line">'+mm+'월 <span class="gradePill gradePill-sm '+pillCls+'">'+a.pct+'% '+achievementGrade(a.pct)+'등급</span></span>';
   }).join('')+'</div>';
   monthMinis.push(['mNext', '7~12월 등급 현황', monthLines, '', 'active']);
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
@@ -5163,10 +5194,15 @@ function renderStMrCards(){
     +mgrs.map(function(m){
       var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
       var active=mrActiveCount(m.code);
+      // 사무소 KPI 카드(현재 활성처)와 같은 방식(achievementGrade)으로 개인별 달성률·등급도 계산 -
+      // 단, 이건 항상 "지금 기준"뿐이다(청구현황 베이스라인이 사무소 단위로만 내려와서 개인별
+      // "지난달 실제 확정" 수치는 회사도 안 줌 - 그래서 사무소 카드처럼 확정/예상 구분은 없음).
+      var pct=t?Math.round(active/t*100):null;
+      var gradeHtml=pct!=null?(' <span class="gradePill gradePill-sm">'+achievementGrade(pct)+'등급</span>'):'';
       return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
         +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당</div>'
         +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
-        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처'):'목표 데이터 없음')+'</div></div>';
+        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처 → '+pct+'%'):'목표 데이터 없음')+gradeHtml+'</div></div>';
     }).join('')
     +'</div>';
 }
@@ -5397,6 +5433,9 @@ function clinicRowsTbodyHtml(rows, detailed){
     // 이 4개는 clinics 테이블의 "가장 최근 마감 기준 누적" 스냅샷이라 다음 마감 전까진 고정돼 보이는데,
     // 실제로는 이미 로드해둔 clinic_claims(거래처×월)에 달마다 내역이 쌓여있어서 클릭하면 월별로 볼 수 있음
     var svcClick=' onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" style="cursor:pointer" title="클릭하면 월별 내역을 볼 수 있어요"';
+    // "누적청구" 셀도 웰체크현황판의 "당월청구(추정)" 셀처럼 클릭하면 월별 항목별(케어플랜/교육상담/
+    // 환자관리/점검평가) 금액 내역을 바로 볼 수 있게 함 - 그 전엔 행 전체 클릭(그래프)만 됐음
+    var claimClick=' onclick="event.stopPropagation();openClinicClaimAmountBreakdown('+idx+')" style="cursor:pointer;text-decoration:underline dotted" title="클릭하면 월별 청구금액 내역을 볼 수 있어요"';
     // 청구처현황판(거래처별 현황, detailed=true)에서만 웰체크현황판처럼 구간 구분 세로선을 추가함
     // (거래처+담당자 "이름" 구간 다음, 그리고 증감 다음=케어플랜부터 "청구현황" 구간 시작 지점).
     // 활성처 전략판의 간단 표(detailed=false)는 그대로 둔다(요청 범위가 청구처현황판 표였음).
@@ -5407,7 +5446,7 @@ function clinicRowsTbodyHtml(rows, detailed){
       +'<td'+colSep+'>'+prev+'명</td><td>'+nowCell+'</td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
       +svcCells
-      +'<td>'+(cl?money(cl.cum):'-')+'</td>'
+      +'<td'+claimClick+'>'+(cl?money(cl.cum):'-')+'</td>'
       +'<td>'+stPill(c)+'</td></tr>';
   }).join('');
 }
@@ -5444,7 +5483,7 @@ function renderClinicsListTable(){
   var title=stMR==='all'?'전체 담당자':getMR(stMR).name;
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:880px">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
-    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</span></div></th></tr>'
+    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 건수, 누적청구 클릭 시 월별 청구금액 조회 가능</span></div></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th style="border-left:2px solid var(--bd2)">전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th style="border-left:2px solid var(--bd2)">케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
 }
