@@ -303,6 +303,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .primaryKpi .kval{font-size:40px;color:#F47920}
 .primaryKpi .smallTarget{font-size:24px;color:#9b8d82}
 .gradePill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fee6e9;color:#c92f3f;font-weight:950;margin-left:6px;font-size:13px}
+/* 드릴다운(클릭하면 상세 팝업/모달) 가능한 셀 표시 - 정렬 화살표(sth/thArrow)와 같은 언어로,
+   평소엔 옅은 회색 작은 세모만 보이다가 마우스를 올리면 브랜드색(주황)으로 진해지고 배경도
+   살짝 깔려서 "여기 누르면 더 볼 수 있다"는 게 눈에 띔 - 예전엔 커서 포인터·밑줄점선뿐이라
+   기능이 있는지 잘 안 보인다는 지적이 있었음 */
+.drill-ic{display:inline-block;font-size:10px;color:var(--t3);margin-left:3px;vertical-align:1px}
+td.drillable{cursor:pointer}
+td.drillable:hover{background:var(--dw-l)}
+td.drillable:hover .drill-ic{color:var(--dw)}
+/* 7~12월 등급 카드용 - 확정(청구마감 반영)은 기존 gradePill 그대로(꽉 찬 배경), 예상(현재 활성처
+   기준)은 옅은 테두리만 있는 형태로 눈에 덜 튀게 - 배지 텍스트를 따로 안 붙여도 한눈에 구분되도록 함 */
+.gradePill-confirmed{background:#fee6e9;color:#c92f3f}
+.gradePill-projected{background:transparent;color:#c92f3f;border:1.3px solid #f3c3ca}
 .redCard{background:#FFF6F6!important;border:2px solid #E9B9B9!important}
 .redCard .kval,.redCard .klbl{color:#B84242!important}
 .diffKpi{background:#F3FBF6!important;border:2px solid #BDE4CC!important}
@@ -335,8 +347,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mrGoalChip:hover{box-shadow:0 4px 12px rgba(178,106,0,.12);border-color:#F6B37C}
 /* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
 .miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
-/* 9~12월 목표 카드의 달별 한 줄 */
-.month-line{display:block;font-size:14px;font-weight:700;margin-top:6px}
+/* 7~12월 등급 카드의 달별 한 줄 - 6개월치라 한 줄씩 세로로 쌓으면 카드가(그리고 grid라서 옆 카드들까지)
+   너무 길어져서 2열로 나눠 배치(month-grid) */
+.month-line{display:block;font-size:14px;font-weight:700}
+.month-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;margin-top:6px}
 .gradePill-sm{padding:1px 7px;font-size:10.5px;margin-left:2px}
 /* 일만사 평가·청구 카드의 청구금액/평가실적/GAP 줄 - GAP만 한 단계 더 크게(모바일에서도 비율
    유지되도록 폰트 크기를 인라인이 아니라 클래스로 둠) */
@@ -529,7 +543,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .gradePill{font-size:10.5px!important;padding:2px 6px!important;margin-left:4px!important}
   /* 평가기준대응 카드(9~12월/일만사 평가·청구/청구전환율)도 인라인 스타일이 아니라 클래스로 되어
      있어서 여기서 같이 줄인다 */
-  .month-line{font-size:12px!important;margin-top:5px!important}
+  .month-line{font-size:12px!important}
+  .month-grid{grid-template-columns:1fr!important;gap:4px!important;margin-top:5px!important}
   .eval-row-lbl{font-size:10.5px!important}
   .eval-row-val{font-size:16px!important}
   .eval-row-lbl-big{font-size:12.5px!important}
@@ -4486,7 +4501,7 @@ function renderList(){
       +'<td style="text-align:center;border-left:2px solid #C8D8C0;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'visited\')">'+visitMark+'</td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'welcheck\')"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.welcheck?'#E6F1FB;color:#1048A0':'#F8F8F8;color:#aaa')+'">'+(c.welcheck?'O':'X')+'</span></td>'
-      +'<td style="cursor:pointer" title="클릭하면 활성환자·청구 추이 그래프가 열립니다" onclick="openClinicChartModal('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span></div></td>'
+      +'<td class="drillable" title="클릭하면 활성환자·청구 추이 그래프가 열립니다" onclick="openClinicChartModal('+idx+',event)"><div class="gm-wrap"><div class="gm-bar"><div class="gm-fill" style="width:'+gwid(c.patients)+';background:'+gcol(c.patients)+'"></div></div><span class="gm-num" style="color:'+gcol(c.patients)+';font-weight:600">'+c.patients+'명</span><span class="drill-ic">▾</span></div></td>'
       +(function(){
         var gap=clinicEvalGap(c);
         var gapTxt=gap===null?'-':((gap>=0?'+':'')+companyMoney(gap));
@@ -4495,7 +4510,7 @@ function renderList(){
         // 청구금액을 최우선으로 쓰고(clinics.raw_claim), 아직 그 값이 없으면(예: RAW 재업로드 전)
         // MAU가 매일 갱신하는 케어플랜/교육상담/환자관리/점검평가 건수 × 회사 청구단가로 역산 추정한다.
         var monthlyEst=(c.raw_claim!=null)?c.raw_claim:clinicMonthlyClaimEstimate(c);
-        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td style="text-align:right;font-size:10px;font-weight:600;cursor:pointer;text-decoration:underline dotted" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'</td>';
+        return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td class="drillable" style="text-align:right;font-size:10px;font-weight:600" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'<span class="drill-ic">▾</span></td>';
       })()
       +(function(){
         var lStatus=ilmansaLicenseStatus(c);
@@ -4816,6 +4831,30 @@ function openClinicMonthlyBreakdown(idx){
   }
   showSimpleModal(c.name+' · 월별 케어플랜/교육상담/환자관리/점검평가', body);
 }
+// "누적청구" 셀 클릭 시 - 위 openClinicMonthlyBreakdown()이 건수(件)를 보여주는 것과 짝을 이루는
+// 금액(원) 버전. clinic_claims에 이미 항목별 금액(care_amt/edu_amt/mgmt_amt/check_amt)과 그 달
+// 청구금액(claim)·누적청구(cum_claim)가 다 쌓여있어서 별도 계산 없이 그대로 표로 나열한다.
+function openClinicClaimAmountBreakdown(idx){
+  var c=CLINICS[idx];
+  if(!c) return;
+  var rows=CLINIC_CLAIMS.filter(function(cc){ return cc.clinic_id===c.id; }).sort(function(a,b){ return a.month<b.month?-1:1; });
+  var body;
+  if(!rows.length){
+    body='<div class="sub" style="padding:10px 0">'+c.name+'은(는) 아직 월별 마감 데이터(clinic_claims)가 없어요. 이 사무소의 월마감(베이스라인) 파일이 처음 올라오면 그때부터 거래처별 월별 청구금액을 볼 수 있어요.</div>';
+  } else {
+    body='<div class="sub" style="margin-bottom:8px">달마다 실제로 청구된 금액이에요(누적 아님) · 맨 오른쪽 누적청구는 표에 보이는 값과 같아요.</div>'
+      +'<table style="width:100%;border-collapse:collapse;font-size:11.5px">'
+      +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">케어플랜</th><th style="padding:5px 6px">교육상담</th><th style="padding:5px 6px">환자관리</th><th style="padding:5px 6px">점검평가</th><th style="padding:5px 6px">당월청구</th><th style="padding:5px 6px">누적청구</th></tr></thead><tbody>'
+      +rows.map(function(r){
+        return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월</td>'
+          +'<td style="text-align:right;padding:5px 6px">'+money(r.care_amt||0)+'</td><td style="text-align:right;padding:5px 6px">'+money(r.edu_amt||0)+'</td>'
+          +'<td style="text-align:right;padding:5px 6px">'+money(r.mgmt_amt||0)+'</td><td style="text-align:right;padding:5px 6px">'+money(r.check_amt||0)+'</td>'
+          +'<td style="text-align:right;padding:5px 6px;font-weight:700">'+money(r.claim||0)+'</td><td style="text-align:right;padding:5px 6px;font-weight:800">'+money(r.cum_claim||0)+'</td></tr>';
+      }).join('')
+      +'</tbody></table>';
+  }
+  showSimpleModal(c.name+' · 월별 청구금액 내역', body);
+}
 // 간단한 내용을 보여줄 범용 팝업(따로 전용 모달 마크업을 안 만들고 재사용)
 function showSimpleModal(title, bodyHtml){
   var old=document.getElementById('simple-modal-ov');
@@ -5070,33 +5109,35 @@ function renderStKPI(){
     return '<div class="kcard '+x[0]+'" onclick="setStFilter(\''+x[4]+'\')"><div class="klbl">'+x[1]+' ▼</div><div class="kval">'+x[2]+'</div><div class="khint">'+x[3]+'</div></div>';
   }).join('');
   var r=officeRows();
-  // "평가기준 대응": 예전엔 9~12월을 각각 카드로 펼쳐서 최대 4개였는데, 카드 수가 많아지니 복잡해
-  // 보인다는 지적 - 바로 다음달(예: 9월)만 단독 카드로 두고, 그 이후(예: 10~12월)는 한 카드에
-  // 압축해서 보여준다. "이번달"이 넘어가면 자동으로 다음달로 옮겨감(nextMonthStr 기준).
+  // "평가기준 대응": 예전엔 익월부터 12월까지("미래"만) 목표 대비 예상등급만 보여줬는데, 지난달들은
+  // 실제로 몇 등급이었는지 안 보여서 알기 어렵다는 지적 - 7~12월(하반기 목표 파일이 커버하는 전체
+  // 구간) 전부를 한 카드에 놓고, 이미 공식 마감된 달(office_claims에 eval_clinic_cnt가 있는 달)은
+  // "그 달 실제 활성처수 → 확정등급", 아직 마감 전인 달(이번달 포함 미래)은 "현재 활성처수 기준 →
+  // 예상등급"으로 구분해서 보여준다. h2_targets 파일 자체가 7~12월만 담고 있어 범위 고정.
   var thisYear=new Date().getFullYear();
-  var nextStr=nextMonthStr(); // 'YYYY-MM' - 항상 "익월"부터 시작
-  var nextYear=parseInt(nextStr.slice(0,4),10), startMonth=parseInt(nextStr.slice(5,7),10);
   function monthAchv(mm){
     var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
     var mTh=h2OfficeTarget(currentOffice, mStr);
-    var mPct=mTh?Math.round(k.active/mTh*100):null;
-    return {th:mTh, pct:mPct};
+    var ocRow=oc.find(function(o){ return o.month.slice(0,7)===mStr; });
+    var official=!!(ocRow&&ocRow.eval_clinic_cnt); // 그 달 청구현황 베이스라인(월마감)으로 확정된 값인지
+    var cnt=official?ocRow.eval_clinic_cnt:k.active; // 확정 전이면 현재 실시간 활성처수로 대체(예상)
+    var mPct=mTh?Math.round(cnt/mTh*100):null;
+    return {th:mTh, pct:mPct, cnt:cnt, official:official};
   }
   var monthMinis=[];
-  // 12월엔 익월이 내년 1월로 넘어가므로(nextYear!==thisYear) 올해 남은 달이 없어 카드 없음
-  // "OO월 목표 OO처인데 현재 OO처면 달성률 OO%"는 줄줄이 늘어놔서 읽기 불편하다는 지적 - "현재 OO처"는
-  // 위 KPI 카드에 이미 있는 정보라 빼고, "OO월 OO처 → 달성률 OO% 등급"으로 짧게 정리한다.
-  if(nextYear===thisYear){
-    var monthsList=[];
-    for(var mmX=startMonth; mmX<=12; mmX++) monthsList.push(mmX);
-    var monthLines=monthsList.map(function(mm){
-      var a=monthAchv(mm);
-      if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
-      return '<span class="month-line">'+mm+'월 '+a.th+'처 → 달성률 '+a.pct+'% <span class="gradePill gradePill-sm">'+achievementGrade(a.pct)+'등급</span></span>';
-    }).join('');
-    var monthLabel=monthsList.length>1?(monthsList[0]+'~'+monthsList[monthsList.length-1]+'월 목표'):(monthsList[0]+'월 목표');
-    monthMinis.push(['mNext', monthLabel, monthLines, '', 'active']);
-  }
+  var monthsList=[7,8,9,10,11,12];
+  // 배지 텍스트("확정"/"예상")를 매 줄마다 따로 안 붙이고, 등급 배지 자체의 스타일(꽉 참=확정,
+  // 테두리만=예상)로 구분해서 줄마다 정보량을 줄임 - 범례는 카드 맨 위에 한 번만 표기.
+  var legend='<div style="font-size:9.5px;color:var(--t3);font-weight:700;margin-bottom:4px">'
+    +'<span class="gradePill gradePill-sm gradePill-confirmed" style="margin-left:0">확정</span> 청구마감 반영 · '
+    +'<span class="gradePill gradePill-sm gradePill-projected">예상</span> 현재 활성처 기준</div>';
+  var monthLines=legend+'<div class="month-grid">'+monthsList.map(function(mm){
+    var a=monthAchv(mm);
+    if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
+    var pillCls=a.official?'gradePill-confirmed':'gradePill-projected';
+    return '<span class="month-line">'+mm+'월 <span class="gradePill gradePill-sm '+pillCls+'">'+a.pct+'% '+achievementGrade(a.pct)+'등급</span></span>';
+  }).join('')+'</div>';
+  monthMinis.push(['mNext', '7~12월 등급 현황', monthLines, '', 'active']);
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
   // 일만사 평가실적+청구금액을 한 카드, 청구전환율을 한 카드로. GAP(청구금액-평가실적)은 청구금액과
   // 바로 비교되도록 평가실적 옆(같은 카드) 아래에 색으로 표기 - 마이너스(빨강)/플러스(파랑).
@@ -5161,10 +5202,15 @@ function renderStMrCards(){
     +mgrs.map(function(m){
       var t=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
       var active=mrActiveCount(m.code);
+      // 사무소 KPI 카드(현재 활성처)와 같은 방식(achievementGrade)으로 개인별 달성률·등급도 계산 -
+      // 단, 이건 항상 "지금 기준"뿐이다(청구현황 베이스라인이 사무소 단위로만 내려와서 개인별
+      // "지난달 실제 확정" 수치는 회사도 안 줌 - 그래서 사무소 카드처럼 확정/예상 구분은 없음).
+      var pct=t?Math.round(active/t*100):null;
+      var gradeHtml=pct!=null?(' <span class="gradePill gradePill-sm">'+achievementGrade(pct)+'등급</span>'):'';
       return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
         +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당</div>'
         +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
-        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처'):'목표 데이터 없음')+'</div></div>';
+        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처 → '+pct+'%'):'목표 데이터 없음')+gradeHtml+'</div></div>';
     }).join('')
     +'</div>';
 }
@@ -5394,18 +5440,24 @@ function clinicRowsTbodyHtml(rows, detailed){
     var nowCell='<b>'+now+'명</b>'+(nonNow>0?'<br><span style="color:#B01A1A;font-size:10.5px;font-weight:700">비일만사 '+nonNow+'명</span>':'');
     // 이 4개는 clinics 테이블의 "가장 최근 마감 기준 누적" 스냅샷이라 다음 마감 전까진 고정돼 보이는데,
     // 실제로는 이미 로드해둔 clinic_claims(거래처×월)에 달마다 내역이 쌓여있어서 클릭하면 월별로 볼 수 있음
-    var svcClick=' onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" style="cursor:pointer" title="클릭하면 월별 내역을 볼 수 있어요"';
+    // class="drillable"이 cursor/hover를 다 처리해서 svcClick/claimClick엔 style을 안 둔다 - colSep의
+    // style(구분선)과 합쳐질 때 style 속성이 두 번 생겨서 하나가 무시되는 걸 피하기 위함
+    var drillIc='<span class="drill-ic">▾</span>';
+    var svcClick=' class="drillable" onclick="event.stopPropagation();openClinicMonthlyBreakdown('+idx+')" title="클릭하면 월별 내역을 볼 수 있어요"';
+    // "누적청구" 셀도 웰체크현황판의 "당월청구(추정)" 셀처럼 클릭하면 월별 항목별(케어플랜/교육상담/
+    // 환자관리/점검평가) 금액 내역을 바로 볼 수 있게 함 - 그 전엔 행 전체 클릭(그래프)만 됐음
+    var claimClick=' class="drillable" onclick="event.stopPropagation();openClinicClaimAmountBreakdown('+idx+')" title="클릭하면 월별 청구금액 내역을 볼 수 있어요"';
     // 청구처현황판(거래처별 현황, detailed=true)에서만 웰체크현황판처럼 구간 구분 세로선을 추가함
     // (거래처+담당자 "이름" 구간 다음, 그리고 증감 다음=케어플랜부터 "청구현황" 구간 시작 지점).
     // 활성처 전략판의 간단 표(detailed=false)는 그대로 둔다(요청 범위가 청구처현황판 표였음).
     var colSep=detailed?' style="border-left:2px solid var(--bd2)"':'';
-    var svcCells=detailed?('<td'+colSep+svcClick+'>'+(c.care_plan_cnt||0)+'건</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건</td>'):'';
+    var svcCells=detailed?('<td'+colSep+svcClick+'>'+(c.care_plan_cnt||0)+'건'+drillIc+'</td><td'+svcClick+'>'+(c.edu_cnt||0)+'건'+drillIc+'</td><td'+svcClick+'>'+(c.patient_mgmt_cnt||0)+'건'+drillIc+'</td><td'+svcClick+'>'+(c.check_eval_cnt||0)+'건'+drillIc+'</td>'):'';
     return '<tr onclick="openClinicChartModal('+idx+',event)" title="클릭하면 활성환자·청구 추이 그래프가 열립니다"><td><span style="opacity:.5;margin-right:4px" title="클릭 시 그래프 보기">📊</span><b>'+c.name+'</b>'+nb+'</td>'
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
       +'<td'+colSep+'>'+prev+'명</td><td>'+nowCell+'</td>'
       +'<td><b class="'+(diff>=0?'diffUp':'diffDown')+'">'+(diff>0?'+':'')+diff+'명</b></td>'
       +svcCells
-      +'<td>'+(cl?money(cl.cum):'-')+'</td>'
+      +'<td'+claimClick+'>'+(cl?money(cl.cum):'-')+drillIc+'</td>'
       +'<td>'+stPill(c)+'</td></tr>';
   }).join('');
 }
@@ -5442,7 +5494,7 @@ function renderClinicsListTable(){
   var title=stMR==='all'?'전체 담당자':getMR(stMR).name;
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:880px">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
-    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 내역 조회 가능</span></div></th></tr>'
+    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 건수, 누적청구 클릭 시 월별 청구금액 조회 가능</span></div></th></tr>'
     +'<tr><th>거래처</th><th>담당자</th><th style="border-left:2px solid var(--bd2)">전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th style="border-left:2px solid var(--bd2)">케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
 }
