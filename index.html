@@ -3664,11 +3664,14 @@ function setSort(field){
   else { sortField=field; sortDir=1; }
   renderList();
 }
+// "안 누르면 정렬 기능이 있는지도 모르겠다"는 지적 - opacity:.35 흐린 회색이 배경색이랑 거의
+// 구분이 안 돼서 아이콘 자체가 안 보이는 수준이었음. opacity 대신 진한 회색(var(--t2))으로
+// 바꿔서 평소에도 "여기 정렬 가능"이 눈에 들어오게 하고, 활성 상태(주황)와 뚜렷이 구분되게 함
 function thArrow(field){
-  if(sortField!==field) return '<span style="opacity:.35">↕</span>';
+  if(sortField!==field) return '<span style="color:var(--t2);font-weight:700">↕</span>';
   var t=SORT_TYPES[field]||'text';
   var asc=(t==='text')?(sortDir===1):(sortDir===-1);
-  return '<span style="color:var(--dw)">'+(asc?'▲':'▼')+'</span>';
+  return '<span style="color:var(--dw);font-weight:700">'+(asc?'▲':'▼')+'</span>';
 }
 function sth(field,label,style){
   return '<th class="sort-th" data-sort="'+field+'" style="'+style+';cursor:pointer;user-select:none" title="클릭하여 정렬">'+label+' '+thArrow(field)+'</th>';
@@ -5761,7 +5764,10 @@ function renderClaimTable(){
   var el=document.getElementById('claimTable');
   if(!sorted.length){ el.innerHTML='<div class="claim-empty">아직 청구 데이터가 없습니다. 엑셀 업데이트 후 반영됩니다.</div>'; return; }
   var mi=metricInfo(claimMetric);
-  function arrow(c){ return col===c?(dir==='asc'?' ▲':' ▼'):''; }
+  // 여기는 정렬 중이 아닌 컬럼은 아이콘 자체가 아예 없어서(빈 문자열) "정렬 가능한 표"라는 걸
+  // 전혀 알 수 없었음 - 웰체크현황판(thArrow)과 같은 방식으로 평소엔 진한 회색 ↕, 정렬 중인
+  // 컬럼만 주황 ▲▼로 바꿔서 두 표의 정렬 아이콘 언어를 통일함
+  function arrow(c){ return col===c?(' <span style="color:var(--dw);font-weight:700">'+(dir==='asc'?'▲':'▼')+'</span>'):' <span style="color:var(--t2);font-weight:700">↕</span>'; }
   function sth(c,label,extraCls){ return '<th class="companyCols'+(extraCls?(' '+extraCls):'')+'" style="cursor:pointer" onclick="sortClaimTableBy(\''+c+'\')">'+label+arrow(c)+'</th>'; }
   el.innerHTML='<div class="claimTableWrap"><table><thead><tr class="sectionHead"><th colspan="7" class="companyCols">회사 평가 기준</th><th colspan="4" class="metricCols metricSep">누적 분석 지표</th><th class="companySep">비교 결과</th></tr>'
     +'<tr><th class="companyCols">순위</th>'+sth('business','사업부')+sth('office','사무소')+sth('target','목표')+sth('achievement','청구전환율')+'<th class="companyCols">청구현황 기준</th>'+sth('patientSum','활성환자')
