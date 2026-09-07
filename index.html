@@ -1056,7 +1056,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
     <div style="margin-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">메모 <span style="font-weight:400;color:var(--t3)">(선택)</span></div>
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">방문 후 특이사항 <span style="font-weight:400;color:var(--t3)">(선택)</span></div>
       <textarea id="inp-memo" class="memo-area" placeholder="ex) 교육자료 6부, 거래처 상주 필요, 웰체크&amp;일만사 프로세스 세팅 등"></textarea>
     </div>
     <input type="hidden" id="inp-type" value="visit">
@@ -1198,6 +1198,11 @@ function renderManagerUI(){
     officeManagers().forEach(function(m){
       h+='<button class="mr-btn" id="mb-'+m.code+'" onclick="filterMR(\''+m.code+'\')">'+mrCircle(m)+m.name+'</button>';
     });
+    // 특정 담당자로 필터링하면(예: 강태경) 그 담당자의 연차/내근/웰다 등 "거래처 외" 일정까지
+    // 실제 거래처 방문처럼 섞여 보여서 헷갈린다는 지적 - 담당자 칩 맨 끝에 별도 "거래처 외" 칩을
+    // 추가해서, 담당자 칩을 고르면 그 사람의 진짜 거래처 방문만 보이고 "거래처 외"는 이 칩에서
+    // 전체 담당자분을 모아 따로 보게 함(filterMR/renderCalendar의 dayEvs 필터 참고)
+    h+='<button class="mr-btn" id="mb-etc" onclick="filterMR(\'etc\')">거래처 외</button>';
     wrap.innerHTML=h;
     applyMRButtons();
   }
@@ -3880,7 +3885,7 @@ function filterMR(mr){
   renderCalendar();
 }
 function applyMRButtons(){
-  var keys=['all'].concat(officeManagers().map(function(m){return m.code;}));
+  var keys=['all'].concat(officeManagers().map(function(m){return m.code;})).concat(['etc']);
   keys.forEach(function(k){
     var b=document.getElementById('mb-'+k);
     if(!b) return;
@@ -3915,8 +3920,17 @@ function renderCalendar(){
     (function(day){ cell.onclick=function(e){ openAdd(day,'all'); }; })(d);
     // 타사무소 동도 일정은 mr에 우리 사무소 코드가 아니라 그 거래처의 실제(다른 사무소) 담당자 "이름"이
     // 들어있어서, 어쩌다 우리 사무소 담당자 코드와 문자열이 같아지는 극단적 우연이 있어도 담당자 탭에
-    // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임)
-    var dayEvs=evs.filter(function(e){return e.day===d&&(activeMR==='all'||(e.mr===activeMR&&!e.mrOffice));});
+    // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임).
+    // "거래처 외"(연차/내근/웰다 등, evType!=='visit')는 특정 담당자 탭을 고르면 그 사람 몫도 같이
+    // 섞여 나와 실제 거래처 방문과 헷갈린다는 지적으로, 담당자 탭에서는 항상 빼고 전용 "거래처 외"
+    // 탭(activeMR==='etc')에서 담당자 구분 없이 전부 모아 보여줌
+    var dayEvs=evs.filter(function(e){
+      if(e.day!==d) return false;
+      if(activeMR==='all') return true;
+      var isLeave=e.evType&&e.evType!=='visit';
+      if(activeMR==='etc') return isLeave;
+      return e.mr===activeMR&&!e.mrOffice&&!isLeave;
+    });
     var allEvs=dayEvs.filter(function(e){return e.time==='all';});
     var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeAsc);
     var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeAsc);
@@ -6488,15 +6502,24 @@ function setAddMode(mode){
   updateLeaveTimeVisibility();
   updateSituationFieldVisibility();
 }
-// 사무소(MR)가 간호사에게 방문 요청을 넣을 때만 "거래처 상황 및 요청사항"을 보이고 필수로 함 -
-// 간호사 본인이 자기 일정을 직접 넣을 땐 요청 대상이 없으므로 칸 자체를 숨김
+// 사무소(MR)가 간호사에게 방문 요청을 넣을 때만 "거래처 상황 및 요청사항"을 필수로 적게 함 -
+// 간호사 본인이 자기 일정을 직접 새로 넣을 땐 요청 대상이 없으므로 칸 자체를 숨김.
+// 다만 이미 등록된 일정을 열 때(수정 모달) 그 일정에 사무소가 남겨둔 요청 사유가 있으면, 간호사
+// 화면이어도 "방문 후 특이사항"(메모) 위에 그대로 보여줌 - 예전엔 간호사에게 항상 숨겨져서, 이미
+// 적힌 요청 사유를 방문 당사자가 다시는 못 보는 문제가 있었음(작성 권한은 요청자에게만 있으므로
+// 간호사에게 보일 땐 읽기전용으로)
 function updateSituationFieldVisibility(){
   var isLeave=ADD_MODE==='leave';
-  var show=!isLeave && !(currentUser&&currentUser.role==='간호사');
+  var isNurse=!!(currentUser&&currentUser.role==='간호사');
+  var hasExisting=!!document.getElementById('inp-situation').value.trim();
+  var show=!isLeave && (!isNurse || hasExisting);
+  var required=!isLeave && !isNurse;
   var fld=document.getElementById('situation-fld');
   if(fld) fld.style.display=show?'block':'none';
   var lbl=document.getElementById('situation-fld-lbl');
-  if(lbl) lbl.innerHTML='거래처 상황 및 요청사항'+(show?' <span style="color:#B01A1A;font-weight:800">*필수</span>':'');
+  if(lbl) lbl.innerHTML='거래처 상황 및 요청사항'+(required?' <span style="color:#B01A1A;font-weight:800">*필수</span>':'');
+  var ta=document.getElementById('inp-situation');
+  if(ta) ta.readOnly = isNurse && hasExisting;
 }
 
 function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=document.getElementById('add-mr-badge');if(b&&MR[mr]){b.textContent=MR[mr].name+' MR';b.style.background=MR[mr].bg;b.style.color=MR[mr].t;b.style.display='inline-flex';}}
