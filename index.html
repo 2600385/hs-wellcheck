@@ -3696,7 +3696,7 @@ function setSort(field){
 // 가늘어서 안 보임) → 삼각형 두 개 위아래로 쌓기(▲▼, 이번엔 겹쳐 보여 지저분하다는 지적)를 거쳐,
 // 최종적으로 꽉 찬 삼각형 하나(▲)만 남김. 평소엔 회색, 누르면 그 컬럼의 정렬 방향에 따라
 // 오름차순=주황 ▲ / 내림차순=주황 ▼로 바뀌어서 idle과 뚜렷이 구분됨.
-function sortIconIdle(){ return '<span style="color:var(--t1);font-weight:700;font-size:13px">▲</span>'; }
+function sortIconIdle(){ return '<span style="color:var(--t3);font-weight:400;font-size:13px">▲</span>'; }
 function thArrow(field){
   if(sortField!==field) return sortIconIdle();
   var t=SORT_TYPES[field]||'text';
