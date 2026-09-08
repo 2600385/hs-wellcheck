@@ -338,9 +338,11 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .diffKpi .kval{color:#15803d}
 .newKpi{background:#F3FAFF!important;border:2px solid #CBE3F6!important}
 .newKpi .kval{color:#2F78B7}
-/* 카드 5개(다음달~12월 목표 통합 1 + 일만사평가·청구/청구전환율 2 + 20명/40명 전환후보 2) 기준
-   트랙 폭 - 뒤 두 칸(20명/40명)만 좁게 잡아서 두 카드가 서로 붙어 보이게 함 */
-.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.7fr 0.7fr;gap:12px}
+/* 카드 4개(다음달~12월 목표 통합 1 + 일만사평가·청구/청구전환율 2 + 40명 전환후보 1) 기준
+   트랙 폭 - 마지막 칸(40명 전환후보)만 좁게 잡아서 내용 길이에 맞게 자연스럽게 붙어 보이게 함.
+   ("20명 전환후보" 카드는 인원수 구간 필터 정리 요청에 맞춰 제거함 - 그래서 5칸이 아니라 4칸)
+   */
+.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.8fr;gap:12px}
 .miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px}
 .miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
 .miniCard b{display:block;font-size:26px;margin:3px 0}
@@ -348,11 +350,6 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .miniCard .khint{font-size:11px;color:#8e857c;font-weight:800}
 .miniCard.q3{border-top:4px solid #8fb8e8}
 .miniCard.q4{border-top:4px solid #99cfb1}
-/* 20명/40명 전환후보 카드는 다른 미니카드보다 내용이 짧은데, max-width로 폭만 줄이면 grid 칸
-   안에서 혼자 좁아져서 오히려 옆 카드와 더 멀어져 보이는 문제가 있었음(칸 자체는 그대로라 남는
-   여백이 생김) - 대신 miniGrid의 그리드 트랙 자체를 마지막 두 칸만 좁게 잡아서, 카드끼리는
-   보통 gap만큼만 떨어지고 두 카드만 자연스럽게 붙어 보이게 함 */
-.miniCard.c20{border-top:4px solid #e3b6c8}
 .miniCard.c40{border-top:4px solid #b5d8c4}
 /* 다음달~12월 목표를 한 카드에 담되, 예전엔 다음달만 큰 글씨 2줄이고 나머지는 작은 글씨 1줄이라
    불공평해 보인다는 지적으로 이제 달마다 "OO월 OO처 → 달성률 OO% 등급" 형태의 같은 크기 한 줄씩으로
@@ -383,14 +380,13 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-/* 거래처 리스트 퀵필터 색상 구분(예전 화면 참고): 신규거래처=하늘색, 20/40명 전환후보=핑크/연두,
+/* 거래처 리스트 퀵필터 색상 구분(예전 화면 참고): 신규거래처=하늘색, 40명 전환후보=연두,
    당월이력없음=옅은 빨강(부정적 신호), 인원수 구간(4명미만/4명이상/40명이상/100명이상)만 구간이
    올라갈수록 점점 진해지는 갈색 톤 - 처음엔 너무 진하다는 지적이 있어서 전체적으로 채도를 낮춰
-   더 옅은 파스텔로 다시 조정. 10명미만(q3long)은 위 4단계와 겹치는 구간이라 색 없이 기본 버튼 유지.
-   나머지(전체/현재 활성처/당월 활성처/당월 증감)도 기존처럼 무채색 유지. */
+   더 옅은 파스텔로 다시 조정. "20명 전환후보"/"10명 미만"은 4단계 구간과 중복돼 제거함(사용자
+   확인). 나머지(전체/현재 활성처/당월 활성처/당월 증감)도 기존처럼 무채색 유지. */
 .stFilters button.f-newly{background:#EAF4FC;border-color:#B8DCF3;color:#2F78B7}
 .stFilters button.f-nosync{background:#FCEEEE;border-color:#EFC4C4;color:#B0524F}
-.stFilters button.f-cand20{background:#FCEEF3;border-color:#E9B9C9;color:#B0527A}
 .stFilters button.f-cand40{background:#EFFAF3;border-color:#B7E0C4;color:#3E8F5D}
 .stFilters button.f-lt20{background:#FBF4EC;border-color:#E9DCC7;color:#A6906F}
 .stFilters button.f-q3{background:#F6EBDC;border-color:#DFCBAD;color:#93805F}
@@ -5151,7 +5147,23 @@ function renderStKPI(){
     // "일만사&웰체크 TH명 이상 NN처"는 이제 바로 옆 빨간 카드(당월이력없음)에서 "OO처 중" 형태로 이미
     // 보여주므로 여기서는 중복 표기하지 않고, 이 카드에서만 알 수 있는 정보(②비일만사로 구제된 거래처 수)만
     // 표기한다 - 이제 항상(0이어도) 보여주고, 부정적 신호가 아니라 참고 정보라 파란색으로 표기.
-    ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'+(k.gradeNeeds.length?('<br><span style="color:#8A6800;font-weight:700;word-break:keep-all">'+k.gradeNeeds.map(function(g){return g.grade+'등급까지 '+g.need+'처';}).join(' · ')+' 필요</span>'):'<br><span style="color:#145C38;font-weight:700">최고 등급(S) 달성</span>'),'active'],
+    // gradeNeeds("B등급까지 OO처 · A등급까지 OO처 · S등급까지 OO처 필요")를 한 줄로 이어붙이면
+    // 줄바꿈되면서 이 카드만 세로로 길어지고(옆 카드는 짧아서), grid라 다른 카드들 하단에 쓸데없는
+    // 빈 여백이 생겼음(사용자 확인) - 목표 처수("94처") 옆에 세로로 쌓은 짧은 목록으로 옮겨서
+    // 카드 높이를 줄인다.
+    (function(){
+      var gradeNeedsHtml=k.gradeNeeds.length
+        ?('<div style="display:flex;flex-direction:column;gap:1px;margin-left:12px;padding-left:10px;border-left:1.5px solid #F0DDB0;font-size:11px;font-weight:700;color:#8A6800;line-height:1.45">'
+          +k.gradeNeeds.map(function(g){return '<span style="white-space:nowrap">'+g.grade+'등급까지 '+g.need+'처</span>';}).join('')+'</div>')
+        :'<div style="margin-left:12px;padding-left:10px;border-left:1.5px solid #CFE8DA;font-size:11px;font-weight:700;color:#145C38">최고 등급(S)<br>달성</div>';
+      return ['primaryKpi','현재 활성처',
+        '<div style="display:flex;align-items:center">'
+          +'<span><span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span></span>'
+          +gradeNeedsHtml
+        +'</div>',
+        k.achievement+'% <span class="gradePill">'+k.grade+'등급</span> <span style="color:#2F78B7;font-weight:700">· 비일만사 '+k.nonOnlyActive+'처</span>',
+        'active'];
+    })(),
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
     // 숫자)로 이 값을 보여주고, 하단엔 "TH명 이상 전체 처수 중 → 당월이력없음 처수"로 몇 처 중 몇 처가
     // 빠졌는지 한눈에 보이게 한다. 클릭하면 정확히 그 거래처들(nosync 필터)만 리스트로.
@@ -5220,8 +5232,9 @@ function renderStKPI(){
       '<span class="rate-big">'+ec.rate+'%</span>',
       '<span class="rate-sub">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
   }
+  // "20명 전환후보" 미니카드는 4명미만/4명이상/40명이상/100명이상 구간으로 필터를 정리해달라는
+  // 피드백에 맞춰 제거(사용자 확인) - 40명 전환후보는 그대로 유지
   var minis=monthMinis.concat(evalMinis).concat([
-    ['c20','20명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=15&&p<=19;}).length+'처','일만사&웰체크 15~19명처','cand20'],
     ['c40','40명 전환후보',r.filter(function(c){var p=c.patients||0;return p>=35&&p<=39;}).length+'처','일만사&웰체크 35~39명처','cand40']
   ]);
   document.getElementById('st-mini').innerHTML=minis.map(function(x){
@@ -5428,18 +5441,19 @@ function renderStTrend(){
 // q3/lt20은 실제 활성 판정 기준(activeThreshold)과 직결되는 라벨이라 매번 현재 기준으로 다시 만든다.
 // "비활성처 전환"(전월엔 활성이었는데 당월엔 4명 미만으로 떨어진 곳)은 "당월이력없음"과 결국 같은 결과로
 // 수렴한다 - 당월 이력이 없으면 4명 이상이어도 활성처에서 빠지므로, 둘 다 있을 필요 없이 더 근본적인
-// 기준인 "당월이력없음" 버튼 하나로 통일(사용자 확인). q3long("10명 미만")은 4명미만/4명이상/40명이상/
-// 100명이상 4단계 갈색 톤 구간에서 빠지는 대신(중복 구간이라), 색 없이 기본 버튼으로만 남겨둔다.
+// 기준인 "당월이력없음" 버튼 하나로 통일(사용자 확인). "20명 전환후보"/"10명 미만"(q3long)은 인원수
+// 구간 필터를 4명미만/4명이상/40명이상/100명이상 4단계로 깔끔하게 정리해달라는 피드백에 맞춰 제거
+// (사용자 확인) - lt20/q3/q4/q100 4단계만 남김.
 function stFilterDefs(){
   var TH=activeThreshold(todayMonthStr());
   return [
     ['all','전체'],['active','현재 활성처'],['nosync','당월이력없음'],['newly','신규 거래처'],['crossed','당월 활성처'],['pdiff','당월 증감'],
-    ['cand20','20명 전환후보'],['cand40','40명 전환후보'],['q3long','10명 미만'],['lt20',TH+'명 미만'],['q3',TH+'명 이상'],['q4','40명 이상'],['q100','100명 이상']
+    ['cand40','40명 전환후보'],['lt20',TH+'명 미만'],['q3',TH+'명 이상'],['q4','40명 이상'],['q100','100명 이상']
   ];
 }
 function stTitles(){
   var TH=activeThreshold(todayMonthStr());
-  return {all:'전체 거래처',active:'현재 활성처',nosync:'당월이력없음 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 신규 활성환자',cand20:'20명 전환 후보',cand40:'40명 전환 후보',q3long:'10명 미만 거래처',lt20:TH+'명 미만 거래처',q3:TH+'명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
+  return {all:'전체 거래처',active:'현재 활성처',nosync:'당월이력없음 거래처',newly:'신규 거래처',crossed:'당월 활성처 증감',pdiff:'당월 신규 활성환자',cand40:'40명 전환 후보',lt20:TH+'명 미만 거래처',q3:TH+'명 이상 실제 활성처',q4:'40명 이상 실제 활성처',q100:'100명 이상 실제 활성처'};
 }
 var stMR='all'; // 거래처 리스트(담당자별) 탭의 담당자 필터
 function setStFilter(f){ stFilter=f; renderStFilters(); renderStTable(); var t=document.getElementById('st-table'); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }
@@ -5476,9 +5490,7 @@ function stFilterRows(){
     case 'newly': return r.filter(function(c){return pp(c)===0&&p(c)>0;});
     case 'crossed': return r.filter(function(c){return (pp(c)<TH&&p(c)>=TH)||(pp(c)<40&&p(c)>=40);});
     case 'pdiff': return r.filter(function(c){return p(c)-pp(c)>0;}); // 순수 신규 증가분만(감소분 제외)
-    case 'cand20': return r.filter(function(c){return p(c)>=15&&p(c)<=19;});
     case 'cand40': return r.filter(function(c){return p(c)>=35&&p(c)<=39;});
-    case 'q3long': return r.filter(function(c){return p(c)<=9;});
     case 'lt20': return r.filter(function(c){return p(c)<TH;});
     case 'q3': return r.filter(function(c){return ok(c)&&p(c)>=TH;});
     case 'q4': return r.filter(function(c){return ok(c)&&p(c)>=40;});
@@ -5551,19 +5563,50 @@ function clinicRowsTbodyHtml(rows, detailed){
       +'<td>'+stPill(c)+'</td></tr>';
   }).join('');
 }
+// 활성처 전략판 하단 거래처 리스트도 웰체크현황판/청구처현황판처럼 헤더 클릭 정렬이 됐으면 좋겠다는
+// 피드백(사용자 확인) - field가 null이면(아직 헤더를 안 눌렀으면) 기존 기본 정렬(필터별로 다름:
+// pdiff는 증감 내림차순, 그 외엔 현재 환자수 내림차순)을 그대로 쓰고, 헤더를 누르면 그때부터 그
+// 컬럼 기준으로 정렬한다.
+var ST_TABLE_SORT={field:null, dir:-1};
+function stTableArrow(field){
+  if(ST_TABLE_SORT.field!==field) return sortIconIdle();
+  return '<span style="color:var(--dw);font-weight:700;font-size:14px">'+(ST_TABLE_SORT.dir===1?'▲':'▼')+'</span>';
+}
+function setStTableSort(field){
+  if(ST_TABLE_SORT.field===field) ST_TABLE_SORT.dir=-ST_TABLE_SORT.dir;
+  else { ST_TABLE_SORT.field=field; ST_TABLE_SORT.dir=(field==='name'||field==='mr')?1:-1; }
+  renderStTable();
+}
 function renderStTable(){
   var el=document.getElementById('st-table');
   var rawPrevMapSort=rawSnapshotPrevMap();
   var cpSort=function(c){ return (c.biz_no&&rawPrevMapSort.hasOwnProperty(c.biz_no))?rawPrevMapSort[c.biz_no]:(c.prevPatients||0); };
   var rows=stFilterRows().slice().sort(function(a,b){
+    if(ST_TABLE_SORT.field){
+      var val=function(c){
+        switch(ST_TABLE_SORT.field){
+          case 'name': return c.name||'';
+          case 'mr': return getMR(c.mr).name||'';
+          case 'prev': return cpSort(c);
+          case 'diff': return (c.patients||0)-cpSort(c);
+          case 'cum': { var cl=clinicClaim(c); return cl?cl.cum:-1; }
+          default: return c.patients||0; // 'now'
+        }
+      };
+      var av=val(a), bv=val(b);
+      var cmp=(typeof av==='string')?av.localeCompare(bv,'ko'):(av-bv);
+      if(cmp===0) return String(a.name).localeCompare(String(b.name),'ko');
+      return ST_TABLE_SORT.dir===1?cmp:-cmp;
+    }
     if(stFilter==='pdiff') return ((b.patients||0)-cpSort(b))-((a.patients||0)-cpSort(a));
     return (b.patients||0)-(a.patients||0)||String(a.name).localeCompare(String(b.name),'ko');
   });
   var title=stTitles()[stFilter]||'거래처 리스트';
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
+  function sh(field,label){ return '<th style="cursor:pointer;user-select:none" title="클릭하여 정렬" onclick="setStTableSort(\''+field+'\')">'+label+' '+stTableArrow(field)+'</th>'; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:640px">'+CLINIC_LIST_COLGROUP+'<thead>'
-    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px;font-weight:400">전월 마감 대비 오늘 기준 최신 현황 반영</small><span style="display:inline-block;margin-top:5px;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프 조회 가능</span></th></tr>'
-    +'<tr><th>거래처</th><th>담당자</th><th>전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
+    +'<tr><th colspan="7" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<small style="display:block;color:#958b82;font-size:11px;margin-top:3px;font-weight:400">전월 마감 대비 오늘 기준 최신 현황 반영</small><span style="display:inline-block;margin-top:5px;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 헤더 클릭 시 정렬 가능</span></th></tr>'
+    +'<tr>'+sh('name','거래처')+sh('mr','담당자')+sh('prev','전월('+prevMonthNum()+'월)')+sh('now','현재')+sh('diff','증감')+sh('cum','누적청구')+'<th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows)+'</tbody></table></div>';
 }
 // 담당자 필터를 바꿔도 컬럼 폭이 유지되도록 고정 colgroup (내용 길이에 따라 표가 좌우로 흔들리는 문제 방지)
