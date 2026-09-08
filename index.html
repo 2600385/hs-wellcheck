@@ -3664,12 +3664,11 @@ function setSort(field){
   else { sortField=field; sortDir=1; }
   renderList();
 }
-// "안 누르면 정렬 기능이 있는지도 모르겠다"는 지적 - 처음엔 opacity:.35 흐린 회색이라 아예 안 보였고,
-// 색만 진하게 바꿔도(var(--t2)) ↕ 글자 자체가 가는 선이라 여전히 눈에 잘 안 띈다는 재지적이 있었음.
-// 그래서 얇은 화살표 대신 꽉 찬 삼각형(▲▼)을 작게 위아래로 쌓은 아이콘으로 바꿈 - 엑셀류에서 흔히
-// 쓰는 정렬 아이콘과 비슷한 모양이라 "이거 정렬 버튼이구나"가 한눈에 들어옴. 정렬 중인 컬럼은
-// 그 중 해당 방향 삼각형 하나만 크고 굵게 주황색으로 표시해서 idle과 뚜렷이 구분되게 함.
-function sortIconIdle(){ return '<span style="display:inline-block;font-size:9px;line-height:.85;color:var(--t1);vertical-align:1px">▲<br>▼</span>'; }
+// "안 누르면 정렬 기능이 있는지도 모르겠다"는 지적 - opacity:.35 흐린 회색 → 진한 회색 ↕(여전히
+// 가늘어서 안 보임) → 삼각형 두 개 위아래로 쌓기(▲▼, 이번엔 겹쳐 보여 지저분하다는 지적)를 거쳐,
+// 최종적으로 꽉 찬 삼각형 하나(▲)만 남김. 평소엔 회색, 누르면 그 컬럼의 정렬 방향에 따라
+// 오름차순=주황 ▲ / 내림차순=주황 ▼로 바뀌어서 idle과 뚜렷이 구분됨.
+function sortIconIdle(){ return '<span style="color:var(--t1);font-weight:700;font-size:13px">▲</span>'; }
 function thArrow(field){
   if(sortField!==field) return sortIconIdle();
   var t=SORT_TYPES[field]||'text';
@@ -5120,16 +5119,6 @@ function renderStKPI(){
   // 구간) 전부를 한 카드에 놓고, 이미 공식 마감된 달(office_claims에 eval_clinic_cnt가 있는 달)은
   // "그 달 실제 활성처수 → 확정등급", 아직 마감 전인 달(이번달 포함 미래)은 "현재 활성처수 기준 →
   // 예상등급"으로 구분해서 보여준다. h2_targets 파일 자체가 7~12월만 담고 있어 범위 고정.
-  var thisYear=new Date().getFullYear();
-  function monthAchv(mm){
-    var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
-    var mTh=h2OfficeTarget(currentOffice, mStr);
-    var ocRow=oc.find(function(o){ return o.month.slice(0,7)===mStr; });
-    var official=!!(ocRow&&ocRow.eval_clinic_cnt); // 그 달 청구현황 베이스라인(월마감)으로 확정된 값인지
-    var cnt=official?ocRow.eval_clinic_cnt:k.active; // 확정 전이면 현재 실시간 활성처수로 대체(예상)
-    var mPct=mTh?Math.round(cnt/mTh*100):null;
-    return {th:mTh, pct:mPct, cnt:cnt, official:official};
-  }
   var monthMinis=[];
   var monthsList=[7,8,9,10,11,12];
   // 배지 텍스트("확정"/"예상")를 매 줄마다 따로 안 붙이고, 등급 배지 자체의 스타일(꽉 참=확정,
@@ -5138,12 +5127,15 @@ function renderStKPI(){
     +'<span class="gradePill gradePill-sm gradePill-confirmed" style="margin-left:0">확정</span> 청구마감 반영 · '
     +'<span class="gradePill gradePill-sm gradePill-projected">예상</span> 현재 활성처 기준</div>';
   var monthLines=legend+'<div class="month-grid">'+monthsList.map(function(mm){
-    var a=monthAchv(mm);
+    var a=officeMonthGrade(mm);
     if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
     var pillCls=a.official?'gradePill-confirmed':'gradePill-projected';
     return '<span class="month-line">'+mm+'월 <span class="gradePill gradePill-sm '+pillCls+'">'+a.pct+'% '+achievementGrade(a.pct)+'등급</span></span>';
   }).join('')+'</div>';
-  monthMinis.push(['mNext', '7~12월 등급 현황', monthLines, '', 'active']);
+  // 카드 클릭 시 하단 리스트로 이동하지 않고(다른 미니카드와 달리 이 카드는 목록 필터링이 의미가
+  // 없음 - 등급은 사무소 전체 지표라 개별 거래처 리스트로 안 이어짐) MR 카드처럼 월별 상세 팝업으로
+  // 바로 연결(openOfficeGradeModal, minis.map의 isGradeCard 분기 참고)
+  monthMinis.push(['mNext', '7~12월 등급 현황', monthLines, '']);
   // "청구기준 대응"(예전엔 아래쪽에 별도 섹션 4칸으로 있었음)을 여기 미니카드 2개로 합쳐서 옮김 -
   // 일만사 평가실적+청구금액을 한 카드, 청구전환율을 한 카드로. GAP(청구금액-평가실적)은 청구금액과
   // 바로 비교되도록 평가실적 옆(같은 카드) 아래에 색으로 표기 - 마이너스(빨강)/플러스(파랑).
@@ -5186,8 +5178,9 @@ function renderStKPI(){
     // "일만사 평가·청구"(GAP) 카드는 다른 미니카드처럼 목록 필터가 아니라 월별 드릴다운 팝업을 여는
     // 특수 케이스라, setStFilter가 아니라 별도 함수를 바로 붙임
     var isGapCard=x[0]==='evalScore';
-    var clickable=!!x[4]||isGapCard;
-    var attr=isGapCard?' onclick="openOfficeClaimGapBreakdown()"':(clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"');
+    var isGradeCard=x[0]==='mNext';
+    var clickable=!!x[4]||isGapCard||isGradeCard;
+    var attr=isGapCard?' onclick="openOfficeClaimGapBreakdown()"':(isGradeCard?' onclick="openOfficeGradeModal()"':(clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"'));
     var arrow=clickable?' ▼':'';
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
@@ -5246,6 +5239,47 @@ function openMrTargetModal(mrCode){
   }
   body+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'simple-modal-ov\').remove();switchView(\'clinicslist\');setStMR(\''+m.code+'\')" style="background:#F47920;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">'+m.name+'담당 거래처 보기 →</button></div>';
   showSimpleModal(m.name+'담당 · 월별 목표', body);
+}
+// "7~12월 등급 현황" 미니카드(renderStKPI)와 아래 openOfficeGradeModal()이 같이 쓰는 계산 로직 -
+// 예전엔 renderStKPI 안 지역함수(monthAchv)였는데, 카드 클릭 시 하단 리스트로 안 가고 이 팝업으로
+// 바로 연결해달라는 요청이 있어서 독립 함수로 빼서 재사용
+function officeMonthGrade(mm){
+  var k=stKpiData(), oc=stOfficeClaims();
+  var thisYear=new Date().getFullYear();
+  var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
+  var mTh=h2OfficeTarget(currentOffice, mStr);
+  var ocRow=oc.find(function(o){ return o.month.slice(0,7)===mStr; });
+  var official=!!(ocRow&&ocRow.eval_clinic_cnt); // 그 달 청구현황 베이스라인(월마감)으로 확정된 값인지
+  var cnt=official?ocRow.eval_clinic_cnt:k.active; // 확정 전이면 현재 실시간 활성처수로 대체(예상)
+  var mPct=mTh?Math.round(cnt/mTh*100):null;
+  return {th:mTh, pct:mPct, cnt:cnt, official:official};
+}
+// "7~12월 등급 현황" 카드 클릭 시 - 다른 미니카드처럼 하단 거래처 리스트로 이동하는 게 아니라
+// (사무소 등급은 개별 거래처 리스트로 이어질 정보가 아님), openMrTargetModal과 같은 형태의
+// 팝업으로 월별 목표·활성처수·달성률·등급을 한눈에 보여준다.
+function openOfficeGradeModal(){
+  var thisYear=new Date().getFullYear();
+  var todayM=todayMonthStr();
+  var monthsList=[7,8,9,10,11,12];
+  var body='<div class="sub" style="margin-bottom:8px">청구현황 베이스라인(월마감)으로 확정된 달은 그 달 실제 활성처수, 아직 마감 전인 달(당월 포함)은 현재 실시간 활성처수 기준(예상)이에요.</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">목표</th><th style="padding:5px 6px">활성처수</th><th style="padding:5px 6px">달성률</th><th style="padding:5px 6px">등급</th></tr></thead><tbody>'
+    +monthsList.map(function(mm){
+      var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
+      var isCur=mStr===todayM;
+      var rowStyle=isCur?'border-bottom:0.5px solid var(--bd2);background:#FFF7EF;font-weight:800':'border-bottom:0.5px solid var(--bd2);color:var(--t2)';
+      var monthLbl=mm+'월'+(isCur?' (당월)':(mStr<todayM?' (지남)':' (예상)'));
+      var a=officeMonthGrade(mm);
+      if(a.th==null) return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td><td colspan="4" style="text-align:center;padding:5px 6px">목표 데이터 없음</td></tr>';
+      var pillCls=a.official?'gradePill-confirmed':'gradePill-projected';
+      return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td>'
+        +'<td style="text-align:center;padding:5px 6px">'+a.th+'처</td>'
+        +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.official?'#145C38':'#B26A00')+'">('+(a.official?'확정':'예상')+')</span></td>'
+        +'<td style="text-align:center;padding:5px 6px">'+a.pct+'%</td>'
+        +'<td style="text-align:center;padding:5px 6px"><span class="gradePill gradePill-sm '+pillCls+'">'+achievementGrade(a.pct)+'등급</span></td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  showSimpleModal(currentOffice+' · 7~12월 목표', body);
 }
 function renderStTrend(){
   var ctx=document.getElementById('officeTrend');
