@@ -3660,7 +3660,7 @@ var SORT_TYPES={
   visited:'check', ilmansa:'check', welcheck:'check',
   patients:'num', edu:'check', dues:'check',
   dh_op:'check', dh_cp:'check', dh_sp:'check', dh_mb:'check', dh_lb:'check', dh_wd:'check',
-  gap:'num', cum:'num'
+  gap:'num', cum:'num', note:'text'
 };
 var CHECK_RANK={'도입':2,'예정':1,'미도입':0,'참여':1,'미참여':0,'이수':2,'미이수':1,'납부':2,'비납부':1,'해당없음':0};
 function charRank(s){
@@ -4526,10 +4526,12 @@ function renderList(){
       +'<td><span class="mr-chip" style="background:'+m.bg+';color:'+m.t+'">'+m.name+'</span></td>'
       +'<td><span style="display:inline-flex;align-items:center;justify-content:space-between;gap:4px;width:100%">'
       +'<span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c.name+'</span>'
-      +'<span style="display:inline-flex;gap:4px;flex-shrink:0">'
-      +(c.note&&c.note.trim()?'<span data-idx="'+idx+'" onclick="event.stopPropagation();showNotePopup(this)" title="메모 있음" style="cursor:pointer;font-size:11px;color:#333">📋</span>':'')
-      +'<span onclick="event.stopPropagation();openEditClinic('+idx+')" title="거래처 정보 수정" style="cursor:pointer;font-size:11px">✏️</span>'
-      +'</span></span></td>'
+      +'<span onclick="event.stopPropagation();openEditClinic('+idx+')" title="거래처 정보 수정" style="cursor:pointer;font-size:11px;flex-shrink:0">✏️</span>'
+      +'</span></td>'
+      // "메모"도 다른 컬럼처럼 헤더 이름이 있어야 뭔지 알아보기 쉽다는 지적 - 거래처명 칸 안에
+      // 아이콘으로만 있던 걸 별도 컬럼으로 뺌. 메모가 없어도 클릭하면 바로 추가할 수 있게(연하게
+      // 표시), 있으면 진하게 표시해서 있는지 없는지도 한눈에 구분됨
+      +'<td style="text-align:center;cursor:pointer" data-idx="'+idx+'" onclick="showNotePopup(this)" title="'+(c.note&&c.note.trim()?'메모 있음(클릭해서 보기/수정)':'클릭해서 메모 추가')+'"><span style="font-size:11px;color:'+(c.note&&c.note.trim()?'#333':'var(--t3)')+'">📋</span></td>'
       // 일만사&웰체크 구역 (클릭하여 변경)
       +'<td style="text-align:center;border-left:2px solid #C8D8C0;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'visited\')">'+visitMark+'</td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
@@ -4570,14 +4572,15 @@ function renderList(){
     +'<div style="display:inline-block;margin:2px 0 8px;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 환자수 클릭 시 활성환자·청구 추이 그래프, 당월청구(추정) 클릭 시 항목별 상세내역 조회 가능</div>'
     +'<table class="gtbl"><thead>'
     +'<tr style="background:var(--bg2)">'
-    +'<th colspan="3" style="border-bottom:0.5px solid var(--bd)"></th>'
+    +'<th colspan="4" style="border-bottom:0.5px solid var(--bd)"></th>'
     +'<th colspan="8" style="text-align:center;font-size:10px;color:#2A7A4A;border-left:2px solid #C8D8C0;border-bottom:0.5px solid var(--bd);font-weight:700">일만사 &amp; 웰체크</th>'
     +'<th colspan="6" style="text-align:center;font-size:10px;color:#1048A0;border-left:2px solid #B8C8D8;border-bottom:0.5px solid var(--bd);font-weight:700">DH품목</th>'
     +'</tr>'
     +'<tr>'
     +sth('region','지역','width:55px')
     +sth('mrname','담당자','width:55px')
-    +sth('name','거래처명','width:120px')
+    +sth('name','거래처명','width:110px')
+    +sth('note','메모','width:40px;text-align:center')
     +sth('visited','CM<br>방문','width:52px;text-align:center;border-left:2px solid #C8D8C0')
     +sth('ilmansa','일만사','width:48px;text-align:center')
     +sth('welcheck','웰체크','width:44px;text-align:center')
@@ -5991,8 +5994,11 @@ function loadClinicsByMR(mr) {
   if (!dl) return;
   dl.innerHTML = '';
   if (!mr) return;
-  // 캘린더에는 웰체크 시행처만 (welcheck:true)
-  var filtered = CLINICS.filter(function(c){ return c.mr === mr && c.welcheck === true; });
+  // 예전엔 웰체크 시행처(welcheck:true)만 캘린더에서 검색되게 했었는데, 간호사가 웰체크
+  // 미시행 거래처에 일만사 제안 방문을 가는 경우도 있어서 그 일정은 아예 등록조차 못 하는
+  // 오류가 있었음(사용자 확인) - 거래처현황판에 있는 거래처라면 일만사/웰체크 참여 여부와
+  // 무관하게 전부 캘린더에서 조회·선택 가능해야 함
+  var filtered = CLINICS.filter(function(c){ return c.mr === mr; });
   filtered.forEach(function(c){
     var opt = document.createElement('option');
     opt.value = c.name;
