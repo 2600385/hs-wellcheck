@@ -49,6 +49,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sb-logout{color:var(--t3);text-decoration:underline;cursor:pointer;margin-left:6px}
 .sb-logout:hover{color:var(--t1)}
 .sb-office-sub{font-size:10px;color:var(--t3);margin-top:2px}
+/* 로그인 정보 줄("경인1 조회(MR)")이 바로 아래 "데이터 기준일" 줄과 색이 똑같아서(둘 다
+   sb-office-sub) 구분이 안 된다는 지적 - 로그인 줄만 진하고 굵게 따로 뺌 */
+.sb-user-line{font-size:12.5px;font-weight:800;color:var(--t1);margin-top:4px}
+/* "데이터 기준일" - 예전엔 한 줄에 " · "로 다 이어붙여서 각 항목이 뭘 뜻하는지 잘 안 들어온다는
+   지적 - 항목마다 줄을 나누고 라벨을 굵게, 주 2회 올라오는 "활성처 기준" 날짜만 가장 자주
+   바뀌는 값이라 눈에 띄게 주황색으로 강조 */
+.data-base-line{font-size:11px;color:var(--t2);margin-top:3px;line-height:1.5}
+.data-base-line b{color:var(--t1);font-weight:800}
+.data-base-line .db-date{font-weight:800}
+.data-base-line .db-date-live{color:var(--dw);font-weight:900}
 
 /* 사이드바 스크롤 */
 .sb-scroll{flex:1;overflow-y:auto;padding:8px 0 16px}
@@ -657,8 +667,8 @@ td.drillable:hover .drill-ic{color:var(--dw)}
   <!-- 사무소명 표시(고정 텍스트) - 사무소 전환은 하단 "전국 사업부 현황"에서만 (기능 중복 방지) -->
   <div class="sb-office">
     <div class="sb-office-fixed sb-office-select" id="officeFixedLabel"></div>
-    <div class="sb-office-sub" id="userInfoLine">웰체크 공유 시스템</div>
-    <div class="sb-office-sub" id="import-log-line" style="margin-top:2px"></div>
+    <div class="sb-user-line" id="userInfoLine">웰체크 공유 시스템</div>
+    <div id="import-log-line"></div>
   </div>
 
   <div class="sb-scroll">
@@ -1534,13 +1544,19 @@ function renderImportLog(){
     var byType={};
     rows.forEach(function(r){ byType[r.import_type]=r; });
     function fmtDate(r){ return r&&r.source_date?r.source_date.slice(5).replace('-','.'):null; }
-    var parts=[];
-    var curD=fmtDate(byType.current); if(curD) parts.push('활성처 '+curD);
+    // 한 줄에 " · "로 다 이어붙여서 뭐가 뭔지 안 들어온다는 지적 - 항목마다 줄을 나누고 라벨을
+    // 굵게 표기. "활성처 기준"(활성처 현황 RAW)은 주 2회 갱신되는, 가장 자주 바뀌는 값이라
+    // 주황색으로 강조해서 나머지(월 단위로만 바뀌는 베이스라인들)와 시각적으로 구분되게 함.
+    var lines=[];
+    var curD=fmtDate(byType.current);
+    lines.push('<div class="data-base-line"><b>활성처 기준</b> : '+(curD?('<span class="db-date db-date-live">'+curD+'</span> 파일'):'<span style="color:var(--t3)">아직 없음</span>')+'</div>');
     var lockedMonth=RAW_BASELINE_BY_OFFICE[currentOffice];
-    if(lockedMonth) parts.push('활성처 베이스라인 '+parseInt(lockedMonth.slice(5,7),10)+'월 마감');
-    var baseD=fmtDate(byType.baseline); if(baseD) parts.push('청구처 베이스라인 '+baseD);
-    var dailyD=fmtDate(byType.daily); if(dailyD) parts.push('MAU '+dailyD);
-    el.textContent = parts.length ? ('데이터 기준일: '+parts.join(' · ')) : '';
+    lines.push('<div class="data-base-line"><b>활성처 베이스라인</b> : '+(lockedMonth?('<span class="db-date">'+parseInt(lockedMonth.slice(5,7),10)+'월</span> 마감 파일'):'<span style="color:var(--t3)">아직 없음</span>')+'</div>');
+    var baseD=fmtDate(byType.baseline);
+    lines.push('<div class="data-base-line"><b>청구처 베이스라인</b> : '+(baseD?('<span class="db-date">'+parseInt(baseD.slice(0,2),10)+'월</span> 마감 파일'):'<span style="color:var(--t3)">아직 없음</span>')+'</div>');
+    var dailyD=fmtDate(byType.daily);
+    lines.push('<div class="data-base-line"><b>MAU</b> : '+(dailyD?('<span class="db-date">'+dailyD+'</span> 파일'):'<span style="color:var(--t3)">아직 없음</span>')+'</div>');
+    el.innerHTML = lines.join('');
   }
   renderOfficeBoardBadge();
   renderClaimBoardBadge();
