@@ -48,6 +48,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sb-office-fixed{cursor:default}
 .sb-logout{color:var(--t3);text-decoration:underline;cursor:pointer;margin-left:6px}
 .sb-logout:hover{color:var(--t1)}
+/* 로그아웃 - 이름 옆 작은 밑줄 텍스트라 눈에 잘 안 띈다는 지적. 시안(A: 이름 옆 아웃라인 필 /
+   D: 사이드바 맨 아래 고정 풀폭 버튼) 중 D로 확정 - .sb가 이미 flex-column이라 .sb-scroll(flex:1)
+   다음에 이 footer를 두면 스크롤 영역과 별개로 항상 맨 아래에 고정됨 */
+.sb-footer{padding:10px 14px 14px;border-top:0.5px solid var(--bd)}
+.sb-logout-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:#fff;border:1.4px solid #E8B4A0;color:#C0392B;font-weight:800;font-size:12px;padding:8px;border-radius:8px;cursor:pointer;font-family:inherit}
+.sb-logout-btn:hover{background:#FDEDEA}
 .sb-office-sub{font-size:10px;color:var(--t3);margin-top:2px}
 /* 로그인 정보 줄("경인1 조회(MR)") - 처음엔 데이터 기준일 줄과 구분되게 진하게 뺐는데, 그러니
    "경인1사무소" 제목보다 오히려 더 튀어서 묻힌다는 지적 - 굵기/크기는 유지하되 다시 연한
@@ -770,6 +776,10 @@ td.drillable:hover .drill-ic{color:var(--dw)}
     <div style="padding:16px 14px 8px;margin-top:6px;border-top:0.5px solid var(--bd)">
       <span class="sub-item" style="padding:6px 0;color:var(--t2)" onclick="openInstallGuide()">📱 앱 설치 방법</span>
     </div>
+  </div>
+  <!-- 로그아웃 - 스크롤 영역(sb-scroll) 밖에 둬서 메뉴를 아무리 내려도 항상 맨 아래 고정 -->
+  <div class="sb-footer">
+    <button class="sb-logout-btn" onclick="logout()">🚪 로그아웃</button>
   </div>
 </aside>
 
@@ -3210,7 +3220,8 @@ function applyRoleGating(){
   var importBtnFull=document.getElementById('data-import-btn-full');
   if(importBtnFull) importBtnFull.style.display = isAdmin?'block':'none'; // 베이스라인 포함 전체 파일 종류 - 관리자 전용
   var uiLine=document.getElementById('userInfoLine');
-  if(uiLine) uiLine.innerHTML=currentUser.name+'('+currentUser.role+') <span class="sb-logout" onclick="logout()">로그아웃</span>';
+  // 로그아웃 링크는 이제 사이드바 맨 아래 고정 버튼(sb-footer)으로 옮겨서 여기선 이름(역할)만 표기
+  if(uiLine) uiLine.textContent=currentUser.name+'('+currentUser.role+')';
 }
 
 // ===== 직원(사번) 관리 모달 =====
