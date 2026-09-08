@@ -3664,14 +3664,17 @@ function setSort(field){
   else { sortField=field; sortDir=1; }
   renderList();
 }
-// "안 누르면 정렬 기능이 있는지도 모르겠다"는 지적 - opacity:.35 흐린 회색이 배경색이랑 거의
-// 구분이 안 돼서 아이콘 자체가 안 보이는 수준이었음. opacity 대신 진한 회색(var(--t2))으로
-// 바꿔서 평소에도 "여기 정렬 가능"이 눈에 들어오게 하고, 활성 상태(주황)와 뚜렷이 구분되게 함
+// "안 누르면 정렬 기능이 있는지도 모르겠다"는 지적 - 처음엔 opacity:.35 흐린 회색이라 아예 안 보였고,
+// 색만 진하게 바꿔도(var(--t2)) ↕ 글자 자체가 가는 선이라 여전히 눈에 잘 안 띈다는 재지적이 있었음.
+// 그래서 얇은 화살표 대신 꽉 찬 삼각형(▲▼)을 작게 위아래로 쌓은 아이콘으로 바꿈 - 엑셀류에서 흔히
+// 쓰는 정렬 아이콘과 비슷한 모양이라 "이거 정렬 버튼이구나"가 한눈에 들어옴. 정렬 중인 컬럼은
+// 그 중 해당 방향 삼각형 하나만 크고 굵게 주황색으로 표시해서 idle과 뚜렷이 구분되게 함.
+function sortIconIdle(){ return '<span style="display:inline-block;font-size:9px;line-height:.85;color:var(--t1);vertical-align:1px">▲<br>▼</span>'; }
 function thArrow(field){
-  if(sortField!==field) return '<span style="color:var(--t2);font-weight:700">↕</span>';
+  if(sortField!==field) return sortIconIdle();
   var t=SORT_TYPES[field]||'text';
   var asc=(t==='text')?(sortDir===1):(sortDir===-1);
-  return '<span style="color:var(--dw);font-weight:700">'+(asc?'▲':'▼')+'</span>';
+  return '<span style="color:var(--dw);font-weight:700;font-size:14px">'+(asc?'▲':'▼')+'</span>';
 }
 function sth(field,label,style){
   return '<th class="sort-th" data-sort="'+field+'" style="'+style+';cursor:pointer;user-select:none" title="클릭하여 정렬">'+label+' '+thArrow(field)+'</th>';
@@ -5488,17 +5491,52 @@ function renderStTable(){
 var CLINIC_LIST_COLGROUP='<colgroup><col style="width:26%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:16%"><col style="width:10%"></colgroup>';
 // 청구현황판의 거래처 리스트는 거래처현황판보다 자세하게, 케어플랜/교육상담/환자관리/점검평가 건수 4개 컬럼을 추가로 보여줌
 var CLINIC_LIST_DETAILED_COLGROUP='<colgroup><col style="width:19%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:11%"><col style="width:8%"></colgroup>';
+// 청구처현황판(거래처별 상세표) 전용 정렬 상태 - 웰체크현황판(sortField/thArrow)과 별개로 관리한다
+// (이 표에만 있는 케어플랜/교육상담/환자관리/점검평가 컬럼이 있어서 서로 다른 필드 집합이라 상태를 나눔)
+var CLINICSLIST_SORT={field:'now', dir:-1};
+function clHubArrow(field){
+  if(CLINICSLIST_SORT.field!==field) return ' '+sortIconIdle();
+  return ' <span style="color:var(--dw);font-weight:700;font-size:14px">'+(CLINICSLIST_SORT.dir===1?'▲':'▼')+'</span>';
+}
+function setClinicsListSort(field){
+  if(CLINICSLIST_SORT.field===field) CLINICSLIST_SORT.dir=-CLINICSLIST_SORT.dir;
+  else { CLINICSLIST_SORT.field=field; CLINICSLIST_SORT.dir=(field==='name'||field==='mr')?1:-1; }
+  renderClinicsListTable();
+}
+function clHubSortRows(rows){
+  var rawPrevMap=rawSnapshotPrevMap();
+  function prevOf(c){ return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0); }
+  function val(c){
+    switch(CLINICSLIST_SORT.field){
+      case 'name': return c.name||'';
+      case 'mr': return getMR(c.mr).name||'';
+      case 'prev': return prevOf(c);
+      case 'diff': return (c.patients||0)-prevOf(c);
+      case 'care': return c.care_plan_cnt||0;
+      case 'edu': return c.edu_cnt||0;
+      case 'mgmt': return c.patient_mgmt_cnt||0;
+      case 'check': return c.check_eval_cnt||0;
+      case 'cum': { var cl=clinicClaim(c); return cl?cl.cum:-1; }
+      default: return c.patients||0; // 'now'
+    }
+  }
+  return rows.slice().sort(function(a,b){
+    var av=val(a), bv=val(b);
+    var cmp=(typeof av==='string')?av.localeCompare(bv,'ko'):(av-bv);
+    if(cmp===0) return String(a.name).localeCompare(String(b.name),'ko');
+    return CLINICSLIST_SORT.dir===1?cmp:-cmp;
+  });
+}
 function renderClinicsListTable(){
   var el=document.getElementById('st-table-mr');
   if(!el) return;
-  var rows=clinicsListFilterRows().slice().sort(function(a,b){
-    return (b.patients||0)-(a.patients||0)||String(a.name).localeCompare(String(b.name),'ko');
-  });
+  var rows=clHubSortRows(clinicsListFilterRows());
   var title=stMR==='all'?'전체 담당자':getMR(stMR).name;
   if(!rows.length){ el.innerHTML='<div class="emptyMsg2">'+currentOffice+' · '+title+'에 해당하는 거래처가 없습니다.</div>'; return; }
+  function sh(field,label,style){ return '<th style="cursor:pointer;user-select:none'+(style?(';'+style):'')+'" title="클릭하여 정렬" onclick="setClinicsListSort(\''+field+'\')">'+label+clHubArrow(field)+'</th>'; }
   el.innerHTML='<div class="claimTableWrap"><table style="table-layout:fixed;min-width:880px">'+CLINIC_LIST_DETAILED_COLGROUP+'<thead>'
-    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 건수, 누적청구 클릭 시 월별 청구금액 조회 가능</span></div></th></tr>'
-    +'<tr><th>거래처</th><th>담당자</th><th style="border-left:2px solid var(--bd2)">전월('+prevMonthNum()+'월)</th><th>현재</th><th>증감</th><th style="border-left:2px solid var(--bd2)">케어플랜</th><th>교육상담</th><th>환자관리</th><th>점검평가</th><th>누적청구</th><th>구분</th></tr></thead><tbody>'
+    +'<tr><th colspan="11" style="background:#fffaf6;font-size:13px">'+currentOffice+' · '+title+' ('+rows.length+'처)<div style="margin-top:5px"><span style="display:inline-block;padding:3px 10px;font-size:11.5px;font-weight:700;color:#1048A0;background:#EAF4FF;border-radius:999px">💡 거래처명 클릭 시 활성환자·청구 추이 그래프, 케어플랜·교육상담·환자관리·점검평가 클릭 시 월별 건수, 누적청구 클릭 시 월별 청구금액 조회 · 헤더 클릭 시 정렬 가능</span></div></th></tr>'
+    +'<tr>'+sh('name','거래처')+sh('mr','담당자')+sh('prev','전월('+prevMonthNum()+'월)','border-left:2px solid var(--bd2)')+sh('now','현재')+sh('diff','증감')+sh('care','케어플랜','border-left:2px solid var(--bd2)')+sh('edu','교육상담')+sh('mgmt','환자관리')+sh('check','점검평가')+sh('cum','누적청구')+'<th>구분</th></tr></thead><tbody>'
     +clinicRowsTbodyHtml(rows, true)+'</tbody></table></div>';
 }
 
@@ -5765,9 +5803,8 @@ function renderClaimTable(){
   if(!sorted.length){ el.innerHTML='<div class="claim-empty">아직 청구 데이터가 없습니다. 엑셀 업데이트 후 반영됩니다.</div>'; return; }
   var mi=metricInfo(claimMetric);
   // 여기는 정렬 중이 아닌 컬럼은 아이콘 자체가 아예 없어서(빈 문자열) "정렬 가능한 표"라는 걸
-  // 전혀 알 수 없었음 - 웰체크현황판(thArrow)과 같은 방식으로 평소엔 진한 회색 ↕, 정렬 중인
-  // 컬럼만 주황 ▲▼로 바꿔서 두 표의 정렬 아이콘 언어를 통일함
-  function arrow(c){ return col===c?(' <span style="color:var(--dw);font-weight:700">'+(dir==='asc'?'▲':'▼')+'</span>'):' <span style="color:var(--t2);font-weight:700">↕</span>'; }
+  // 전혀 알 수 없었음 - 웰체크현황판(thArrow/sortIconIdle)과 같은 방식(꽉 찬 삼각형 스택)으로 통일
+  function arrow(c){ return col===c?(' <span style="color:var(--dw);font-weight:700;font-size:14px">'+(dir==='asc'?'▲':'▼')+'</span>'):(' '+sortIconIdle()); }
   function sth(c,label,extraCls){ return '<th class="companyCols'+(extraCls?(' '+extraCls):'')+'" style="cursor:pointer" onclick="sortClaimTableBy(\''+c+'\')">'+label+arrow(c)+'</th>'; }
   el.innerHTML='<div class="claimTableWrap"><table><thead><tr class="sectionHead"><th colspan="7" class="companyCols">회사 평가 기준</th><th colspan="4" class="metricCols metricSep">누적 분석 지표</th><th class="companySep">비교 결과</th></tr>'
     +'<tr><th class="companyCols">순위</th>'+sth('business','사업부')+sth('office','사무소')+sth('target','목표')+sth('achievement','청구전환율')+'<th class="companyCols">청구현황 기준</th>'+sth('patientSum','활성환자')
