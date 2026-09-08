@@ -3054,6 +3054,12 @@ function renderOfficeSelect(){
 }
 function setCurrentOffice(o){
   currentOffice=o;
+  // "전국 사업부 현황"의 사무소 태그 강조(.cur)는 원래 selectNatOffice(사무소 전환 시)에서만
+  // 갱신됐는데, 로그인 시엔 이 함수(setCurrentOffice)만 타서 강조가 안 갱신됨 - HTML에 박혀있는
+  // 기본값(경인1)이 그대로 남아서, 다른 사무소로 로그인해도 계속 "경인1"이 강조돼 보이는
+  // 오류가 있었음(사용자 확인: 경인2로 로그인했는데 경인1이 잠금 해제된 것처럼 표시됨).
+  // 로그인 경로에서도 항상 실제 currentOffice 기준으로 다시 맞춰준다.
+  document.querySelectorAll('.biz-tag').forEach(function(t){ t.classList.toggle('cur', t.textContent===o); });
   activeMR='all';
   stMR='all';
   // 거래처현황판(웰체크 현황판 ②)의 담당자/지역/방문/빠른 필터도 사무소 전환 시 반드시 초기화해야 함 -
@@ -3151,10 +3157,18 @@ function doLogin(){
 }
 // 사번으로 담당자(MR) 찾기 - managers는 사무소별로만 로드되므로(loadManagers는 currentOffice
 // 스코프), 로그인 시점엔 사무소를 아직 모르니 여기서만 예외적으로 전사무소 통합 조회를 한다.
+// DB엔 대부분(240명 중 239명, 사용자 확인) "120"+실제 7자리 사번 형태(예: 1202250179)로 저장돼
+// 있는데, 실제 MR들이 알고 쓰는/입력하는 사번은 앞의 "120" 없는 7자리(예: 2250179)임 - 입력값
+// 그대로 먼저 찾아보고 못 찾으면 "120"을 붙여서 한 번 더 찾는다(반대로 10자리를 그대로 입력해도
+// 기존처럼 바로 찾아짐 - 그쪽은 그대로 첫 시도에서 성공).
 function findMRBySabun(empNo){
   return db.from('managers').select('*').eq('emp_no', empNo).then(function(res){
-    if(res.error||!res.data||!res.data.length) return null;
-    return res.data[0];
+    if(!res.error&&res.data&&res.data.length) return res.data[0];
+    if(!/^\d{7}$/.test(empNo)) return null; // 7자리 숫자가 아니면 "120" 접두 붙일 대상이 아님
+    return db.from('managers').select('*').eq('emp_no', '120'+empNo).then(function(res2){
+      if(res2.error||!res2.data||!res2.data.length) return null;
+      return res2.data[0];
+    });
   });
 }
 function logout(){
