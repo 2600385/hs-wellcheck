@@ -4531,7 +4531,12 @@ function renderList(){
       // "메모"도 다른 컬럼처럼 헤더 이름이 있어야 뭔지 알아보기 쉽다는 지적 - 거래처명 칸 안에
       // 아이콘으로만 있던 걸 별도 컬럼으로 뺌. 메모가 없어도 클릭하면 바로 추가할 수 있게(연하게
       // 표시), 있으면 진하게 표시해서 있는지 없는지도 한눈에 구분됨
-      +'<td style="text-align:center;cursor:pointer" data-idx="'+idx+'" onclick="showNotePopup(this)" title="'+(c.note&&c.note.trim()?'메모 있음(클릭해서 보기/수정)':'클릭해서 메모 추가')+'"><span style="font-size:11px;color:'+(c.note&&c.note.trim()?'#333':'var(--t3)')+'">📋</span></td>'
+      +(function(){
+        // 📋는 컬러 이모지라 CSS color로는 안 흐려짐(색이 이미 고정돼있어서) - opacity로 흐리게
+        // 해야 실제로 옅어 보임. 메모 있는 처만 진하게(1), 없는 처는 흐리게(.25) 보이게 함
+        var hasNote=!!(c.note&&c.note.trim());
+        return '<td style="text-align:center;cursor:pointer" data-idx="'+idx+'" onclick="showNotePopup(this)" title="'+(hasNote?'메모 있음(클릭해서 보기/수정)':'클릭해서 메모 추가')+'"><span style="font-size:11px;opacity:'+(hasNote?'1':'.25')+'">📋</span></td>';
+      })()
       // 일만사&웰체크 구역 (클릭하여 변경)
       +'<td style="text-align:center;border-left:2px solid #C8D8C0;cursor:pointer" title="클릭하여 변경" onclick="toggleClinicField('+idx+',\'visited\')">'+visitMark+'</td>'
       +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" onclick="openIlmansaPopup('+idx+',event)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+(c.ilmansa==='참여'?'#E4F5EE;color:#145C38':'#F8F8F8;color:#aaa')+'">'+c.ilmansa+'</span></td>'
