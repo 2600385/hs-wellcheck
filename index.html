@@ -317,8 +317,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .kcard .kval{font-size:30px;font-weight:950;letter-spacing:-.5px}
 .kcard .khint{font-size:12px;color:#8e857c;margin-top:6px;font-weight:800}
 .primaryKpi{background:#FFF7EF!important;border:2px solid #F6B37C!important;border-left:8px solid #F47920!important}
-.primaryKpi .kval{font-size:40px;color:#F47920}
-.primaryKpi .smallTarget{font-size:24px;color:#9b8d82}
+.primaryKpi .kval{font-size:48px;color:#F47920}
+.primaryKpi .smallTarget{font-size:27px;color:#9b8d82}
 .gradePill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fee6e9;color:#c92f3f;font-weight:950;margin-left:6px;font-size:13px}
 /* 드릴다운(클릭하면 상세 팝업/모달) 가능한 셀 표시 - 정렬 화살표(sth/thArrow)와 같은 언어로,
    평소엔 옅은 회색 작은 세모만 보이다가 마우스를 올리면 브랜드색(주황)으로 진해지고 배경도
@@ -342,10 +342,16 @@ td.drillable:hover .drill-ic{color:var(--dw)}
    트랙 폭 - 마지막 칸(40명 전환후보)만 좁게 잡아서 내용 길이에 맞게 자연스럽게 붙어 보이게 함.
    ("20명 전환후보" 카드는 인원수 구간 필터 정리 요청에 맞춰 제거함 - 그래서 5칸이 아니라 4칸)
    */
-.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.8fr;gap:12px}
+/* align-items:start - 기본값(stretch)이면 카드마다 내용 길이가 달라도(7~12월 카드는 6줄,
+   청구전환율/40명전환후보는 1~2줄) 한 행의 모든 카드가 제일 긴 카드 높이에 맞춰 늘어나서,
+   내용 짧은 카드 아래에 쓸데없는 빈 여백이 크게 생겼음(사용자 확인) - 각 카드가 자기 내용
+   만큼만 높이를 갖게 함 */
+.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.8fr;gap:12px;align-items:start}
 .miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px}
 .miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
-.miniCard b{display:block;font-size:26px;margin:3px 0}
+/* 카드마다 숫자 굵기가 서로 달라 보인다는 지적 - <b>는 브라우저 기본 굵기(보통 700)만 걸리고
+   evalRate(.rate-big=900)처럼 자체 굵기를 정해둔 카드만 더 진해 보였음. 900으로 통일. */
+.miniCard b{display:block;font-size:26px;margin:3px 0;font-weight:900}
 .miniCard .klbl{font-size:12px;color:#74695f;font-weight:900}
 .miniCard .khint{font-size:11px;color:#8e857c;font-weight:800}
 .miniCard.q3{border-top:4px solid #8fb8e8}
@@ -5154,14 +5160,12 @@ function renderStKPI(){
     // "일만사&웰체크 TH명 이상 NN처"는 이제 바로 옆 빨간 카드(당월이력없음)에서 "OO처 중" 형태로 이미
     // 보여주므로 여기서는 중복 표기하지 않고, 이 카드에서만 알 수 있는 정보(②비일만사로 구제된 거래처 수)만
     // 표기한다 - 이제 항상(0이어도) 보여주고, 부정적 신호가 아니라 참고 정보라 파란색으로 표기.
-    // gradeNeeds("B등급까지 OO처 · A등급까지 OO처 · S등급까지 OO처 필요")를 목표 처수 옆에 세로로
-    // 쌓아봤더니, 그 옆에 붙은 큰 주황 숫자(현재 활성처)가 작아 보인다는 지적 - 큰 숫자는 원래대로
-    // 단독으로 두고, gradeNeeds는 다시 카드 하단(khint)으로 내리되 줄바꿈 안 되게 작은 글씨 한 줄로
-    // 압축(라벨 "등급까지 OO처"는 그대로, 글자 크기만 줄여서 카드 폭 안에 한 줄로 들어가게 함).
+    // gradeNeeds: "B등급까지 24처 · A등급까지 43처 · S등급까지 61처"처럼 "까지"를 매번 반복하면
+    // 늘어지니, 등급마다는 "B등급 24처"로 짧게 쓰고 "필요"는 맨 끝에 딱 한 번만 붙임(사용자 확인).
     ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',
       k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'
       +(k.gradeNeeds.length
-        ?('<br><span style="display:block;font-size:9.5px;font-weight:700;color:#8A6800;white-space:nowrap">'+k.gradeNeeds.map(function(g){return g.grade+'등급까지 '+g.need+'처';}).join(' · ')+'</span>')
+        ?('<br><span style="display:block;font-size:9.5px;font-weight:700;color:#8A6800;white-space:nowrap">'+k.gradeNeeds.map(function(g){return g.grade+'등급 '+g.need+'처';}).join(' · ')+' 필요</span>')
         :'<br><span style="color:#145C38;font-weight:700">최고 등급(S) 달성</span>'),
       'active'],
     // "당월이력없음": 일만사&웰체크 TH명 이상인데 회사 공식 활성처 판정엔 못 든 거래처 - 큰 글씨(메인
