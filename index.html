@@ -311,11 +311,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .infoBar2{margin:0 0 18px;border:1px solid #eadfd4;border-radius:16px;background:#fffdf9;padding:12px 16px;color:#8b8178;font-size:13px;font-weight:700;display:flex;gap:14px;flex-wrap:wrap}
 .infoBar2 b{color:#6f655c;font-weight:800}
 .kpiGrid{display:grid;grid-template-columns:1.45fr 1fr 1fr 1fr 1fr;gap:14px}
-.kcard{background:#fff;border:1px solid #e9ddd2;border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(80,50,20,.05);cursor:pointer;transition:.12s}
+/* display:flex 세로 배치 + khint에 margin-top:auto - 카드 높이는 (같은 행에서) 제일 큰 카드
+   기준으로 그대로 맞추되(=현재 활성처 카드 기준), 짧은 카드는 큰 숫자 밑에 바로 붙던 부연설명을
+   카드 맨 아래로 밀어내려서 "숫자와 설명 사이" 쪽에 여백이 생기게 함 - 예전처럼 설명 밑에
+   허전하게 여백이 남는 것보다 훨씬 정돈돼 보임(사용자 확인) */
+.kcard{background:#fff;border:1px solid #e9ddd2;border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(80,50,20,.05);cursor:pointer;transition:.12s;display:flex;flex-direction:column}
 .kcard:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(80,50,20,.12)}
 .kcard .klbl{font-size:13px;color:#74695f;font-weight:900;margin-bottom:8px}
-.kcard .kval{font-size:30px;font-weight:950;letter-spacing:-.5px}
-.kcard .khint{font-size:12px;color:#8e857c;margin-top:6px;font-weight:800}
+.kcard .kval{font-size:36px;font-weight:950;letter-spacing:-.5px}
+.kcard .khint{font-size:12px;color:#8e857c;margin-top:auto;padding-top:10px;font-weight:800}
 .primaryKpi{background:#FFF7EF!important;border:2px solid #F6B37C!important;border-left:8px solid #F47920!important}
 .primaryKpi .kval{font-size:48px;color:#F47920}
 .primaryKpi .smallTarget{font-size:27px;color:#9b8d82}
@@ -342,18 +346,20 @@ td.drillable:hover .drill-ic{color:var(--dw)}
    트랙 폭 - 마지막 칸(40명 전환후보)만 좁게 잡아서 내용 길이에 맞게 자연스럽게 붙어 보이게 함.
    ("20명 전환후보" 카드는 인원수 구간 필터 정리 요청에 맞춰 제거함 - 그래서 5칸이 아니라 4칸)
    */
-/* align-items:start - 기본값(stretch)이면 카드마다 내용 길이가 달라도(7~12월 카드는 6줄,
-   청구전환율/40명전환후보는 1~2줄) 한 행의 모든 카드가 제일 긴 카드 높이에 맞춰 늘어나서,
-   내용 짧은 카드 아래에 쓸데없는 빈 여백이 크게 생겼음(사용자 확인) - 각 카드가 자기 내용
-   만큼만 높이를 갖게 함 */
-.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.8fr;gap:12px;align-items:start}
-.miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px}
+/* align-items:start(짧은 카드 밑에 빈 여백)로 한 번 바꿔봤는데, 이번엔 반대로 40명전환후보
+   카드가 옆 카드들보다 너무 짧아서 어색하다는 지적 - 다시 기본(stretch, 행의 카드 높이를
+   맞춤)으로 되돌리고, 대신 카드 내부를 flex-column + khint에 margin-top:auto를 줘서(아래
+   .miniCard 참고) 부연설명이 카드 맨 아래로 붙게 함 - 높이는 맞추면서 "숫자 바로 밑 여백"
+   대신 "숫자와 설명 사이"에 여백이 생기게 하는 절충 */
+.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.8fr;gap:12px}
+.miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px;display:flex;flex-direction:column}
 .miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
 /* 카드마다 숫자 굵기가 서로 달라 보인다는 지적 - <b>는 브라우저 기본 굵기(보통 700)만 걸리고
-   evalRate(.rate-big=900)처럼 자체 굵기를 정해둔 카드만 더 진해 보였음. 900으로 통일. */
-.miniCard b{display:block;font-size:26px;margin:3px 0;font-weight:900}
+   evalRate(.rate-big=900)처럼 자체 굵기를 정해둔 카드만 더 진해 보였음. 900으로 통일하고,
+   40명전환후보/청구전환율처럼 숫자 하나만 크게 보여주는 카드는 눈에 더 잘 띄게 크기도 키움. */
+.miniCard b{display:block;font-size:30px;margin:3px 0;font-weight:900}
 .miniCard .klbl{font-size:12px;color:#74695f;font-weight:900}
-.miniCard .khint{font-size:11px;color:#8e857c;font-weight:800}
+.miniCard .khint{font-size:11px;color:#8e857c;font-weight:800;margin-top:auto;padding-top:8px}
 .miniCard.q3{border-top:4px solid #8fb8e8}
 .miniCard.q4{border-top:4px solid #99cfb1}
 .miniCard.c40{border-top:4px solid #b5d8c4}
@@ -381,8 +387,8 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .eval-row-lbl-big{font-size:15px}
 .eval-row-val-big{font-size:26px}
 /* 청구전환율 카드의 % - 위 KPI 카드들처럼 포인트색으로 큼직하게 */
-.rate-big{font-size:32px;font-weight:900;color:#B8860B}
-.rate-sub{display:block;margin-top:10px;line-height:2;font-size:12.5px}
+.rate-big{font-size:38px;font-weight:900;color:#B8860B}
+.rate-sub{display:block;margin-top:10px;line-height:1.6;font-size:12.5px}
 .chartBox2{height:420px}
 .stFilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .stFilters button{height:34px;border:1px solid #e0d2c4;background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;cursor:pointer;color:#6b5d52;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px}
@@ -5234,7 +5240,7 @@ function renderStKPI(){
     // 둬서 카드 안에 고르게 퍼지도록 함(예전엔 %만 크고 나머진 카드 위쪽에 작게 몰려 있어 불균형했음).
     evalMinis.push(['evalRate','청구전환율'+estBadge,
       '<span class="rate-big">'+ec.rate+'%</span>',
-      '<span class="rate-sub">일만사처: '+ec.evalCnt+'처<br>청구처: '+ec.claimCnt+'처</span>', null]);
+      '<span class="rate-sub">일만사처 '+ec.evalCnt+'처 · 청구처 '+ec.claimCnt+'처</span>', null]);
   }
   // "20명 전환후보" 미니카드는 4명미만/4명이상/40명이상/100명이상 구간으로 필터를 정리해달라는
   // 피드백에 맞춰 제거(사용자 확인) - 40명 전환후보는 그대로 유지
