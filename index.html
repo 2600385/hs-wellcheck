@@ -2268,6 +2268,14 @@ function commitCurrentRaw(parsed, status, lockMonth){
   var updates=parsed.updates, asOf=parsed.asOf;
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   status.textContent=updates.length+'개 거래처 반영 중...';
+  // [재발 방지 - 2차] "월마감 확정"으로 잠근 달은 raw_monthly_snapshot(감사용 테이블)만 보호되고
+  // 있었고, 정작 화면 KPI가 실제로 참조하는 clinics.prev_patients(라이브 테이블)는 이 함수에서
+  // 그대로 새 파일 값으로 덮어쓰고 있었음 - raw_monthly_snapshot에 그 거래처 스냅샷이 없는(잠금
+  // 당시 복구 데이터에 빠졌던) 사업자번호는 결국 이 clinics.prev_patients로 폴백되는데, 그게
+  // 보호가 안 돼 있어서 잠금 이후에도 "당월 신규 활성환자" 폭증 사고가 또 재현됐음(사용자 확인:
+  // 8월 잠금해놨는데도 9월 RAW 올리자마자 다시 +2000명대로 튐). clinics.prev_patients 갱신도
+  // 반드시 같은 잠금을 확인해서, 잠긴 (사무소,사업자번호)는 새 파일 값으로 절대 덮어쓰지 않는다.
+  var prevMonthForLock=shiftMonthStr(String(asOf||'').slice(0,7)+'-01', -1);
   if(isFullAdmin){
     // 관리자가 "전체" 버튼으로 올릴 땐 currentOffice도 다른 사무소들과 똑같이 통째로 upsert함.
     // (아래 update()-only 경로는 이미 등록된 거래처만 갱신되고 신규 거래처는 전부 "미매칭"으로 빠지는데,
@@ -2281,8 +2289,8 @@ function commitCurrentRaw(parsed, status, lockMonth){
     // db.from('clinics').select() 그대로 쓰면 PostgREST 기본 한도(1000건)에 걸려 전사 4,600여 건 중
     // 뒤쪽 사무소 거래처는 existingOffice에 안 잡혀서 사무소 배정 보호 검사를 조용히 건너뛰게 됨 -
     // fetchAllRows로 전체를 다 받아야 함
-    Promise.all([fetchAllRows('clinics','biz_no,office'), db.from('managers').select('office,code,name,emp_no'), db.from('import_log').select('office,source_date').eq('import_type','current')]).then(function(resArr){
-      var exRes=resArr[0], mgrRes=resArr[1], logRes=resArr[2];
+    Promise.all([fetchAllRows('clinics','biz_no,office'), db.from('managers').select('office,code,name,emp_no'), db.from('import_log').select('office,source_date').eq('import_type','current'), lockedSnapshotKeys([prevMonthForLock])]).then(function(resArr){
+      var exRes=resArr[0], mgrRes=resArr[1], logRes=resArr[2], prevLocked=resArr[3];
       // 이 파일이 이미 반영된 최신 데이터보다 과거 시점(예: 8월 데이터가 이미 반영된 상태에서 7/31자
       // 마감 파일을 뒤늦게 올리는 경우)이면, 그 사무소의 "현재"(clinics) 상태는 절대 안 건드리고 이
       // 파일이 말하는 그 달(예: 7월)의 마감 스냅샷·청구현황만 확정해서 채워넣는다 - 안 그러면 오늘자
@@ -2334,7 +2342,21 @@ function commitCurrentRaw(parsed, status, lockMonth){
       var liveRows=safeRows.filter(function(r){ return !staleOffices[r.office]; });
       var staleRows=safeRows.filter(function(r){ return staleOffices[r.office]; });
       var staleOfficeNames=Object.keys(staleRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
-      var clinicsUpsertP=liveRows.length?db.from('clinics').upsert(liveRows, {onConflict:'office,biz_no'}):Promise.resolve({error:null});
+      // liveRows를 잠긴/안 잠긴 두 묶음으로 나눠서 따로 upsert - 잠긴 쪽은 prev_patients 키 자체를
+      // 아예 빼고 보내서(같은 배치 안에서 행마다 필드가 달라지면 supabase-js가 없는 값을 null로
+      // 채워버릴 수 있어 위험 - 그래서 배치를 통째로 나눔), 그 컬럼만큼은 upsert의 ON CONFLICT
+      // UPDATE SET에서 빠져 기존 값이 그대로 보존됨.
+      var lockedLiveRows=[], unlockedLiveRows=[];
+      liveRows.forEach(function(r){
+        if(prevLocked.has(r.office+'|'+r.biz_no+'|'+prevMonthForLock)){
+          var copy={}; Object.keys(r).forEach(function(k){ if(k!=='prev_patients') copy[k]=r[k]; });
+          lockedLiveRows.push(copy);
+        } else unlockedLiveRows.push(r);
+      });
+      var clinicsUpsertP=Promise.all([
+        unlockedLiveRows.length?db.from('clinics').upsert(unlockedLiveRows, {onConflict:'office,biz_no'}):Promise.resolve({error:null}),
+        lockedLiveRows.length?db.from('clinics').upsert(lockedLiveRows, {onConflict:'office,biz_no'}):Promise.resolve({error:null})
+      ]).then(function(resArr2){ return resArr2.find(function(r){return r.error;})||resArr2[0]; });
       clinicsUpsertP.then(function(res){
         if(res.error){ status.textContent='전국 거래처 반영 실패: '+res.error.message; return; }
         // liveRows에 실제로 반영된 사무소 전부에 로그를 남김 - currentOffice만 남기면(예전 버그)
@@ -2394,13 +2416,17 @@ function commitCurrentRaw(parsed, status, lockMonth){
     });
     return;
   }
+  lockedSnapshotKeys([prevMonthForLock]).then(function(prevLocked){
   Promise.all(updates.map(function(u){
-    return db.from('clinics').update({
+    var upd={
       patients:u.patients, non_patients:u.non_patients, is_active:u.is_active, inactive_transition:u.inactive_transition,
-      prev_active:u.prev_active, prev_patients:u.prev_patients, raw_claim:u.claim,
+      prev_active:u.prev_active, raw_claim:u.claim,
       care_plan_cnt:u.care_plan_cnt, edu_cnt:u.edu_cnt, patient_mgmt_cnt:u.patient_mgmt_cnt, check_eval_cnt:u.check_eval_cnt,
       last_sync_date:u.last_sync_date
-    }).eq('biz_no', u.biz_no).eq('office', currentOffice).select('id');
+    };
+    // 잠긴 (사무소,사업자번호)는 prev_patients를 아예 update 대상에서 빼서 기존 값을 그대로 지킴
+    if(!prevLocked.has(currentOffice+'|'+u.biz_no+'|'+prevMonthForLock)) upd.prev_patients=u.prev_patients;
+    return db.from('clinics').update(upd).eq('biz_no', u.biz_no).eq('office', currentOffice).select('id');
   })).then(function(results){
     var failed=results.filter(function(r){return r.error;}).length;
     // 사업자번호가 안 맞아 0건 반영된(=조용히 사라졌을) 행은 미매칭 거래처로 남겨서 나중에 검토 가능하게 함
@@ -2415,6 +2441,7 @@ function commitCurrentRaw(parsed, status, lockMonth){
       if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
       status.textContent=updates.length+'건 중 '+(updates.length-failed)+'건 반영 완료'+(failed?(', '+failed+'건은 사업자번호 불일치로 실패'):'')+'. (파일 기준일: '+asOf+', 거래처현황판만 갱신됨)'+(lockMonth?(' 🔒 '+asOf.slice(0,7)+' 환자수는 월마감 확정되어 이후 다른 RAW 파일이 덮어쓸 수 없습니다.'):'');
     });
+  });
   });
 }
 
@@ -6936,7 +6963,7 @@ function approveRequest(){
   if(!canApproveRequests()){ alert('승낙은 담당 CM 또는 관리자만 가능합니다.'); return; }
   if(!currentReqId) return;
   var exactTimeEl=document.getElementById('req-exact-time');
-  var upd={status:'approved'};
+  var upd={status:'approved', decided_at:new Date().toISOString()};
   if(exactTimeEl) upd.exact_time=exactTimeEl.value||null;
   db.from('schedules').update(upd).eq('id',currentReqId).then(function(res){
     if(res.error){alert('승낙 처리 실패: '+res.error.message);return;}
@@ -6947,7 +6974,7 @@ function approveRequest(){
 function rejectRequest(){
   if(!canApproveRequests()){ alert('거절은 담당 CM 또는 관리자만 가능합니다.'); return; }
   if(!currentReqId) return;
-  db.from('schedules').update({status:'rejected'}).eq('id',currentReqId).then(function(res){
+  db.from('schedules').update({status:'rejected', decided_at:new Date().toISOString()}).eq('id',currentReqId).then(function(res){
     if(res.error){alert('거절 처리 실패: '+res.error.message);return;}
     document.getElementById('req-ov').style.display='none';
     loadSchedules();
@@ -6997,7 +7024,7 @@ function approveReq(id){
   if(!canApproveRequests()){ alert('승낙은 담당 CM 또는 관리자만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
-  db.from('schedules').update({status:'approved'}).eq('id',id).then(function(res){
+  db.from('schedules').update({status:'approved', decided_at:new Date().toISOString()}).eq('id',id).then(function(res){
     if(res.error){alert('승낙 처리 실패: '+res.error.message);return;}
     loadSchedules();
     alert('✅ '+r.label+' 일정이 승낙되었습니다!');
@@ -7008,7 +7035,7 @@ function rejectReq(id){
   if(!canApproveRequests()){ alert('거절은 담당 CM 또는 관리자만 가능합니다.'); return; }
   var r=REQUESTS.find(function(x){return x.id===id;});
   if(!r) return;
-  db.from('schedules').update({status:'rejected'}).eq('id',id).then(function(res){
+  db.from('schedules').update({status:'rejected', decided_at:new Date().toISOString()}).eq('id',id).then(function(res){
     if(res.error){alert('거절 처리 실패: '+res.error.message);return;}
     loadSchedules();
     alert('❌ 요청이 거절되었습니다.');
