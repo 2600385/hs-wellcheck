@@ -427,7 +427,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .mr-chip{display:inline-flex;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
 .edu-bdg{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;white-space:nowrap}
 .edu-ok{background:#E4F5EE;color:#145C38}
-.edu-warn{background:#FEF8E6;color:#7A5C00}
+.edu-warn{background:#FCEEF3;color:#B0527A}
 .edu-danger{background:#FEEEEE;color:#B01A1A}
 .edu-none{background:var(--bg2);color:var(--t3)}
 .dv-bdg{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:600;background:var(--bg2);color:var(--t2)}
@@ -3080,6 +3080,28 @@ function licenseExpiryLabel(c){
   if(!exp) return '';
   return exp.slice(2,4)+'.'+exp.slice(5,7)+'.'+exp.slice(8,10);
 }
+// 웰체크현황판 리스트의 "교육이수"/"의협회비" 배지 - 예전엔 "이수/미이수/해당없음"(c.edu 원본 값)과
+// 별도로 자격 만료 상태(만료임박/자격만료)를 작은 서브텍스트로만 덧붙여서 두 정보가 따로 놀았음.
+// 회사 규정상 실제로 중요한 건 "올해 안에 (기본이든 심화든) 교육을 이수했는가" 하나뿐이라 -
+// ilmansaLicenseStatus() 하나로 통일해서 배지 자체를 "이수 완료(녹색)/이수 필요(핑크, 올해 안에
+// 다시 들어야 다음해 삭감을 피함)/자격만료(진한 빨강, 이미 삭감 대상)"로 재구성함(사용자 확인).
+function eduBadgeInfo(c){
+  if(c.ilmansa!=='참여') return {label:'비대상', cls:'edu-none'};
+  var st=ilmansaLicenseStatus(c);
+  if(st==='valid') return {label:'이수 완료', cls:'edu-ok'};
+  if(st==='soon') return {label:'이수 필요', cls:'edu-warn'};
+  if(st==='expired') return {label:'자격만료', cls:'edu-danger'};
+  return {label:'미이수', cls:'edu-danger'}; // 참여 중인데 교육이수일 자체가 한 번도 없는 경우
+}
+// 의협회비 - "납부/비납부" 이분법 대신, 언제 냈는지(연도)까지 구분: 올해 냈으면 정상(녹색), 작년
+// 이전에 내고 아직 재납부 안 했으면 재납부 필요(핑크), 아예 낸 적 없으면 위험(빨강), 일만사
+// 미참여면 애초에 추적 대상이 아니므로 비대상(회색)(사용자 확인) - 교육이수 배지와 같은 색 언어 재사용
+function duesBadgeInfo(c){
+  if(c.ilmansa!=='참여') return {label:'비대상', cls:'edu-none'};
+  if(!c.duesDate) return {label:'미납부', cls:'edu-danger'};
+  var y=String(c.duesDate).slice(0,4), cy=String(new Date().getFullYear());
+  return y===cy ? {label:y, cls:'edu-ok'} : {label:y, cls:'edu-warn'};
+}
 // ===== 사무소 선택 =====
 var currentOffice='경인1';
 function officeRows(){ return CLINICS.filter(function(c){return (c.office||'경인1')===currentOffice;}); }
@@ -4548,7 +4570,6 @@ function renderList(){
       return r*sortDir;
     });
   }
-  function ecls(e){ return e==='이수'?'edu-ok':e==='해당없음'?'edu-none':'edu-danger'; }
   function gcol(p){ return p>=100?'#10b981':p>=40?'#EAB308':p>=20?'#f97316':'#ef4444'; }
   function gwid(p){ return p>=100?'100%':p>=40?'80%':p>=20?'50%':'25%'; }
   // DH품목 6종을 컬럼 하나로 합쳐봤더니(그리드+팝업) 품목명이 안 보여서 뭐가 뭔지 알 수 없다는
@@ -4573,8 +4594,7 @@ function renderList(){
     var rs=getRegionStyle(reg);
     var dc=rs.color;
     var regBg=rs.bg;
-    var duesLabel=c.dues||'해당없음';
-    var duBg=duesLabel==='납부'?'#E4F5EE;color:#145C38':duesLabel==='비납부'?'#FEEEEE;color:#B01A1A':'#F8F8F8;color:#aaa';
+    var duesInfo=duesBadgeInfo(c);
     var idx=CLINICS.indexOf(c);
     rows+='<tr style="'+(rb?rb+';':'')+'">'
       +'<td style="white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:'+dc+'">'
@@ -4609,12 +4629,12 @@ function renderList(){
         return '<td style="text-align:right;font-size:10px;font-weight:700;color:'+gapColor+'">'+gapTxt+'</td><td class="drillable" style="text-align:right;font-size:10px;font-weight:600" title="클릭하면 상세 내역이 보입니다" onclick="event.stopPropagation();showClaimEstPopup('+idx+',event)">'+(monthlyEst?monthlyEst.toLocaleString():'-')+'<span class="drill-ic">▾</span></td>';
       })()
       +(function(){
-        var lStatus=ilmansaLicenseStatus(c);
-        var lColor=lStatus==='expired'?'#B01A1A':lStatus==='soon'?'#B26A00':'#888';
-        var lSub=lStatus?'<br><span style="font-size:9px;color:'+lColor+';font-weight:700" title="일만사 운영 자격 유효기한(교육이수일 기준 다음해 12/31)">'+(lStatus==='expired'?'자격만료 ':lStatus==='soon'?'만료임박 ':'~')+licenseExpiryLabel(c)+'</span>':'';
-        return '<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+ecls(c.edu||'해당없음')+'">'+(c.edu||'해당없음')+'</span>'+lSub+'</span></td>';
+        var st=ilmansaLicenseStatus(c);
+        var eduInfo=eduBadgeInfo(c);
+        var lSub=(c.ilmansa==='참여'&&st)?('<br><span style="font-size:9px;color:var(--t3);font-weight:700" title="일만사 운영 자격 유효기한(교육이수일 기준 다음해 12/31)">~'+licenseExpiryLabel(c)+'</span>'):'';
+        return '<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+eduInfo.cls+'">'+eduInfo.label+'</span>'+lSub+'</span></td>';
       })()
-      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+duesLabel+'" onclick="showDuesPopup(this)"><span style="font-size:10px;padding:2px 6px;border-radius:999px;font-weight:600;background:'+duBg+'">'+duesLabel+'</span></td>'
+      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+(c.dues||'해당없음')+'" onclick="showDuesPopup(this)"><span class="edu-bdg '+duesInfo.cls+'">'+duesInfo.label+'</span></td>'
       // DH 구역 - 좌우 패딩을 좁게(td 기본 12px -> 2px) 오버라이드해서 6컬럼이어도 폭을 적게 차지하게 함
       +'<td style="text-align:center;padding:8px 2px;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
       +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
