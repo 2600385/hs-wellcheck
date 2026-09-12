@@ -1061,8 +1061,14 @@ td.drillable:hover .drill-ic{color:var(--dw)}
     <div id="visit-only-fields">
       <div class="fld">
         <label>거래처명</label>
-        <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요 (타사무소 동도는 위 '🤝 타사무소 동도 지원' 버튼 이용)" autocomplete="off">
-        <datalist id="clinic-list"></datalist>
+        <div style="display:flex;gap:6px;align-items:stretch">
+          <input type="text" id="inp-clinic" list="clinic-list" onchange="onClinicSelect()" placeholder="담당자 선택 후 거래처를 고르세요 (타사무소 동도는 위 '🤝 타사무소 동도 지원' 버튼 이용)" autocomplete="off" style="flex:1">
+          <datalist id="clinic-list"></datalist>
+          <!-- PC는 위 datalist(입력하며 자동완성)로도 되지만, 모바일 브라우저(특히 iOS 사파리)는
+               <input list>가 거의 안 먹혀서 그냥 수기입력만 되는 것처럼 보인다는 지적(사용자 확인) -
+               PC/모바일 둘 다 되는 별도 목록 팝업 버튼을 추가로 둠(openClinicPicker) -->
+          <button type="button" onclick="openClinicPicker()" style="flex-shrink:0;padding:0 12px;font-size:12px;font-weight:700;border:0.5px solid var(--bd2);border-radius:var(--r);background:var(--bg2);color:var(--t1);cursor:pointer;font-family:inherit;white-space:nowrap">📋 목록</button>
+        </div>
       </div>
       <!-- 사무소(MR)가 간호사에게 방문을 요청할 때 어떤 상황인지/뭘 해달라는건지 몰라서 답답하다는
            피드백 - 사무소 쪽에서 요청할 땐 필수로 적게 하고, 간호사 본인이 직접 일정을 넣을 땐(요청 대상이
@@ -6132,6 +6138,40 @@ function loadClinicsByMR(mr) {
   inp.placeholder = filtered.length > 0
     ? '▼ ' + filtered.length + '개 거래처 중 선택'
     : '해당 담당자 웰체크 거래처 없음';
+}
+// PC는 <input list>(datalist) 자동완성으로도 거래처를 고를 수 있지만, 모바일 브라우저(특히 iOS
+// 사파리)는 datalist가 거의 지원이 안 돼서 그냥 수기입력만 되는 것처럼 보였음(사용자 확인) -
+// PC/모바일 어디서든 똑같이 되는 탭-투-선택 목록 팝업을 별도로 둔다. 담당자 선택 시 로드되는
+// 거래처 목록(loadClinicsByMR과 동일 기준)을 그대로 재사용.
+var _clinicPickerList=[];
+function openClinicPicker(){
+  if(_crossMr){ alert('타사무소 동도 거래처는 위 "🤝 타사무소 동도 지원" 버튼으로 골라주세요.'); return; }
+  var mr=document.getElementById('inp-mr').value;
+  if(!mr){ alert('담당자를 먼저 선택해주세요.'); return; }
+  _clinicPickerList=CLINICS.filter(function(c){ return c.mr===mr; }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'ko'); });
+  var body='<input type="text" id="clinic-picker-search" oninput="renderClinicPickerResults()" placeholder="거래처명 검색" autocomplete="off" style="width:100%;padding:8px 10px;font-size:13px;border:0.5px solid var(--bd2);border-radius:8px;margin-bottom:8px;box-sizing:border-box;font-family:inherit">'
+    +'<div id="clinic-picker-results" style="max-height:340px;overflow-y:auto"></div>';
+  showSimpleModal('거래처 선택 ('+_clinicPickerList.length+'곳)', body);
+  renderClinicPickerResults();
+  setTimeout(function(){ var el=document.getElementById('clinic-picker-search'); if(el) el.focus(); }, 50);
+}
+// 검색창 자체는 다시 안 그리고(포커스/커서 유지) 결과 목록만 갱신
+function renderClinicPickerResults(){
+  var qEl=document.getElementById('clinic-picker-search');
+  var q=qEl?qEl.value.trim().toLowerCase():'';
+  var el=document.getElementById('clinic-picker-results');
+  if(!el) return;
+  var filtered=q?_clinicPickerList.filter(function(c){ return String(c.name).toLowerCase().indexOf(q)>=0; }):_clinicPickerList;
+  el.innerHTML=filtered.length?filtered.map(function(c){
+    return '<div onclick="selectClinicFromPicker(\''+String(c.name).replace(/'/g,"\\'")+'\')" style="padding:10px 8px;border-bottom:0.5px solid var(--bd2);cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center">'
+      +'<span>'+c.name+'</span><span style="font-size:11px;color:var(--t3);flex-shrink:0;margin-left:8px">'+(c.patients||0)+'명'+(c.ilmansa==='참여'?'':' · 미참여')+'</span></div>';
+  }).join(''):'<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px">검색 결과가 없습니다.</div>';
+}
+function selectClinicFromPicker(name){
+  document.getElementById('inp-clinic').value=name;
+  onClinicSelect();
+  var ov=document.getElementById('simple-modal-ov');
+  if(ov) ov.remove();
 }
 
 // 거래처 선택 → 일만사/환자수 자동 채우기
