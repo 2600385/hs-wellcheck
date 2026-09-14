@@ -324,6 +324,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .primaryKpi .kval{font-size:48px;color:#F47920}
 .primaryKpi .smallTarget{font-size:27px;color:#9b8d82}
 .gradePill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fee6e9;color:#c92f3f;font-weight:950;margin-left:6px;font-size:13px}
+/* 등급(S/A/B/C)별 색 - 예전엔 등급과 무관하게 전부 이 핑크 하나뿐이라(위 .gradePill 기본값),
+   담당자별 목표 카드처럼 여러 등급이 나란히 있으면 다 똑같아 보여서 구분이 안 된다는 지적
+   (사용자 확인) - S=하늘색/A=초록/B=노랑/C=핑크(기존 색 유지)로 나눔. gradeClass()가 붙여주는
+   g-S/g-A/g-B/g-C 클래스가 .gradePill 기본 배경을 덮어씀(선언 순서 무관하게 항상 이기도록
+   .gradePill과 함께 쓰는 조합 선택자로 둠). */
+.gradePill.g-S{background:#E0F2FE;color:#0369A1}
+.gradePill.g-A{background:#E4F5EE;color:#145C38}
+.gradePill.g-B{background:#FEF3C7;color:#92700A}
+.gradePill.g-C{background:#fee6e9;color:#c92f3f}
 /* 드릴다운(클릭하면 상세 팝업/모달) 가능한 셀 표시 - 정렬 화살표(sth/thArrow)와 같은 언어로,
    평소엔 옅은 회색 작은 세모만 보이다가 마우스를 올리면 브랜드색(주황)으로 진해지고 배경도
    살짝 깔려서 "여기 누르면 더 볼 수 있다"는 게 눈에 띔 - 예전엔 커서 포인터·밑줄점선뿐이라
@@ -332,10 +341,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 td.drillable{cursor:pointer}
 td.drillable:hover{background:var(--dw-l)}
 td.drillable:hover .drill-ic{color:var(--dw)}
-/* 7~12월 등급 카드용 - 확정(청구마감 반영)은 기존 gradePill 그대로(꽉 찬 배경), 예상(현재 활성처
-   기준)은 옅은 테두리만 있는 형태로 눈에 덜 튀게 - 배지 텍스트를 따로 안 붙여도 한눈에 구분되도록 함 */
-.gradePill-confirmed{background:#fee6e9;color:#c92f3f}
-.gradePill-projected{background:transparent;color:#c92f3f;border:1.3px solid #f3c3ca}
+/* 7~12월 등급 카드용 - 확정(청구마감 반영)은 꽉 찬 배경, 예상(현재 활성처 기준)은 옅은 테두리만
+   있는 형태로 눈에 덜 튀게 - 배지 텍스트를 따로 안 붙여도 한눈에 구분되도록 함. 색 자체(꽉 찬
+   배경/테두리색)는 등급별(g-S/A/B/C)로 갈리므로 여기선 "예상"의 테두리만 있는 형태만 정의. */
+.gradePill.gradePill-projected{background:transparent}
+.gradePill.gradePill-projected.g-S{border:1.3px solid #bae6fd}
+.gradePill.gradePill-projected.g-A{border:1.3px solid #bde4c8}
+.gradePill.gradePill-projected.g-B{border:1.3px solid #fde68a}
+.gradePill.gradePill-projected.g-C{border:1.3px solid #f3c3ca}
 .redCard{background:#FFF6F6!important;border:2px solid #E9B9B9!important}
 .redCard .kval,.redCard .klbl{color:#B84242!important}
 .diffKpi{background:#F3FBF6!important;border:2px solid #BDE4CC!important}
@@ -5105,6 +5118,7 @@ function cumTypeAt(office, uptoMonth){
 function activeThreshold(monthStr){ return 4; }
 // 달성률(%) -> S/A/B/C 등급 변환 - 회사 평가 기준(사용자 확인): S 100%↑ / A 80%↑ / B 60%↑ / C 60%미만
 function achievementGrade(pct){ return pct>=100?'S':pct>=80?'A':pct>=60?'B':'C'; }
+function gradeClass(g){ return 'g-'+g; }
 function todayMonthStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1<10?'0'+(d.getMonth()+1):(d.getMonth()+1)); }
 // "평가기준 대응" 카드용: 익월(다음달) 목표 월을 항상 오늘 날짜 기준으로 다시 계산
 function nextMonthStr(){ var d=new Date(); var y=d.getFullYear(), m=d.getMonth()+2; if(m>12){ m-=12; y+=1; } return y+'-'+(m<10?'0'+m:m); }
@@ -5222,7 +5236,7 @@ function renderStKPI(){
     // gradeNeeds: "B등급까지 24처 · A등급까지 43처 · S등급까지 61처"처럼 "까지"를 매번 반복하면
     // 늘어지니, 등급마다는 "B등급 24처"로 짧게 쓰고 "필요"는 맨 끝에 딱 한 번만 붙임(사용자 확인).
     ['primaryKpi','현재 활성처','<span>'+k.active+'처</span> <span class="smallTarget">/ '+k.target+'처</span>',
-      k.achievement+'% <span class="gradePill">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'
+      k.achievement+'% <span class="gradePill '+gradeClass(k.grade)+'">'+k.grade+'등급</span><br><span style="color:#2F78B7;font-weight:700">비일만사 '+k.nonOnlyActive+'처</span>'
       +(k.gradeNeeds.length
         ?('<br><span style="display:block;font-size:9.5px;font-weight:700;color:#8A6800;white-space:nowrap">'+k.gradeNeeds.map(function(g){return g.grade+'등급 '+g.need+'처';}).join(' · ')+' 필요</span>')
         :'<br><span style="color:#145C38;font-weight:700">최고 등급(S) 달성</span>'),
@@ -5254,7 +5268,7 @@ function renderStKPI(){
   var monthLines=legend+'<div class="month-grid">'+monthsList.map(function(mm){
     var a=officeMonthGrade(mm);
     if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
-    var pillCls=a.official?'gradePill-confirmed':'gradePill-projected';
+    var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(achievementGrade(a.pct));
     return '<span class="month-line">'+mm+'월 <span class="gradePill gradePill-sm '+pillCls+'">'+a.pct+'% '+achievementGrade(a.pct)+'등급</span></span>';
   }).join('')+'</div>';
   // 카드 클릭 시 하단 리스트로 이동하지 않고(다른 미니카드와 달리 이 카드는 목록 필터링이 의미가
@@ -5331,7 +5345,7 @@ function renderStMrCards(){
       // 단, 이건 항상 "지금 기준"뿐이다(청구현황 베이스라인이 사무소 단위로만 내려와서 개인별
       // "지난달 실제 확정" 수치는 회사도 안 줌 - 그래서 사무소 카드처럼 확정/예상 구분은 없음).
       var pct=t?Math.round(active/t*100):null;
-      var gradeHtml=pct!=null?(' <span class="gradePill gradePill-sm">'+achievementGrade(pct)+'등급</span>'):'';
+      var gradeHtml=pct!=null?(' <span class="gradePill gradePill-sm '+gradeClass(achievementGrade(pct))+'">'+achievementGrade(pct)+'등급</span>'):'';
       return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
         +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당</div>'
         +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
@@ -5397,7 +5411,7 @@ function openOfficeGradeModal(){
       var monthLbl=mm+'월'+(isCur?' (당월)':(mStr<todayM?' (지남)':' (예상)'));
       var a=officeMonthGrade(mm);
       if(a.th==null) return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td><td colspan="4" style="text-align:center;padding:5px 6px">목표 데이터 없음</td></tr>';
-      var pillCls=a.official?'gradePill-confirmed':'gradePill-projected';
+      var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(achievementGrade(a.pct));
       return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.th+'처</td>'
         +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.official?'#145C38':'#B26A00')+'">('+(a.official?'확정':'예상')+')</span></td>'
