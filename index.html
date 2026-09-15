@@ -219,19 +219,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* 오전/오후/종일 영역 - overflow:hidden을 빼서(대신 appendEvsWithMore의 max로 상한을 두므로 넘칠
    일은 없음) 일정이 늘어나면 이 영역도, 부모 .dc(min-height)도 같이 커지게 함.
-   예전엔 여기 flex:1을 줘서 한 주(같은 grid row)에서 가장 일정 많은 날(=그 행의 높이를 정하는
-   날) 기준으로 다른 날들 칸이 늘어날 때, 그 "남는 공간"이 오전·오후 두 영역에 균등하게(50:50)
-   나눠져서 - 정작 일정이 몰린 그 날(예: 오후만 3건)은 오전 쪽에 남는 공간이 없어 오전 영역이
-   좁고 빡빡해 보이는데, 같은 행의 다른 날은 오전 일정이 적어도 오전 영역이 넉넉하게 늘어나
-   보여서 "왜 이 날만(=하필 일정이 제일 많은 날만) 오전 칸이 유독 짧아 보이냐"는 지적이 있었음.
-   flex:1을 빼서(그냥 내용물 크기만큼만 차지) 각 날짜의 오전/오후 높이가 항상 "그 날 그 시간대
-   일정 개수"에 비례하게 하고, 행 전체를 맞추기 위한 남는 공간은 오전/오후 사이에 나누지 않고
-   칸 맨 아래(오후 영역 밑) 여백으로만 모이게 함 - 그러면 일정 몰린 날과 그 날의 오전/오후 비율이
-   항상 자연스럽게 유지되고, 남는 공간의 위치도 모든 날짜에서 일관됨(2026-09-15) */
-.dc-am{flex:0 0 auto;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:clip}
+   flex:1(오전/오후 균등 50:50)을 flex:0 0 auto(내용물 크기만큼만)로 한번 바꿔봤었는데 - 그러면
+   일정이 몰린 날의 오전 영역이 옆 날짜들보다 유독 좁아 보이는 문제는 해결되지만, 그 대신 그 주에
+   일정이 적거나 없는 날(예: 종일 일정 하나뿐이거나 완전히 빈 날)은 남는 공간이 전부 칸 맨 아래
+   여백으로 몰려서 - 바쁜 날 옆에 거의 텅 빈 큰 여백 덩어리가 생겨 한 주 전체가 들쭉날쭉하고
+   조잡해 보인다는(=이번 지적) 부작용이 있었음. 즉 "오전 영역만 콕 집어 비교하면" 균등분배가 더
+   어색하고, "칸 전체를 보면" 균등분배가 오히려 더 안정적이고 박스답게 보임 - 그래서 flex:1로
+   되돌림(2026-09-15). "오전끼리, 오후끼리 각각 그 주의 최대치에 맞춰 띠처럼 정렬"하는 게 정공법인데,
+   그러려면 지금처럼 오전/오후를 같은 박스(.dc) 안에 넣어두는 구조 자체를 (요일별 오전 띠 7개를 한
+   그리드 행에, 오후 띠 7개를 그다음 그리드 행에 따로 배치하는 식으로) 크게 바꿔야 해서 별도 작업으로
+   미룸 - 지금은 "완벽한 정렬"보다 "덜 어색한 균등분배"를 택함 */
+.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:clip}
 .dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
-.dc-pm{flex:0 0 auto;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:clip}
-.dc-all{flex:0 0 auto;padding:0 4px 3px;display:flex;flex-direction:column;overflow-x:clip}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:clip}
+.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column;overflow-x:clip}
 .zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
 
 /* 이벤트 칩 */
