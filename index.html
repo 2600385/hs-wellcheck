@@ -2300,10 +2300,50 @@ function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
     if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
   });
 }
+// [재발 방지 - 3차, 근본 조치] 위 두 차례 재발 방지(prev_patients 보호 등)는 전부 "이미 잘못
+// 잠긴 값이 있다"는 걸 전제로 그 값을 지키는 방식이었는데, 정작 "월마감 확정"으로 처음 잠그는
+// 그 순간 파일 자체가 깨져 있으면(환자수 컬럼이 대부분 0/1로 들어옴) 그 망가진 값이 그대로
+// 영구 보호 대상이 되어버림 - 실제로 2026-09-15 기준 전국 37개 사무소 중 거의 전부(사무소별
+// 40~100%)가 8월 잠금 당시 이렇게 깨진 채 잠겼던 것으로 확인됨(경인1만 예전에 부분 복구, 나머지는
+// 방치). 매번 사무소별로 터진 뒤에야 DB를 손으로 복구하는 건 근본 해결이 아니라는 지적(사용자
+// 확인) - 그래서 "잠그기 직전"에 파일 자체가 정상인지 검사해서, 이상하면 그 자리에서 확정 여부를
+// 다시 묻는다(막지는 않음 - 정말 신생 사무소라 전부 소수인 극단적 케이스도 있을 수 있어 관리자
+// 최종 판단은 남겨두되, "이 파일 전체가 0/1"이라는 이상 신호를 절대 조용히 지나치지 않게 함).
+function suspiciousLockCheck(rows){
+  var withOffice=(rows||[]).filter(function(r){return r.biz_no;});
+  var total=withOffice.length;
+  var bad=withOffice.filter(function(r){return (r.patients||0)<=1;});
+  return {total:total, badCount:bad.length, ratio:total?bad.length/total:0};
+}
 function commitCurrentRaw(parsed, status, lockMonth){
   var updates=parsed.updates, asOf=parsed.asOf;
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   status.textContent=updates.length+'개 거래처 반영 중...';
+  // "월마감 확정" 체크된 채로 올라온 파일은, 잠그기 전에 환자수 분포부터 확인 - 0/1(=데이터 없음과
+  // 사실상 같은 값)이 비정상적으로 많으면(15% 초과) 파일 자체가 깨졌을 가능성이 매우 높으므로,
+  // 관리자에게 실제 수치를 보여주고 그래도 확정할지 다시 확인한다(전체 업로드면 다른 사무소 몫인
+  // natUpdates까지 합쳐서 검사 - 회사가 내려주는 전사 파일이 깨지면 모든 사무소가 한 번에 오염되므로)
+  if(lockMonth){
+    var lockCheckRows=updates;
+    if(isFullAdmin&&parsed.natUpdates&&parsed.natUpdates.length) lockCheckRows=updates.concat(parsed.natUpdates);
+    var chk=suspiciousLockCheck(lockCheckRows);
+    if(chk.ratio>0.15){
+      var pct=Math.round(chk.ratio*100);
+      var proceed=confirm(
+        '⚠️ 월마감 확정 전 확인 필요\n\n'+
+        '이번 파일에서 '+chk.total+'곳 중 '+chk.badCount+'곳('+pct+'%)이 환자수 0~1명으로 되어있습니다.\n'+
+        '실제로 이렇게 낮을 가능성보다, 파일 자체가 깨져 들어왔을 가능성이 훨씬 큽니다(과거에 실제로\n'+
+        '이런 식으로 잠겨서 나중에 "당월 신규 활성환자"가 수천 명씩 잘못 튀는 사고가 여러 번 있었음).\n\n'+
+        '한번 월마감 확정하면 이후 어떤 파일을 다시 올려도 이 값을 덮어쓸 수 없으니,\n'+
+        '파일이 정상인지 다시 한번 확인해주세요.\n\n'+
+        '그래도 이 파일 그대로 월마감 확정하시겠습니까?'
+      );
+      if(!proceed){
+        lockMonth=false;
+        status.textContent='월마감 확정을 취소하고 일반 반영만 진행합니다(체크박스를 다시 켜서 재시도할 수 있어요).';
+      }
+    }
+  }
   // [재발 방지 - 2차] "월마감 확정"으로 잠근 달은 raw_monthly_snapshot(감사용 테이블)만 보호되고
   // 있었고, 정작 화면 KPI가 실제로 참조하는 clinics.prev_patients(라이브 테이블)는 이 함수에서
   // 그대로 새 파일 값으로 덮어쓰고 있었음 - raw_monthly_snapshot에 그 거래처 스냅샷이 없는(잠금
