@@ -187,20 +187,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .leg-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:5px 10px;background:var(--white);border:0.5px solid var(--bd);border-radius:var(--r);flex-wrap:wrap}
 .leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2)}
 
-/* 달력 */
+/* 달력
+   ===== 2026-09-15 구조 변경 이력 =====
+   1차: 날짜 하나=박스 하나(.dc), 오전/오후를 flex:1로 세로로 쌓아 남는 공간을 50:50 분배.
+       "일정 몰린 날의 오전이 옆보다 좁아 보임" 지적.
+   2차: flex:0 auto(내용만큼만)로 바꿈 -> 빈 날 여백이 칸 맨 아래로 몰려 한 주가 들쭉날쭉.
+       flex:1로 되돌림.
+   3차: "오전끼리/오후끼리 그 주 안에서 띠로 정렬"되도록 한 주마다 미니 grid를 만들어 오전
+       7개를 한 행에, 오후 7개를 다음 행에 배치 -> 오전/오후 개별 정렬은 맞았지만, 그 결과
+       "바쁜 날 하나 때문에 주(週) 전체 높이가 매번 달라짐"이 여전히 남아있었고(어떤 주는
+       크게, 어떤 주는 작게) 이게 위 1~2차와는 다른 각도로 "칸 크기가 뒤틀려 보인다"는
+       지적을 계속 받음 - 결국 "칸이 일정 개수에 따라 커진다" 자체가 문제의 뿌리였음.
+
+   그래서 방향을 완전히 바꿔서, 모바일에서 이미 안정적으로 써오던 방식(칸 높이 고정 +
+   넘치는 일정은 "+N개 더보기")을 데스크톱에도 그대로 적용함: 날짜 칸(.dc)은 항상 고정
+   height(월별로 절대 안 바뀜, 일정이 몇 건이든 무관) - 그래서 모든 주, 모든 칸이 항상
+   똑같은 크기라 "이 칸만 유독 짧다/길다"는 애초에 성립하지 않음. 오전/오후 존은
+   overflow:hidden으로 정직하게 자르되(더 이상 "visible로 만들어야 한다"는 시도를 안 함),
+   appendEvsWithMore의 zoneMax개(현재 3개)까지만 실제로 그려서 그 안에 항상 들어맞게 하고,
+   그 이상이면 "+N개 더보기"로 묶어 클릭 시 팝업으로 전체를 보여줌(openDayList, 기존 구현
+   그대로) - 즉 "칸을 늘려서 다 보여주기"를 포기하고 "칸은 고정, 넘치면 목록 팝업"으로 감 */
 .cal-grid-wrap{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:12px;min-width:0}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-dh{padding:8px 5px;font-size:11px;font-weight:700;color:var(--t2);text-align:center;background:var(--bg3);border-bottom:1px solid var(--bd2)}
 
-/* 날짜 셀 - height가 아니라 min-height라서, 한 주(같은 grid row)의 어느 날이든 일정이 많아 칸이
-   커져야 하면(예: 오전 3건) CSS grid가 그 행 전체를 알아서 그만큼 늘려줌(구현은 appendEvsWithMore의
-   max 상향 + 아래 zone 영역들의 overflow:visible 조합). 평소(2건 이하)엔 116px로 다른 주와 동일하게 유지 */
-/* overflow-y는 그대로 두되(줄 수만큼 세로로 자라야 하니까) overflow-x만 hidden으로 - 이게 없으면
-   CSS grid(.cal-grid, repeat(7,1fr))가 셀 안의 가장 긴 이벤트 칩(말줄임 되기 전 원래 텍스트 폭)을
-   기준으로 각 칸의 "최소 폭"을 잡아버려서, 좁은 모바일 화면에서 그리드 전체가 화면보다 넓어지고
-   토요일 칸이 잘려 안 보이거나 글자가 옆칸으로 삐져나오는 문제가 있었음(실측: 320px 화면에서 그리드
-   자체가 348px로 화면보다 넓어져 가로 스크롤이 생기고 칸이 잘림) */
-.dc{min-height:116px;overflow-x:hidden;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s}
+/* 날짜 칸 - height 고정(더 이상 min-height 아님). 일정이 몇 건이든 이 칸 크기는 절대 안 바뀌고,
+   넘치는 일정은 오전/오후 존이 overflow:hidden으로 잘라내는 대신 appendEvsWithMore가 zoneMax
+   개수까지만 그려서 "+N개 더보기"로 안내함(존이 실제로 잘리는 일은 없음 - zoneMax와 아래 존
+   높이를 서로 맞춰뒀기 때문). overflow-x:clip을 쓰는 이유는 긴 텍스트가 grid 열 폭을 억지로
+   넓혀 가로 스크롤이 생기는 걸 막기 위함(overflow-x만 hidden으로 주면 CSS 페어링 규칙 때문에
+   overflow-y도 덩달아 auto가 되어버리는 경우가 있어 clip을 씀 - 다만 지금은 세로도 어차피
+   hidden 처리라 이 부분은 실질적으로 문제되지 않음) */
+.dc{height:168px;overflow-x:clip;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s}
 .dc:nth-child(7n){border-right:none}
 .dc:hover{background:var(--dw-l)}
 .dc-top{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none}
@@ -208,12 +226,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .today-circle{background:var(--dw);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
 .add-btn{display:none}
 
-/* 오전/오후/종일 영역 - overflow:hidden을 빼서(대신 appendEvsWithMore의 max로 상한을 두므로 넘칠
-   일은 없음) 일정이 늘어나면 이 영역도, 부모 .dc(min-height)도 같이 커지게 함 */
-.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:hidden}
+/* 오전/오후/종일 영역 - flex:1로 남은 공간을 균등 분배하되, 이제 .dc 자체가 고정 height라
+   "옆 날짜 때문에 남는 공간이 생기고 그걸 어떻게 나누나" 고민 자체가 없어짐(모든 날짜가 항상
+   똑같은 고정 크기라 애초에 "남는 공간"이 날짜마다 다르지 않음). overflow:hidden으로 zoneMax
+   초과분을 확실히 잘라내되, appendEvsWithMore가 항상 "+N개 더보기"로 안내하므로 사용자
+   입장에서 실제 잘려서 안 보이는 일은 없음(더보기 클릭 -> openDayList 팝업으로 전체 확인) */
+.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow:hidden}
 .dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
-.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow-x:hidden}
-.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column;overflow-x:hidden}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column;overflow:hidden}
 .zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
 
 /* 이벤트 칩 */
@@ -247,12 +268,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dl-row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer}
 .dl-row:hover{filter:brightness(.96)}
 
-/* 빈칸 */
-/* .dc처럼 min-height로 - 같은 주의 다른 칸이 일정이 많아 커지면 월 시작/끝의 빈 칸도 같이 늘어나야
-   줄 밑선이 들쭉날쭉해 보이지 않음 */
-.ec{min-height:116px;overflow-x:hidden;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
-.ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
+/* 빈칸(이전/다음 달 자리표시자) - .dc와 똑같이 고정 height */
+.ec{height:168px;overflow-x:clip;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
 .ec:nth-child(7n){border-right:none}
+.ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
 
 /* 하단 패널 */
 .bot-panels{display:flex;flex-direction:column;gap:12px;width:260px;flex-shrink:0;position:sticky;top:0}
@@ -629,9 +648,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
      "일정이 하나도 안 보여서 캘린더 기능을 못한다"는 지적이 나와 존당 실제 한두 줄은 보이도록 다시
      조금 키움(76px -> 108px). 데스크톱(116px+동적 증가)보다는 여전히 낮게 유지해 스크롤 부담은 최소화 */
   .cal-dh{font-size:12.5px!important;padding:9px 4px!important}
-  /* 데스크톱은 .dc가 이제 min-height라서(주간별로 일정 3건인 날엔 그 주만 커지게) 여기서 그냥
-     height만 주면 min-height(116px)가 바닥값으로 작용해 108px보다 커져버림 - min-height도 같이 눌러줌 */
-  .dc,.ec{height:108px!important;min-height:108px!important}
+  .dc,.ec{height:108px!important}
   .day-num{font-size:14px!important}
   .today-circle{width:22px!important;height:22px!important;font-size:12px!important}
 }
@@ -2283,10 +2300,50 @@ function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
     if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
   });
 }
+// [재발 방지 - 3차, 근본 조치] 위 두 차례 재발 방지(prev_patients 보호 등)는 전부 "이미 잘못
+// 잠긴 값이 있다"는 걸 전제로 그 값을 지키는 방식이었는데, 정작 "월마감 확정"으로 처음 잠그는
+// 그 순간 파일 자체가 깨져 있으면(환자수 컬럼이 대부분 0/1로 들어옴) 그 망가진 값이 그대로
+// 영구 보호 대상이 되어버림 - 실제로 2026-09-15 기준 전국 37개 사무소 중 거의 전부(사무소별
+// 40~100%)가 8월 잠금 당시 이렇게 깨진 채 잠겼던 것으로 확인됨(경인1만 예전에 부분 복구, 나머지는
+// 방치). 매번 사무소별로 터진 뒤에야 DB를 손으로 복구하는 건 근본 해결이 아니라는 지적(사용자
+// 확인) - 그래서 "잠그기 직전"에 파일 자체가 정상인지 검사해서, 이상하면 그 자리에서 확정 여부를
+// 다시 묻는다(막지는 않음 - 정말 신생 사무소라 전부 소수인 극단적 케이스도 있을 수 있어 관리자
+// 최종 판단은 남겨두되, "이 파일 전체가 0/1"이라는 이상 신호를 절대 조용히 지나치지 않게 함).
+function suspiciousLockCheck(rows){
+  var withOffice=(rows||[]).filter(function(r){return r.biz_no;});
+  var total=withOffice.length;
+  var bad=withOffice.filter(function(r){return (r.patients||0)<=1;});
+  return {total:total, badCount:bad.length, ratio:total?bad.length/total:0};
+}
 function commitCurrentRaw(parsed, status, lockMonth){
   var updates=parsed.updates, asOf=parsed.asOf;
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   status.textContent=updates.length+'개 거래처 반영 중...';
+  // "월마감 확정" 체크된 채로 올라온 파일은, 잠그기 전에 환자수 분포부터 확인 - 0/1(=데이터 없음과
+  // 사실상 같은 값)이 비정상적으로 많으면(15% 초과) 파일 자체가 깨졌을 가능성이 매우 높으므로,
+  // 관리자에게 실제 수치를 보여주고 그래도 확정할지 다시 확인한다(전체 업로드면 다른 사무소 몫인
+  // natUpdates까지 합쳐서 검사 - 회사가 내려주는 전사 파일이 깨지면 모든 사무소가 한 번에 오염되므로)
+  if(lockMonth){
+    var lockCheckRows=updates;
+    if(isFullAdmin&&parsed.natUpdates&&parsed.natUpdates.length) lockCheckRows=updates.concat(parsed.natUpdates);
+    var chk=suspiciousLockCheck(lockCheckRows);
+    if(chk.ratio>0.15){
+      var pct=Math.round(chk.ratio*100);
+      var proceed=confirm(
+        '⚠️ 월마감 확정 전 확인 필요\n\n'+
+        '이번 파일에서 '+chk.total+'곳 중 '+chk.badCount+'곳('+pct+'%)이 환자수 0~1명으로 되어있습니다.\n'+
+        '실제로 이렇게 낮을 가능성보다, 파일 자체가 깨져 들어왔을 가능성이 훨씬 큽니다(과거에 실제로\n'+
+        '이런 식으로 잠겨서 나중에 "당월 신규 활성환자"가 수천 명씩 잘못 튀는 사고가 여러 번 있었음).\n\n'+
+        '한번 월마감 확정하면 이후 어떤 파일을 다시 올려도 이 값을 덮어쓸 수 없으니,\n'+
+        '파일이 정상인지 다시 한번 확인해주세요.\n\n'+
+        '그래도 이 파일 그대로 월마감 확정하시겠습니까?'
+      );
+      if(!proceed){
+        lockMonth=false;
+        status.textContent='월마감 확정을 취소하고 일반 반영만 진행합니다(체크박스를 다시 켜서 재시도할 수 있어요).';
+      }
+    }
+  }
   // [재발 방지 - 2차] "월마감 확정"으로 잠근 달은 raw_monthly_snapshot(감사용 테이블)만 보호되고
   // 있었고, 정작 화면 KPI가 실제로 참조하는 clinics.prev_patients(라이브 테이블)는 이 함수에서
   // 그대로 새 파일 값으로 덮어쓰고 있었음 - raw_monthly_snapshot에 그 거래처 스냅샷이 없는(잠금
@@ -4043,6 +4100,8 @@ function applyMRButtons(){
 }
 
 // ===== 달력 렌더링 =====
+// 2026-09-15: 날짜 칸(.dc) 크기를 고정으로 되돌림(위 CSS .dc 주석의 변경 이력 참고) - 일정이
+// 몇 건이든 칸 크기는 항상 동일하고, zoneMax를 넘는 일정은 "+N개 더보기"로 묶어서 보여줌.
 function renderCalendar(){
   renderOfficeRegionLabel();
   renderCalHeadTitle();
@@ -4134,7 +4193,7 @@ function renderCalendar(){
       var pm=document.createElement('div');pm.className='dc-pm';
       var pmlbl=document.createElement('div');pmlbl.className='zone-lbl';pmlbl.textContent='오후';
       pm.appendChild(pmlbl);
-  
+
       appendEvsWithMore(pm,pmEvs,false,zoneMax(3,2),d,'pm');
       cell.appendChild(pm);
     }
@@ -5175,7 +5234,20 @@ function stKpiData(){
   var nonOnlyActive=r.filter(function(c){return liveActive(c)&&(c.patients||0)<TH;}).length;
   var newly=r.filter(function(c){return cp(c)===0&&(c.patients||0)>0;}).length;
   var crossed=r.filter(function(c){var p=cp(c),n=c.patients||0;return (p<TH&&n>=TH)||(p<40&&n>=40);}).length;
-  var newPatientsGain=r.reduce(function(s,c){var d=(c.patients||0)-cp(c); return s+(d>0?d:0);},0);
+  // [2026-09-15] 8월 "월마감 확정" 당시 원본 파일 없이 잠긴 사업소가 많아, raw_monthly_snapshot의
+  // 8월 베이스라인이 전국적으로(사무소별 40~100%) patients=0 또는 1인 플레이스홀더로 남아있는 게
+  // 확인됨(경인2도 141곳 전부 0/1) - 7월 clinic_claims로 일부 복구했지만 절반 정도는 대체할 자료가
+  // 없어 여전히 0/1로 남음. 이 상태에서 그대로 "이번달-전월"을 계산하면 실제로는 늘지도 않은
+  // 거래처가 "0->현재 환자수" 또는 "1->현재 환자수"로 잡혀 "+수천 명" 같은 터무니없는 값이 나옴
+  // (사용자 확인: 경인2 +8152명). prev가 0/1이면서 그 차이가 비정상적으로 큰(10명 이상) 경우는
+  // 거의 100% 이 베이스라인 오염이지 실제 한 달 새 이만큼 늘었을 리 없으므로, 그런 거래처는
+  // 이 합계에서 아예 제외(진짜 데이터 확보 전까지는 "모른다"고 보는 게, 틀린 값을 보여주는 것보다 낫다)
+  var newPatientsGain=r.reduce(function(s,c){
+    var prev=cp(c), now=c.patients||0, d=now-prev;
+    if(d<=0) return s;
+    if((prev===0||prev===1)&&d>=10) return s;
+    return s+d;
+  },0);
   var achievement=target?Math.round(active/target*100):0;
   var grade=achievementGrade(achievement);
   // "현재 활성처" 카드에 등급만 보여주고 정작 다음 등급까지 몇 처가 더 필요한지는 안 보여서 공백만
