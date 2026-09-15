@@ -188,53 +188,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .leg-i{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2)}
 
 /* 달력
-   ===== 2026-09-15 구조 변경 =====
-   예전엔 날짜 하나당 큰 박스(.dc) 하나를 만들고 그 안에서 "날짜헤더→종일띠→오전→오후"를
-   세로로 쌓는 flex 구조였음(오전/오후는 flex:1로 남는 공간을 50:50 균등분배). 이 방식은
-   "일정이 몰린 날"의 오전 영역이 옆 날짜보다 유독 좁아 보이거나(균등분배 끄면), 반대로
-   빈 날에 여백이 뭉텅이로 몰려 한 주가 들쭉날쭉해 보이는(균등분배 켜면) 문제를 동시에
-   풀 수가 없었음 - 둘 다 "오전/오후를 같은 박스 안에서 세로로만 쌓는" 구조의 근본 한계였음.
+   ===== 2026-09-15 구조 변경 이력 =====
+   1차: 날짜 하나=박스 하나(.dc), 오전/오후를 flex:1로 세로로 쌓아 남는 공간을 50:50 분배.
+       "일정 몰린 날의 오전이 옆보다 좁아 보임" 지적.
+   2차: flex:0 auto(내용만큼만)로 바꿈 -> 빈 날 여백이 칸 맨 아래로 몰려 한 주가 들쭉날쭉.
+       flex:1로 되돌림.
+   3차: "오전끼리/오후끼리 그 주 안에서 띠로 정렬"되도록 한 주마다 미니 grid를 만들어 오전
+       7개를 한 행에, 오후 7개를 다음 행에 배치 -> 오전/오후 개별 정렬은 맞았지만, 그 결과
+       "바쁜 날 하나 때문에 주(週) 전체 높이가 매번 달라짐"이 여전히 남아있었고(어떤 주는
+       크게, 어떤 주는 작게) 이게 위 1~2차와는 다른 각도로 "칸 크기가 뒤틀려 보인다"는
+       지적을 계속 받음 - 결국 "칸이 일정 개수에 따라 커진다" 자체가 문제의 뿌리였음.
 
-   그래서 "오전은 오전끼리, 오후는 오후끼리 그 주(週) 안에서 나란히 정렬"되도록 구조를 바꿈:
-   날짜 하나당 박스 하나 대신, 한 주(週)마다 미니 grid(.cal-week, 7열)를 만들고 그 안에
-   "날짜헤더 7개(1행) → 종일띠 7개(2행) → 오전 7개(3행) → 오후 7개(4행)" 순서로 넣음(구현은
-   renderCalendar()). CSS Grid는 같은 행에 놓인 형제 아이템들을 그 행에서 제일 큰 높이에
-   맞춰 자동 정렬해주므로, 오전 행은 그 주 오전 중 제일 바쁜 날 기준으로만 커지고 오후 행은
-   오후 중 제일 바쁜 날 기준으로만 커짐 - 일정이 몰린 날의 오전/오후 비율은 항상 그 날
-   그대로 유지되면서(더 이상 옆 날짜한테 억지로 맞춰 늘어나거나 줄어들지 않음), 같은 시간대끼리는
-   자연스럽게 줄이 맞음. 날짜 하나를 감싸던 박스 테두리는 이제 헤더/종일띠/오전/오후 4개 조각에
-   나눠 줌(맨 위 조각만 border-top, 맨 아래(오후) 조각만 border-bottom, 나머지는 위아래 테두리
-   없이 이어붙여서 하나의 박스처럼 보이게). 클릭·마우스오버도 예전엔 박스 하나가 다 처리했지만
-   이제 4조각 각각에 같은 클릭 핸들러를 걸고, 마우스오버는 같은 날짜의 4조각에 공통 클래스를
-   토글해 하나처럼 하이라이트되게 함(renderCalendar 안 parts.forEach 부분 참고) */
+   그래서 방향을 완전히 바꿔서, 모바일에서 이미 안정적으로 써오던 방식(칸 높이 고정 +
+   넘치는 일정은 "+N개 더보기")을 데스크톱에도 그대로 적용함: 날짜 칸(.dc)은 항상 고정
+   height(월별로 절대 안 바뀜, 일정이 몇 건이든 무관) - 그래서 모든 주, 모든 칸이 항상
+   똑같은 크기라 "이 칸만 유독 짧다/길다"는 애초에 성립하지 않음. 오전/오후 존은
+   overflow:hidden으로 정직하게 자르되(더 이상 "visible로 만들어야 한다"는 시도를 안 함),
+   appendEvsWithMore의 zoneMax개(현재 3개)까지만 실제로 그려서 그 안에 항상 들어맞게 하고,
+   그 이상이면 "+N개 더보기"로 묶어 클릭 시 팝업으로 전체를 보여줌(openDayList, 기존 구현
+   그대로) - 즉 "칸을 늘려서 다 보여주기"를 포기하고 "칸은 고정, 넘치면 목록 팝업"으로 감 */
 .cal-grid-wrap{background:var(--white);border:0.5px solid var(--bd);border-radius:var(--rl);overflow:hidden;margin-bottom:12px;min-width:0}
-.cal-dh-row{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-grid{display:block}
-.cal-week{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
 .cal-dh{padding:8px 5px;font-size:11px;font-weight:700;color:var(--t2);text-align:center;background:var(--bg3);border-bottom:1px solid var(--bd2)}
 
-/* ***중요***: 아래 조각들은 반드시 overflow-x:hidden이 아니라 overflow-x:clip을 써야 함 - CSS
-   스펙상 "overflow-x/overflow-y 중 하나가 visible이고 다른 하나가 visible이 아니면, visible인
-   쪽도 자동으로 auto로 계산된다"는 규칙이 있어서, overflow-y를 안 건드리고 overflow-x:hidden만
-   줘도 overflow-y가 조용히 auto로 바뀌어(실측 확인) 몰래 "세로 스크롤 컨테이너"가 되고, 넘치는
-   내용이 내부 스크롤 안으로 숨어버림(사용자 입장에선 "잘려서 안 보임", 2026-09-15 발견).
-   overflow-x:clip은 이 페어링 규칙 대상에서 제외되어(실측 확인) overflow-y가 진짜 visible로
-   남으면서, 긴 텍스트가 grid 열 폭을 억지로 넓히는 문제(가로 스크롤 생김)만 막아줌 */
-.dc-top{height:20px;display:flex;align-items:center;justify-content:center;border-top:0.5px solid var(--bd);border-right:0.5px solid var(--bd);cursor:pointer;position:relative}
-.dc-allband{padding:0 3px;border-right:0.5px solid var(--bd);overflow-x:clip;cursor:pointer;position:relative}
-.dc-am{min-height:47px;padding:0 3px 2px;border-right:0.5px solid var(--bd);overflow-x:clip;display:flex;flex-direction:column;cursor:pointer;position:relative}
-.dc-pm{min-height:48px;padding:0 3px 2px;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:1px solid var(--bd2);overflow-x:clip;display:flex;flex-direction:column;cursor:pointer;position:relative}
-.dc-hover{background:var(--dw-l)}
+/* 날짜 칸 - height 고정(더 이상 min-height 아님). 일정이 몇 건이든 이 칸 크기는 절대 안 바뀌고,
+   넘치는 일정은 오전/오후 존이 overflow:hidden으로 잘라내는 대신 appendEvsWithMore가 zoneMax
+   개수까지만 그려서 "+N개 더보기"로 안내함(존이 실제로 잘리는 일은 없음 - zoneMax와 아래 존
+   높이를 서로 맞춰뒀기 때문). overflow-x:clip을 쓰는 이유는 긴 텍스트가 grid 열 폭을 억지로
+   넓혀 가로 스크롤이 생기는 걸 막기 위함(overflow-x만 hidden으로 주면 CSS 페어링 규칙 때문에
+   overflow-y도 덩달아 auto가 되어버리는 경우가 있어 clip을 씀 - 다만 지금은 세로도 어차피
+   hidden 처리라 이 부분은 실질적으로 문제되지 않음) */
+.dc{height:168px;overflow-x:clip;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);display:flex;flex-direction:column;position:relative;transition:.1s}
+.dc:nth-child(7n){border-right:none}
+.dc:hover{background:var(--dw-l)}
+.dc-top{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;pointer-events:none}
 .day-num{font-size:13px;font-weight:700;color:var(--t1);line-height:1}
 .today-circle{background:var(--dw);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
 .add-btn{display:none}
 
-/* 빈 칸(이전/다음 달로 넘어가는 자리표시자) - 날짜 조각과 똑같이 4조각(헤더/종일띠/오전/오후)으로
-   나눠 하나의 회색 박스처럼 이어 붙임 */
-.ec-band{background:var(--bg2);opacity:.28;border-right:0.5px solid var(--bd)}
-.ec-top{height:20px;border-top:0.5px solid var(--bd)}
-.ec-pm{border-bottom:0.5px solid var(--bd)}
-
+/* 오전/오후/종일 영역 - flex:1로 남은 공간을 균등 분배하되, 이제 .dc 자체가 고정 height라
+   "옆 날짜 때문에 남는 공간이 생기고 그걸 어떻게 나누나" 고민 자체가 없어짐(모든 날짜가 항상
+   똑같은 고정 크기라 애초에 "남는 공간"이 날짜마다 다르지 않음). overflow:hidden으로 zoneMax
+   초과분을 확실히 잘라내되, appendEvsWithMore가 항상 "+N개 더보기"로 안내하므로 사용자
+   입장에서 실제 잘려서 안 보이는 일은 없음(더보기 클릭 -> openDayList 팝업으로 전체 확인) */
+.dc-am{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.dc-sep{height:1px;background:var(--bd);flex-shrink:0;opacity:.4}
+.dc-pm{flex:1;padding:0 3px 2px;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.dc-all{flex:1;padding:0 4px 3px;display:flex;flex-direction:column;overflow:hidden}
 .zone-lbl{font-size:8px;color:var(--t3);font-weight:700;letter-spacing:.2px;padding:2px 4px 1px;pointer-events:none;text-transform:uppercase;flex-shrink:0;display:block}
 
 /* 이벤트 칩 */
@@ -268,9 +268,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dl-row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin-bottom:4px;cursor:pointer}
 .dl-row:hover{filter:brightness(.96)}
 
-/* 빈칸(이전/다음 달 자리표시자) 스타일은 위 .ec-band/.ec-top/.ec-pm에 정의되어 있음 - 날짜 칸과
-   같은 4조각(헤더/종일띠/오전/오후) 구조라 같은 주의 다른 칸이 커지면 자동으로 같이 늘어남 */
+/* 빈칸(이전/다음 달 자리표시자) - .dc와 똑같이 고정 height */
+.ec{height:168px;overflow-x:clip;border-right:0.5px solid var(--bd);border-bottom:0.5px solid var(--bd);border-top:0.5px solid var(--bd);background:var(--bg2);opacity:.28;position:relative}
 .ec:nth-child(7n){border-right:none}
+.ec::after{content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:var(--bg3)}
 
 /* 하단 패널 */
 .bot-panels{display:flex;flex-direction:column;gap:12px;width:260px;flex-shrink:0;position:sticky;top:0}
@@ -647,13 +648,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
      "일정이 하나도 안 보여서 캘린더 기능을 못한다"는 지적이 나와 존당 실제 한두 줄은 보이도록 다시
      조금 키움(76px -> 108px). 데스크톱(116px+동적 증가)보다는 여전히 낮게 유지해 스크롤 부담은 최소화 */
   .cal-dh{font-size:12.5px!important;padding:9px 4px!important}
-  /* 2026-09-15 구조 변경(날짜 하나=박스 하나 -> 헤더/종일띠/오전/오후 4조각)으로 .dc/.ec가
-     사라지고 조각별 클래스(.dc-top/.dc-allband/.dc-am/.dc-pm, 빈칸은 .ec-band 등)로 나뉨 -
-     예전엔 날짜 박스 전체 height를 108px로 눌렀는데, 이제는 오전/오후 조각 각각에 max-height를
-     걸어 총합이 비슷하게(20+44+44≈108) 나오게 함. overflow-y:hidden을 명시로 같이 줘서 실제로
-     내용이 넘칠 걱정도 없앰(모바일 zoneMax가 이미 2건 안팎으로 제한해 두므로 이 높이 안에 보통 다 들어감) */
-  .dc-am,.dc-pm{min-height:0!important;max-height:44px!important;overflow-y:hidden!important}
-  .dc-allband{max-height:24px!important;overflow-y:hidden!important}
+  .dc,.ec{height:108px!important}
   .day-num{font-size:14px!important}
   .today-circle{width:22px!important;height:22px!important;font-size:12px!important}
 }
@@ -871,11 +866,10 @@ td.drillable:hover .drill-ic{color:var(--dw)}
       <div class="leg-i" style="font-size:9px;color:var(--t3)">날짜 클릭 = 일정 추가</div>
     </div>
     <div class="cal-grid-wrap">
-      <div class="cal-dh-row">
+      <div class="cal-grid" id="cal-grid">
         <div class="cal-dh">일</div><div class="cal-dh">월</div><div class="cal-dh">화</div>
         <div class="cal-dh">수</div><div class="cal-dh">목</div><div class="cal-dh">금</div><div class="cal-dh">토</div>
       </div>
-      <div class="cal-grid" id="cal-grid"></div>
     </div>
     </div><!-- /cal-left -->
     <div class="bot-panels">
@@ -4066,11 +4060,8 @@ function applyMRButtons(){
 }
 
 // ===== 달력 렌더링 =====
-// 2026-09-15: 날짜 하나=박스 하나(.dc, 내부에서 오전/오후를 flex로 세로로만 쌓음) 구조를
-// "한 주(週)=미니 grid 하나, 그 안에 요일별 헤더/종일띠/오전/오후를 각각 같은 행에 나란히"
-// 놓는 구조로 바꿈 - 위 CSS(.cal-week) 주석 참고. 요일별 헤더 7개를 한 grid 행에, 종일띠
-// 7개를 그다음 행에, 오전 7개를 그다음 행에, 오후 7개를 마지막 행에 순서대로 넣으면 CSS
-// Grid가 "오전은 오전끼리, 오후는 오후끼리" 그 주의 최대치에 맞춰 자동 정렬해줌.
+// 2026-09-15: 날짜 칸(.dc) 크기를 고정으로 되돌림(위 CSS .dc 주석의 변경 이력 참고) - 일정이
+// 몇 건이든 칸 크기는 항상 동일하고, zoneMax를 넘는 일정은 "+N개 더보기"로 묶어서 보여줌.
 function renderCalendar(){
   renderOfficeRegionLabel();
   renderCalHeadTitle();
@@ -4083,115 +4074,94 @@ function renderCalendar(){
   document.getElementById('now-badge').style.display=isNow?'inline-block':'none';
 
   var grid=document.getElementById('cal-grid');
-  grid.innerHTML='';
+  while(grid.children.length>7)grid.removeChild(grid.lastChild);
 
-  // 이번 달을 주(週) 단위로 쪼갬 - 앞뒤 빈 칸은 null
-  var weeks=[], week=[];
-  for(var i=0;i<firstDow;i++) week.push(null);
+  for(var i=0;i<firstDow;i++){var e=document.createElement('div');e.className='ec';grid.appendChild(e);}
+
   for(var d=1;d<=daysInMonth;d++){
-    week.push(d);
-    if(week.length===7){ weeks.push(week); week=[]; }
-  }
-  if(week.length){ while(week.length<7) week.push(null); weeks.push(week); }
+    var cell=document.createElement('div');cell.className='dc';
+    cell.style.cursor='pointer';
+    (function(day){ cell.onclick=function(e){ openAdd(day,'all'); }; })(d);
+    // 타사무소 동도 일정은 mr에 우리 사무소 코드가 아니라 그 거래처의 실제(다른 사무소) 담당자 "이름"이
+    // 들어있어서, 어쩌다 우리 사무소 담당자 코드와 문자열이 같아지는 극단적 우연이 있어도 담당자 탭에
+    // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임).
+    // "거래처 외"(연차/내근/웰다 등, evType!=='visit')는 특정 담당자 탭을 고르면 그 사람 몫도 같이
+    // 섞여 나와 실제 거래처 방문과 헷갈린다는 지적으로, 담당자 탭에서는 항상 빼고 전용 "거래처 외"
+    // 탭(activeMR==='etc')에서 담당자 구분 없이 전부 모아 보여줌
+    var dayEvs=evs.filter(function(e){
+      if(e.day!==d) return false;
+      if(activeMR==='all') return true;
+      var isLeave=e.evType&&e.evType!=='visit';
+      if(activeMR==='etc') return isLeave;
+      return e.mr===activeMR&&!e.mrOffice&&!isLeave;
+    });
+    var allEvs=dayEvs.filter(function(e){return e.time==='all';});
+    var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeAsc);
+    var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeAsc);
 
-  weeks.forEach(function(weekDays){
-    var wk=document.createElement('div'); wk.className='cal-week';
-    var tops=[], allbands=[], ams=[], pms=[];
+    // 날짜 헤더
+    var top=document.createElement('div');top.className='dc-top';
+    var dow=(firstDow+d-1)%7;
+    var holName=isHoliday(curYear,curMonth,d);
+    var isRed=(dow===0||!!holName);
+    var dn=document.createElement('div');
+    dn.style.cssText='display:flex;align-items:center;gap:3px;margin-bottom:0';
+    if(isNow&&d===TODAY.d){
+      var tc=document.createElement('div');tc.className='today-circle';tc.textContent=d;
+      dn.appendChild(tc);
+    } else {
+      var numSpan=document.createElement('span');
+      numSpan.className='day-num';
+      numSpan.textContent=d;
+      if(isRed) numSpan.style.color='#e53e3e';
+      dn.appendChild(numSpan);
+    }
+    if(holName){
+      var hlbl=document.createElement('span');
+      hlbl.textContent=holName;
+      hlbl.style.cssText='font-size:7px;color:#e53e3e;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;';
+      dn.appendChild(hlbl);
+    }
+    top.appendChild(dn);cell.appendChild(top);
 
-    weekDays.forEach(function(d,colIdx){
-      var isLastCol=(colIdx===6);
-      if(d===null){
-        var eTop=document.createElement('div'); eTop.className='ec-band ec-top';
-        var eAll=document.createElement('div'); eAll.className='ec-band';
-        var eAm=document.createElement('div'); eAm.className='ec-band';
-        var ePm=document.createElement('div'); ePm.className='ec-band ec-pm';
-        [eTop,eAll,eAm,ePm].forEach(function(el){ if(isLastCol) el.style.borderRight='none'; });
-        tops.push(eTop); allbands.push(eAll); ams.push(eAm); pms.push(ePm);
-        return;
-      }
-      // 타사무소 동도 일정은 mr에 우리 사무소 코드가 아니라 그 거래처의 실제(다른 사무소) 담당자 "이름"이
-      // 들어있어서, 어쩌다 우리 사무소 담당자 코드와 문자열이 같아지는 극단적 우연이 있어도 담당자 탭에
-      // 안 걸리도록 mrOffice가 있으면(=동도 일정) 담당자 탭 필터에서는 항상 제외(전체보기에서만 보임).
-      // "거래처 외"(연차/내근/웰다 등, evType!=='visit')는 특정 담당자 탭을 고르면 그 사람 몫도 같이
-      // 섞여 나와 실제 거래처 방문과 헷갈린다는 지적으로, 담당자 탭에서는 항상 빼고 전용 "거래처 외"
-      // 탭(activeMR==='etc')에서 담당자 구분 없이 전부 모아 보여줌
-      var dayEvs=evs.filter(function(e){
-        if(e.day!==d) return false;
-        if(activeMR==='all') return true;
-        var isLeave=e.evType&&e.evType!=='visit';
-        if(activeMR==='etc') return isLeave;
-        return e.mr===activeMR&&!e.mrOffice&&!isLeave;
-      });
-      var allEvs=dayEvs.filter(function(e){return e.time==='all';});
-      var amEvs=dayEvs.filter(function(e){return e.time==='am';}).sort(byExactTimeAsc);
-      var pmEvs=dayEvs.filter(function(e){return e.time==='pm';}).sort(byExactTimeAsc);
+    // 종일만 있는 경우: 하나의 큰 영역
+    if(allEvs.length>0 && amEvs.length===0 && pmEvs.length===0){
+      var az=document.createElement('div');az.className='dc-all';
+      var lbl=document.createElement('div');lbl.className='zone-lbl';lbl.textContent='종일';
+      az.appendChild(lbl);
 
-      // 날짜 헤더
-      var top=document.createElement('div');top.className='dc-top';
-      var dow=(firstDow+d-1)%7;
-      var holName=isHoliday(curYear,curMonth,d);
-      var isRed=(dow===0||!!holName);
-      var dn=document.createElement('div');
-      dn.style.cssText='display:flex;align-items:center;gap:3px;margin-bottom:0';
-      if(isNow&&d===TODAY.d){
-        var tc=document.createElement('div');tc.className='today-circle';tc.textContent=d;
-        dn.appendChild(tc);
-      } else {
-        var numSpan=document.createElement('span');
-        numSpan.className='day-num';
-        numSpan.textContent=d;
-        if(isRed) numSpan.style.color='#e53e3e';
-        dn.appendChild(numSpan);
-      }
-      if(holName){
-        var hlbl=document.createElement('span');
-        hlbl.textContent=holName;
-        hlbl.style.cssText='font-size:7px;color:#e53e3e;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px;';
-        dn.appendChild(hlbl);
-      }
-      top.appendChild(dn);
-
-      // 종일 띠 - 그 주 다른 날에 종일 일정이 있어도 이 날엔 없을 수 있으니, 없으면 빈 조각만
-      // 넣어(내용 없음) 이번 주 종일 행의 요일별 정렬을 그대로 유지
-      var allband=document.createElement('div');allband.className='dc-allband';
+      appendEvsWithMore(az,allEvs,true,zoneMax(4,2),d,'all');
+      cell.appendChild(az);
+    } else {
+      // 종일 일정이 있으면 상단에 띠로 표시 (오전/오후와 공존)
       if(allEvs.length>0){
-        var lbl=document.createElement('div');lbl.className='zone-lbl';lbl.textContent='종일';
-        allband.appendChild(lbl);
-        appendEvsWithMore(allband,allEvs,true,zoneMax(4,2),d,'all');
+        var allBand=document.createElement('div');
+        allBand.style.cssText='flex-shrink:0;padding:0 3px';
+        appendEvsWithMore(allBand,allEvs,true,1,d,'all');
+        cell.appendChild(allBand);
       }
-
       // 오전 영역
       var am=document.createElement('div');am.className='dc-am';
       var amlbl=document.createElement('div');amlbl.className='zone-lbl';amlbl.textContent='오전';
       am.appendChild(amlbl);
-      appendEvsWithMore(am,amEvs,false,zoneMax(3,2),d,'am');
 
+      appendEvsWithMore(am,amEvs,false,zoneMax(3,2),d,'am');
+      var sep=document.createElement("div");sep.className="dc-sep";
+      cell.appendChild(am);
+      cell.appendChild(sep);
       // 오후 영역
       var pm=document.createElement('div');pm.className='dc-pm';
       var pmlbl=document.createElement('div');pmlbl.className='zone-lbl';pmlbl.textContent='오후';
       pm.appendChild(pmlbl);
+
       appendEvsWithMore(pm,pmEvs,false,zoneMax(3,2),d,'pm');
-
-      // 예전엔 날짜 박스 하나(.dc)가 클릭·마우스오버를 전부 처리했는데, 이제 조각이 4개로
-      // 나뉘어서 각 조각에 같은 클릭 핸들러를 걸고(어디를 클릭해도 "날짜 클릭=일정 추가"가
-      // 동일하게 동작), 마우스오버는 4조각에 공통 클래스(dc-hover)를 같이 토글해서 예전처럼
-      // 날짜 하나가 통째로 하이라이트되는 것처럼 보이게 함
-      var parts=[top,allband,am,pm];
-      parts.forEach(function(el){
-        el.onclick=function(){ openAdd(d,'all'); };
-        if(isLastCol) el.style.borderRight='none';
-        el.addEventListener('mouseenter',function(){ parts.forEach(function(p){p.classList.add('dc-hover');}); });
-        el.addEventListener('mouseleave',function(){ parts.forEach(function(p){p.classList.remove('dc-hover');}); });
-      });
-      tops.push(top); allbands.push(allband); ams.push(am); pms.push(pm);
-    });
-
-    tops.forEach(function(el){wk.appendChild(el);});
-    allbands.forEach(function(el){wk.appendChild(el);});
-    ams.forEach(function(el){wk.appendChild(el);});
-    pms.forEach(function(el){wk.appendChild(el);});
-    grid.appendChild(wk);
-  });
+      cell.appendChild(pm);
+    }
+    grid.appendChild(cell);
+  }
+  var total=firstDow+daysInMonth;
+  var rem=(7-total%7)%7;
+  for(var j=0;j<rem;j++){var e2=document.createElement('div');e2.className='ec';grid.appendChild(e2);}
 }
 
 // 모바일은 칸 높이가 데스크톱(116px)보다 낮아서, 데스크톱 기준 max값을 그대로 쓰면
