@@ -5248,25 +5248,31 @@ function stKpiData(){
   var rawPrevMap=rawSnapshotPrevMap();
   var cp=function(c){ return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0); };
   // "신규처"(전월 0->이번달 양수)와 "당월 활성처 증감"도 위 newPatientsGain과 똑같은 8월 베이스라인
-  // 오염의 영향을 받음(사용자 확인: 신규처로 10곳 넘게 잡히는데 실제로는 일만사를 새로 시작한 게
-  // 아니라 그냥 8월 잠금값이 깨져서 0으로 보이는 거래처들이었음) - raw_monthly_snapshot에 그
-  // 거래처의 8월 잠금 값이 "명시적으로 존재"하는데 그 값이 0/1이면(=오염 신호), 그건 "원래 없다가
-  // 새로 생김"이 아니라 "원래 있었는데 기록이 깨져서 0으로 보임"일 가능성이 훨씬 크므로 신규/증감
-  // 판정에서 제외한다. 반대로 raw_monthly_snapshot에 그 거래처 기록 자체가 아예 없으면(그 사무소에
-  // 처음부터 존재하지 않았던 거래처 - clinics.prevPatients 폴백으로도 0) 진짜 신규일 가능성이 높으므로
-  // 그대로 인정한다 - "기록이 있는데 0/1"과 "기록 자체가 없어서 0"을 구분하는 게 핵심.
-  // 다만 "raw lock에 명시적으로 0/1이 찍혀있으면 무조건 못 믿는다"고 하면, 정상적인 사무소에서
-  // 진짜로 8월에 0명이었다가 9월에 처음 몇 명 생긴 거래처(정상적인 "신규처" 스토리)까지 전부
-  // 오염 취급해서 빼버리는 부작용이 생김(실측 확인) - 개별 거래처 하나의 0/1만 보고 판단하면 안 되고,
-  // "이 사무소 전체적으로" 0/1이 비정상적으로 많이 몰려있을 때만(15% 초과 - 위 suspiciousLockCheck와
-  // 같은 기준) 그 사무소의 0/1 값들을 오염으로 간주한다. 정상적인 사무소(0/1이 드문드문 몇 곳뿐)라면
-  // 그 몇 곳은 진짜 낮은 값일 가능성이 훨씬 크므로 그대로 신뢰한다.
-  // lockedRows가 너무 적으면(예: 신생 사무소라 거래처 자체가 몇 곳 안 됨) 비율 하나만으로 판단하기엔
-  // 표본이 너무 작아 우연히 15%를 넘나들 수 있음 - 최소 10곳 이상 잠긴 게 있을 때만 비율 판단을 적용
-  var lockedRows=r.filter(function(c){ return c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no); });
-  var lockedSuspicious=lockedRows.filter(function(c){ return rawPrevMap[c.biz_no]===0||rawPrevMap[c.biz_no]===1; });
-  var officeLooksCorrupted=lockedRows.length>=10&&(lockedSuspicious.length/lockedRows.length)>0.15;
-  var isUnreliableBaseline=function(c){ return officeLooksCorrupted&&!!(c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no)&&(rawPrevMap[c.biz_no]===0||rawPrevMap[c.biz_no]===1)); };
+  // 오염의 영향을 받음(사용자 확인 1차: "신규처로 10곳 넘게 잡히는데 실제로는 일만사를 새로 시작한
+  // 게 아니라 그냥 8월 잠금값이 깨져서 0으로 보이는 거래처들이었음"). 처음엔 "사무소 전체적으로
+  // 0/1이 15% 넘게 몰려있으면 그 사무소의 0/1은 전부 오염"이라는 사무소 단위 통계로 걸렀는데, 이러면
+  // 그 사무소 안에서 "정말 쌩으로 일만사를 새로 시작한" 진짜 신규처까지 같이 묶여서 빠져버리는
+  // 2차 사고가 남(사용자 확인 2차: "정말 쌩으로 일만사를 새로하면 신규처로 집계해줬는데 왜 역행해").
+  // 실제로 8월 잠금이 0/1로 깨진 거래처들을 clinic_claims(청구시스템의 월별 실제 환자수 이력 -
+  // RAW 잠금 오염 경로와 완전히 무관한 별도 시스템)로 하나하나 대조해보니: 490명대 거래처는 1~7월
+  // 내내 실제로 350~490명대였고(그러다 8월에만 "1"이 찍힘 - 명백한 오염), 반면 진짜 낮은 거래처는
+  // 1~7월 내내도 계속 한 자릿수였음(예: 다정한내과 1~7월 최고 4명 -> 지금 30명, 이건 진짜 "새로
+  // 시작해서 늘어난" 신규처 스토리) - 즉 "그 거래처 자신의 청구 이력상 역대 최고치가 얼마였나"가
+  // 사무소 전체 통계보다 훨씬 정확한 개별 판단 기준이 됨. 역대 최고 10명 이상 찍힌 적 있는 거래처가
+  // 지금 와서 갑자기 0/1이면 오염(그 이력 자체가 "8월에만 실제로 0이 됐다가 다시 늘었다"는 게 훨씬
+  // 부자연스러움), 역대로도 계속 한 자릿수였다면 지금 0/1도 그 거래처 입장에선 자연스러운 값이므로
+  // 그대로 신뢰 - 신규처/증감 판정이 살아남는다.
+  var clinicHistMax={};
+  CLINIC_CLAIMS.forEach(function(cc){
+    if(!cc.clinic_id) return;
+    var v=cc.patient||0;
+    if(!clinicHistMax.hasOwnProperty(cc.clinic_id)||v>clinicHistMax[cc.clinic_id]) clinicHistMax[cc.clinic_id]=v;
+  });
+  var isUnreliableBaseline=function(c){
+    var rawIsZeroOne=c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no)&&(rawPrevMap[c.biz_no]===0||rawPrevMap[c.biz_no]===1);
+    if(!rawIsZeroOne) return false;
+    return (clinicHistMax[c.id]||0)>=10;
+  };
   var PREV_TH=4; // 전월 마감 판정 기준은 4명 고정(사용자 확인)
   // liveActive가 파일의 공식 활성처 판정을 그대로 쓰게 되면서(위 [수정 이력] 참고), 일만사 환자수만으로는
   // 문턱 미달인데(예: 조은미래의원처럼 patients=0) ②비일만사로 구제돼서 공식 활성처인 거래처가 생긴다 -
@@ -5692,14 +5698,21 @@ function stFilterRows(){
   var p=function(c){return c.patients||0;}, pp=function(c){return (c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no))?rawPrevMap[c.biz_no]:(c.prevPatients||0);}; // stKpiData와 동일 기준(RAW 마감 스냅샷 우선, 없으면 prevPatients)
   var PREV_TH=4;
   var ok=function(c){return !(pp(c)>=PREV_TH&&!liveActive(c));}; // "비활성처 전환"(전월엔 활성이었는데 지금은 아닌 곳)은 문턱 카드 집계에서 제외
-  // newly/crossed/pdiff는 stKpiData의 isUnreliableBaseline과 완전히 동일한 기준(사무소 전체 0/1
-  // 비율이 15% 넘을 때만 그 사무소의 0/1 값을 오염으로 간주)으로 걸러야 함 - 안 그러면 카드에
-  // 찍힌 숫자(위 세 KPI)와 그 카드를 눌러서 나오는 리스트(여기)의 건수가 서로 달라서 "카드엔 90명인데
-  // 리스트 보면 훨씬 많다"는 또 다른 혼란이 생김
-  var lockedRows=r.filter(function(c){ return c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no); });
-  var lockedSuspicious=lockedRows.filter(function(c){ return rawPrevMap[c.biz_no]===0||rawPrevMap[c.biz_no]===1; });
-  var officeLooksCorrupted=lockedRows.length>=10&&(lockedSuspicious.length/lockedRows.length)>0.15;
-  var unreliablePrev=function(c){ return officeLooksCorrupted&&!!(c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no)&&(rawPrevMap[c.biz_no]===0||rawPrevMap[c.biz_no]===1)); };
+  // newly/crossed/pdiff는 stKpiData의 isUnreliableBaseline과 완전히 동일한 기준(그 거래처 자신의
+  // clinic_claims 역대 최고 환자수가 10명 이상 찍힌 적 있는데 지금 raw lock이 0/1이면 오염으로 간주)
+  // 으로 걸러야 함 - 안 그러면 카드에 찍힌 숫자(위 세 KPI)와 그 카드를 눌러서 나오는 리스트(여기)의
+  // 건수가 서로 달라서 "카드엔 90명인데 리스트 보면 훨씬 많다"는 또 다른 혼란이 생김
+  var clinicHistMax={};
+  CLINIC_CLAIMS.forEach(function(cc){
+    if(!cc.clinic_id) return;
+    var v=cc.patient||0;
+    if(!clinicHistMax.hasOwnProperty(cc.clinic_id)||v>clinicHistMax[cc.clinic_id]) clinicHistMax[cc.clinic_id]=v;
+  });
+  var unreliablePrev=function(c){
+    var rawIsZeroOne=c.biz_no&&rawPrevMap.hasOwnProperty(c.biz_no)&&(rawPrevMap[c.biz_no]===0||rawPrevMap[c.biz_no]===1);
+    if(!rawIsZeroOne) return false;
+    return (clinicHistMax[c.id]||0)>=10;
+  };
   switch(stFilter){
     case 'active': return r.filter(liveActive);
     // "당월이력없음": 일만사&웰체크 문턱(TH명)은 넘겼는데 공식 활성처가 아닌 거래처(빨간 카드 클릭 시 리스트) - stKpiData의 noSyncExcluded와 동일 기준
