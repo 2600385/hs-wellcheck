@@ -2068,6 +2068,10 @@ function parseCurrentRaw(wb){
   };
   var missing=Object.keys(COL).filter(function(k){return COL[k]<0;});
   if(missing.length) return {error:'"거래처별 RAW" 시트에서 다음 컬럼을 찾지 못했습니다(회사 파일 양식이 바뀌었을 수 있어요): '+missing.join(', ')};
+  // "웰체크 일만사 참여여부" - 미참여 거래처는 환자수가 0인 게 정상이라 suspiciousLockCheck()의
+  // "0/1 비정상 비율" 판단에서 빼줘야 함(안 그러면 참여율 자체가 원래 낮은 정상 파일도 오탐됨).
+  // 회사가 이 컬럼명을 바꾸거나 뺄 수도 있으니 missing 필수 체크에는 안 넣고 optional로만 둠.
+  var participateCol=findCol('참여여부');
   // asOf(파일 기준일) - "당월이력확인" 등 이번 회차가 다루는 월을 판단할 때 오늘 날짜가 아니라
   // 파일 자체의 기준일을 써야 하므로 루프 시작 전에 미리 계산해둔다.
   // (활성처 판정 자체는 이제 activeThreshold로 문턱을 다시 계산하지 않고, 회사가 파일에 내려주는
@@ -2100,6 +2104,9 @@ function parseCurrentRaw(wb){
     var careCnt=Number(row[COL.care])||0, eduCnt=Number(row[COL.edu])||0, mgmtCnt=Number(row[COL.mgmt])||0, checkCnt=Number(row[COL.check])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
     var mrSabun=row[COL.sabun]!=null?String(row[COL.sabun]).replace(/\.0$/,''):null; // 담당자 사번 - 이름은 동명이인/오타 위험이 있어 사번을 우선 신뢰
     var lastSyncVal=row[COL.lastSync]?String(row[COL.lastSync]).slice(0,10):null; // 심평원 최종연동일(YYYY-MM-DD) - "당월이력확인" 게이트 계산용
+    // participate: 컬럼이 있으면 '참여'/'미참여' 판정, 없으면 null(모름 - suspiciousLockCheck에서
+    // 안전하게 "참여로 간주"해서 기존 검사 동작을 유지함)
+    var participateVal=participateCol>=0?(row[participateCol]==='참여'):null;
     if(isCur){
       updates.push({
         biz_no:bizNo,
@@ -2114,7 +2121,8 @@ function parseCurrentRaw(wb){
         prev_patients: Number(row[COL.prevPatients])||0, // 전월 환자수(일만사)
         claim: claimVal, // 이번달(진행중) 누적 청구금액 - 마감 전이라 참고용
         care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt,
-        last_sync_date: lastSyncVal
+        last_sync_date: lastSyncVal,
+        participate: participateVal
       });
     } else {
       if(!natToday[rowOffice]) natToday[rowOffice]={claim:0,patient:0,active:0,care:0,edu:0,mgmt:0,check:0};
@@ -2131,7 +2139,8 @@ function parseCurrentRaw(wb){
         prev_patients: Number(row[COL.prevPatients])||0,
         claim: claimVal,
         care_plan_cnt:careCnt, edu_cnt:eduCnt, patient_mgmt_cnt:mgmtCnt, check_eval_cnt:checkCnt,
-        last_sync_date: lastSyncVal
+        last_sync_date: lastSyncVal,
+        participate: participateVal
       });
     }
   }
@@ -2330,7 +2339,11 @@ function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
 // 다시 묻는다(막지는 않음 - 정말 신생 사무소라 전부 소수인 극단적 케이스도 있을 수 있어 관리자
 // 최종 판단은 남겨두되, "이 파일 전체가 0/1"이라는 이상 신호를 절대 조용히 지나치지 않게 함).
 function suspiciousLockCheck(rows){
-  var withOffice=(rows||[]).filter(function(r){return r.biz_no;});
+  // "웰체크 일만사 미참여" 거래처는 환자수 0이 정상이라(원래 안 하는 곳) 이 검사에서 빼야 함 -
+  // 안 그러면 참여율 자체가 원래 낮은(예: 전체의 42%만 참여) 정상 파일도 매번 "56%가 0/1"로
+  // 오탐돼서 실제로는 문제없는 파일에도 확정 재확인 팝업이 뜸(참여율 자체는 파일마다 원래 그런 것).
+  // participate===null(컬럼을 못 찾은 경우)은 안전하게 "참여"로 간주해서 기존 검사를 그대로 유지.
+  var withOffice=(rows||[]).filter(function(r){return r.biz_no && r.participate!==false;});
   var total=withOffice.length;
   var bad=withOffice.filter(function(r){return (r.patients||0)<=1;});
   return {total:total, badCount:bad.length, ratio:total?bad.length/total:0};
