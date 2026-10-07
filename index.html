@@ -3237,6 +3237,14 @@ function duesBadgeInfo(c){
   var y=String(c.duesDate).slice(0,4), cy=String(new Date().getFullYear());
   return y===cy ? {label:y, cls:'edu-ok'} : {label:y, cls:'edu-warn'};
 }
+// 원장님이 2명 이상인 거래처는 "대표 원장님" 기준 배지 하나만으로는 일부만 이수/납부한 상황이
+// 안 보이므로, 팝업을 열기 전에도 현황판에서 "N/M명 이수"처럼 바로 보이게 하는 보조 표시
+function doctorMultiSummary(clinicId, kind){
+  var docs=clinicDoctors(clinicId);
+  if(docs.length<2) return '';
+  var done=docs.filter(function(d){ return kind==='edu' ? !!d.edu_completed_date : !!d.dues_paid_date; }).length;
+  return done+'/'+docs.length+'명 '+(kind==='edu'?'이수':'납부');
+}
 // ===== 사무소 선택 =====
 var currentOffice='경인1';
 function officeRows(){ return CLINICS.filter(function(c){return (c.office||'경인1')===currentOffice;}); }
@@ -3598,8 +3606,9 @@ function applyDoctorStatusToClinic(c){
   }
 }
 function applyEffectiveDoctorStatus(){ CLINICS.forEach(applyDoctorStatusToClinic); }
-function addClinicDoctor(clinicId, name){
-  return db.from('clinic_doctors').insert({clinic_id:clinicId, name:name||''}).select().then(function(res){
+function addClinicDoctor(clinicId, name, seed){
+  var payload=Object.assign({clinic_id:clinicId, name:name||''}, seed||{});
+  return db.from('clinic_doctors').insert(payload).select().then(function(res){
     if(res.error){ alert('원장님 추가 실패: '+res.error.message); return; }
     CLINIC_DOCTORS.push(res.data[0]);
   });
@@ -3666,7 +3675,16 @@ function wireDoctorList(div, c, el, dateField, whichPopup){
     } else if(t.classList.contains('doc-add-btn')){
       var name=prompt('원장님 성함을 입력하세요(나중에 수정 가능)','');
       if(name===null) return;
-      addClinicDoctor(c.id, name.trim()).then(function(){ afterDoctorChange(c, el, whichPopup); });
+      // [버그 수정] 원장님별 관리로 처음 전환되는 순간(=이 거래처의 첫 원장님 등록) applyDoctorStatusToClinic이
+      // "등록된 원장님 중 이수한 사람 없음"으로 보고 기존에 단일 필드로 기록해둔 이수/납부 상태를 미이수/
+      // 비납부로 덮어써버리는 사고가 있었음("원장님 추가하면 기존 내용이 사라짐"). 첫 원장님에겐 기존
+      // 단일 필드 값을 그대로 물려줘서 상태가 갑자기 리셋되지 않게 함.
+      var seed={};
+      if(clinicDoctors(c.id).length===0){
+        if(c.edu==='이수'&&c.eduDate) seed.edu_completed_date=c.eduDate;
+        if(c.dues==='납부'&&c.duesDate) seed.dues_paid_date=c.duesDate;
+      }
+      addClinicDoctor(c.id, name.trim(), seed).then(function(){ afterDoctorChange(c, el, whichPopup); });
     }
   });
 }
@@ -4768,10 +4786,16 @@ function renderList(){
       +(function(){
         var st=ilmansaLicenseStatus(c);
         var eduInfo=eduBadgeInfo(c);
+        var eduMulti=doctorMultiSummary(c.id,'edu');
         var lSub=(c.ilmansa==='참여'&&st)?('<br><span style="font-size:9px;color:var(--t3);font-weight:700" title="일만사 운영 자격 유효기한(교육이수일 기준 다음해 12/31)">~'+licenseExpiryLabel(c)+'</span>'):'';
-        return '<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+eduInfo.cls+'">'+eduInfo.label+'</span>'+lSub+'</span></td>';
+        var eduMultiSub=eduMulti?('<br><span style="font-size:9px;color:#B26A00;font-weight:700" title="원장님별 이수 현황이 서로 달라요(대표 원장님 기준 배지만으로는 전체 현황이 안 보여서 따로 표시)">'+eduMulti+'</span>'):'';
+        return '<td style="text-align:center"><span data-idx="'+idx+'" data-edu="'+(c.edu||'해당없음')+'" onclick="showEduPopup(this)"><span class="edu-bdg '+eduInfo.cls+'">'+eduInfo.label+'</span>'+lSub+eduMultiSub+'</span></td>';
       })()
-      +'<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+(c.dues||'해당없음')+'" onclick="showDuesPopup(this)"><span class="edu-bdg '+duesInfo.cls+'">'+duesInfo.label+'</span></td>'
+      +(function(){
+        var duesMulti=doctorMultiSummary(c.id,'dues');
+        var duesMultiSub=duesMulti?('<br><span style="font-size:9px;color:#B26A00;font-weight:700" title="원장님별 납부 현황이 서로 달라요(대표 원장님 기준 배지만으로는 전체 현황이 안 보여서 따로 표시)">'+duesMulti+'</span>'):'';
+        return '<td style="text-align:center;cursor:pointer" title="클릭하여 변경" data-idx="'+idx+'" data-dues="'+(c.dues||'해당없음')+'" onclick="showDuesPopup(this)"><span class="edu-bdg '+duesInfo.cls+'">'+duesInfo.label+'</span>'+duesMultiSub+'</td>';
+      })()
       // DH 구역 - 좌우 패딩을 좁게(td 기본 12px -> 2px) 오버라이드해서 6컬럼이어도 폭을 적게 차지하게 함
       +'<td style="text-align:center;padding:8px 2px;border-left:2px solid #B8C8D8">'+dot(c.dh_op,idx,'dh_op')+'</td>'
       +'<td style="text-align:center;padding:8px 2px">'+dot(c.dh_cp,idx,'dh_cp')+'</td>'
