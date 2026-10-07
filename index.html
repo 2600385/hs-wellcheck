@@ -2293,11 +2293,18 @@ function lockMonthlySnapshot(rows, asOf){
 // 그래야 latestOfficeRows(onlyOfficial=true)/stEvalConversion이 "공식 마감 아님"으로 정확히 구분해서
 // 청구전환율 카드 등은 계속 베이스라인만 기다리고, 이 추정치를 확정치인 것처럼 잘못 보여주지 않는다.
 // 이미 그 달의 공식 마감이 있으면(=베이스라인이 이미 반영됨) 절대 덮어쓰지 않고 조용히 건너뜀.
-function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
-  if(!office||!agg) return Promise.resolve();
+// [2026-10-07, 재발 방지] "전체"(전국) 업로드 때 사무소 수십 곳 분량을 Promise.all로 각자 upsert
+// 호출(사무소당 1건씩 동시에 수십 건)하던 방식이, commitDailyMAU에서 이미 한 번 겪었던 것과 같은 유형의
+// 문제(동시 연결 수가 너무 많아져 대부분 조용히 실패 - res.error만 console.error로 찍히고 화면엔 아무
+// 표시도 없음)를 그대로 재현함(실제로 2026-10-06 전국 업로드에서 37개 사무소 전부 조용히 실패해서
+// "일만사 평가·청구" 카드가 9월 값에 멈춰있던 사고로 확인됨). DB 호출 자체를 없애고 row 계산만 하는
+// buildCurrentMonthClaimRow()와, 모은 row들을 한 번의 upsert로 합쳐 보내는 saveCurrentMonthClaimsBatch()로
+// 분리해서 사무소 수와 무관하게 항상 요청 1건으로 끝나게 함.
+function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData){
+  if(!office||!agg) return null;
   var month=String(asOf||'').slice(0,7)+'-01';
   var existing=OFFICE_CLAIMS.find(function(r){ return r.office===office && r.month===month; });
-  if(existing && existing.eval_clinic_cnt) return Promise.resolve(); // 이미 공식 마감된 달이면 보호
+  if(existing && existing.eval_clinic_cnt) return null; // 이미 공식 마감된 달이면 보호
   var prevRows=OFFICE_CLAIMS.filter(function(r){ return r.office===office; });
   var target=(existing&&existing.target)||(prevRows.length?prevRows[prevRows.length-1].target:0)||0;
   // 청구금액(claim/cum_claim)은 RAW 파일 자체의 "금액" 컬럼(회사 쪽에서 아직 정산 전에 실어두는 참고용
@@ -2325,9 +2332,19 @@ function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
     row.est_claim_cnt=evalData.claimCnt||0;
     row.est_claim_amt=evalData.claimAmt||0;
   }
-  return db.from('office_claims').upsert([row], {onConflict:'office,month'}).then(function(res){
+  return row;
+}
+function saveCurrentMonthClaimsBatch(rows){
+  rows=(rows||[]).filter(function(r){ return r; });
+  if(!rows.length) return Promise.resolve();
+  return db.from('office_claims').upsert(rows, {onConflict:'office,month'}).then(function(res){
     if(res.error) console.error('office_claims(진행중 추정) 저장 실패:', res.error);
+    return res;
   });
+}
+// 한 곳짜리 호출부(단일 사무소 반영 등)를 위한 래퍼 - 내부적으로 배치 함수를 그대로 재사용
+function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
+  return saveCurrentMonthClaimsBatch([buildCurrentMonthClaimRow(office, business, agg, asOf, evalData)]);
 }
 // [재발 방지 - 3차, 근본 조치] 위 두 차례 재발 방지(prev_patients 보호 등)는 전부 "이미 잘못
 // 잠긴 값이 있다"는 걸 전제로 그 값을 지키는 방식이었는데, 정작 "월마감 확정"으로 처음 잠그는
@@ -2504,16 +2521,25 @@ function commitCurrentRaw(parsed, status, lockMonth){
           curAgg.care+=u.care_plan_cnt||0; curAgg.edu+=u.edu_cnt||0; curAgg.mgmt+=u.patient_mgmt_cnt||0; curAgg.check+=u.check_eval_cnt||0;
         });
         loadOfficeClaims().then(function(){
-          var claimSaves=[saveCurrentMonthClaims(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf, natEval[currentOffice])];
+          var claimRows=[buildCurrentMonthClaimRow(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf, natEval[currentOffice])];
           Object.keys(natToday).forEach(function(o){
             // 사무소 배정 불일치로 clinics 반영 자체가 보호돼서 건너뛴 사무소는 청구현황도 같이 건너뜀(일관성 유지).
             // stale 사무소는 "현재"만 안 건드리는 거라 청구현황(그 과거 달 몫)은 정상적으로 반영해야 함
-            if(allTouchedOffices.indexOf(o)>=0) claimSaves.push(saveCurrentMonthClaims(o, natBusiness[o], natToday[o], asOf, natEval[o]));
+            if(allTouchedOffices.indexOf(o)>=0) claimRows.push(buildCurrentMonthClaimRow(o, natBusiness[o], natToday[o], asOf, natEval[o]));
           });
-          return Promise.all(claimSaves);
-        }).then(function(){ return loadOfficeClaims(); }).then(function(){
+          // 사무소 수와 무관하게 요청 1건으로 한 번에 upsert(과거엔 사무소당 1건씩 Promise.all로 동시에
+          // 쐈는데, "전체" 업로드처럼 수십 곳이 한꺼번에 몰리면 동시 연결 수 초과로 대부분 조용히
+          // 실패하는 사고가 있었음 - 아래 saveCurrentMonthClaimsBatch 주석 참고)
+          return saveCurrentMonthClaimsBatch(claimRows);
+        }).then(function(claimRes){
+          return loadOfficeClaims().then(function(){ return claimRes; });
+        }).then(function(claimRes){
           if(document.getElementById('view-claim')&&document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
           if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
+          // 예전엔 이 단계가 실패해도 콘솔에만 찍히고 화면엔 아무 표시가 없어서 며칠씩 모르고 지나간
+          // 적이 있었음(2026-10-06 사고) - 다른 비동기 체인(loadClinics)이 같은 status.textContent를
+          // 건드려서 메시지가 덮어써질 수 있으므로, 상태 텍스트 대신 확실히 눈에 띄는 alert로 띄움
+          if(claimRes&&claimRes.error) alert('⚠️ 청구현황지표(진행중 추정) 저장 실패: '+claimRes.error.message+'\n\n거래처현황판은 정상 반영됐지만, "일만사 평가·청구" 카드는 이번엔 안 바뀌었을 수 있어요. 다시 업로드해서 재시도해주세요.');
         });
         loadClinics().then(function(){
           if(document.getElementById('view-list').classList.contains('v-active')) renderList();
