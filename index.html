@@ -2207,7 +2207,61 @@ function parseCurrentRaw(wb){
       }
     }
   }
-  return {updates:updates, natToday:natToday, natBusiness:natBusiness, natEval:natEval, natUpdates:natUpdates, asOf: asOf};
+  // [2026-10월부터 신규] 회사가 담당자(MR) 개인 활성처 달성률 등급에 따라 청구금액 인정률을 차등
+  // 적용하기 시작함(B등급↑=100%, C등급=50% - "MR현황" 시트 상단 안내문 그대로). "MR현황" 시트에
+  // 담당자별로 실제 청구금액("금액", 천원 단위)과 그 담당자의 인정률("평가적용률", 0.5 또는 1)이
+  // 이미 계산되어 내려오므로, 그대로 읽어서 raw(실제)·weighted(등급반영) 둘 다 보관한다 - 거래처
+  // 현황판의 "청구금액"은 등급과 무관한 실제 금액(1번) 그대로 두고, 이건 사무소/담당자 카드에 별도로
+  // "등급반영 청구금액"으로 나란히 보여주기 위함(2번). 사업부사무소현황 시트와 마찬가지로 전사
+  // 담당자가 다 들어있는 시트라 전체 사무소 기준으로 수집.
+  var natMrEval={}; // office -> [{sabun,name,business,grade,active,claimAmt,applyRate,weightedAmt}]
+  var mrSheetRows=sheetRows(wb,'MR현황');
+  if(mrSheetRows){
+    var hIdx6=-1, colOff6=-1;
+    for(var i6=0;i6<mrSheetRows.length;i6++){
+      var r6=mrSheetRows[i6];
+      if(!r6) continue;
+      var co6=r6.indexOf('사무소');
+      if(co6>0 && r6[co6-1]==='사업부' && r6[co6+1]==='사번'){ hIdx6=i6; colOff6=co6; break; }
+    }
+    if(hIdx6>=0){
+      var topRow6=mrSheetRows[hIdx6]||[];
+      function findTopCol6(needle){
+        for(var c=0;c<topRow6.length;c++){
+          if(topRow6[c]!=null && String(topRow6[c]).replace(/\s+/g,'').indexOf(needle)>=0) return c;
+        }
+        return -1;
+      }
+      var activeBlockCol6=findTopCol6('활성처수'); // 달성률(+0)/평가(+1, 개인 등급 S/A/B/C)
+      var gradeCol6=activeBlockCol6>=0?activeBlockCol6+1:-1;
+      var claimBlockCol6=findTopCol6('청구현황'); // 처수(+0)/금액(+1, 천원단위)
+      var claimCntCol6=claimBlockCol6>=0?claimBlockCol6:-1;
+      var claimAmtCol6=claimBlockCol6>=0?claimBlockCol6+1:-1;
+      var refBlockCol6=findTopCol6('참고'); // 사무소평가(+0)/평가적용률(+1)
+      var applyRateCol6=refBlockCol6>=0?refBlockCol6+1:-1;
+      for(var r7=hIdx6+2;r7<mrSheetRows.length;r7++){
+        var drow6=mrSheetRows[r7];
+        if(!drow6||(drow6[colOff6-1]==null&&drow6[colOff6]==null)) break;
+        var rOff6=drow6[colOff6];
+        if(NATIONAL_OFFICES.indexOf(rOff6)>=0){
+          var sabun6=drow6[colOff6+1]!=null?String(drow6[colOff6+1]).replace(/\.0$/,''):null;
+          if(sabun6 && claimAmtCol6>=0){
+            var rawAmt6=(Number(drow6[claimAmtCol6])||0)*1000; // 천원 -> 원
+            var rate6=applyRateCol6>=0?(Number(drow6[applyRateCol6])):null;
+            if(rate6==null||!(rate6>0)) rate6=1; // 참고 블록이 없거나 값이 비어있으면 안전하게 100%로 간주
+            if(!natMrEval[rOff6]) natMrEval[rOff6]=[];
+            natMrEval[rOff6].push({
+              sabun: sabun6, name: drow6[colOff6+2]||'', business: drow6[colOff6-1]||'',
+              grade: gradeCol6>=0?(drow6[gradeCol6]||null):null,
+              active: claimCntCol6>=0?(Number(drow6[claimCntCol6])||0):0,
+              claimAmt: rawAmt6, applyRate: rate6, weightedAmt: Math.round(rawAmt6*rate6)
+            });
+          }
+        }
+      }
+    }
+  }
+  return {updates:updates, natToday:natToday, natBusiness:natBusiness, natEval:natEval, natMrEval:natMrEval, natUpdates:natUpdates, asOf: asOf};
 }
 // 'YYYY-MM-01' 문자열을 delta개월만큼 이동 (Date 객체 대신 순수 문자열 연산 - 타임존 영향 없음)
 function shiftMonthStr(monthStr, delta){
@@ -2311,7 +2365,7 @@ function lockMonthlySnapshot(rows, asOf){
 // (2026-10-07 전국 업로드도 office_claims 0건으로 확인). DB 호출 자체를 없애고 row 계산만 하는
 // buildCurrentMonthClaimRow()와, 모은 row들을 한 번의 upsert로 합쳐 보내는 saveCurrentMonthClaimsBatch()로
 // 분리해서 사무소 수와 무관하게 항상 요청 1건으로 끝나게 함.
-function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData){
+function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData, mrRows){
   if(!office||!agg) return null;
   var month=String(asOf||'').slice(0,7)+'-01';
   var existing=OFFICE_CLAIMS.find(function(r){ return r.office===office && r.month===month; });
@@ -2343,6 +2397,11 @@ function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData){
     row.est_claim_cnt=evalData.claimCnt||0;
     row.est_claim_amt=evalData.claimAmt||0;
   }
+  // [2026-10월부터 신규] 담당자 등급(B등급↑=100%/C등급=50%) 반영 청구금액의 사무소 합계. est_claim_amt
+  // (실제 청구금액, 등급 무관)와 짝을 이뤄 "일만사 평가·청구" 카드에 같이 보여줌. mrRows는 natMrEval[office]
+  // (MR현황 시트에서 이 사무소 소속으로 파싱된 담당자 배열) - 없으면(그 사무소 담당자 정보가 이번 파일에
+  // 없으면) 아예 안 채워서 "데이터 없음"과 "0원"을 구분한다.
+  if(mrRows&&mrRows.length) row.est_claim_amt_weighted=mrRows.reduce(function(s,m){ return s+(m.weightedAmt||0); },0);
   return row;
 }
 function saveCurrentMonthClaimsBatch(rows){
@@ -2354,8 +2413,27 @@ function saveCurrentMonthClaimsBatch(rows){
   });
 }
 // 한 곳짜리 호출부(단일 사무소 반영 등)를 위한 래퍼 - 내부적으로 배치 함수를 그대로 재사용
-function saveCurrentMonthClaims(office, business, agg, asOf, evalData){
-  return saveCurrentMonthClaimsBatch([buildCurrentMonthClaimRow(office, business, agg, asOf, evalData)]);
+function saveCurrentMonthClaims(office, business, agg, asOf, evalData, mrRows){
+  return saveCurrentMonthClaimsBatch([buildCurrentMonthClaimRow(office, business, agg, asOf, evalData, mrRows)]);
+}
+// mr_claims(담당자별 진행중 추정 청구금액) row 계산 - office_claims와 같은 이유(동시 upsert 폭주로
+// 인한 조용한 실패)로 DB 호출은 전부 saveMrClaimsBatch()에만 모아둠.
+function buildMrClaimRow(office, mrRow, asOf){
+  if(!mrRow||!mrRow.sabun) return null;
+  var month=String(asOf||'').slice(0,7)+'-01';
+  return {
+    mr_sabun: mrRow.sabun, mr_name: mrRow.name||'', office: office, business: mrRow.business||'', month: month,
+    grade: mrRow.grade||null, active_count: mrRow.active||0,
+    claim_amt_raw: mrRow.claimAmt||0, apply_rate: mrRow.applyRate||1, claim_amt_weighted: mrRow.weightedAmt||0
+  };
+}
+function saveMrClaimsBatch(rows){
+  rows=(rows||[]).filter(function(r){ return r; });
+  if(!rows.length) return Promise.resolve();
+  return db.from('mr_claims').upsert(rows, {onConflict:'mr_sabun,month'}).then(function(res){
+    if(res.error) console.error('mr_claims(담당자별 진행중 추정) 저장 실패:', res.error);
+    return res;
+  });
 }
 // [재발 방지 - 3차, 근본 조치] 위 두 차례 재발 방지(prev_patients 보호 등)는 전부 "이미 잘못
 // 잠긴 값이 있다"는 걸 전제로 그 값을 지키는 방식이었는데, 정작 "월마감 확정"으로 처음 잠그는
@@ -2418,7 +2496,7 @@ function commitCurrentRaw(parsed, status, lockMonth){
     // (아래 update()-only 경로는 이미 등록된 거래처만 갱신되고 신규 거래처는 전부 "미매칭"으로 빠지는데,
     // 그러면 아직 거래처가 하나도 없는 사무소는 이 경로로 부트스트랩(최초 등록)할 수가 없었음)
     var natUpdates=parsed.natUpdates||[];
-    var natToday=parsed.natToday||{}, natBusiness=parsed.natBusiness||{}, natEval=parsed.natEval||{};
+    var natToday=parsed.natToday||{}, natBusiness=parsed.natBusiness||{}, natEval=parsed.natEval||{}, natMrEval=parsed.natMrEval||{};
     // 사무소 배정 보호: 파일마다 같은 사업자번호를 다른 사무소로 표기하는 경우가 있어서(예: 경인1<->폴라리스1 오락가락),
     // 파일 하나 잘못 올리면 조용히 사무소가 바뀌고 활성환자수가 엉뚱하게 합산되는 사고가 반복됐음. 그래서 이미 DB에
     // 등록된 사무소와 이 파일이 말하는 사무소가 다른 사업자번호는, 이 파일 값을 무시하고 기존 배정을 그대로 지킴
@@ -2532,18 +2610,23 @@ function commitCurrentRaw(parsed, status, lockMonth){
           curAgg.care+=u.care_plan_cnt||0; curAgg.edu+=u.edu_cnt||0; curAgg.mgmt+=u.patient_mgmt_cnt||0; curAgg.check+=u.check_eval_cnt||0;
         });
         loadOfficeClaims().then(function(){
-          var claimRows=[buildCurrentMonthClaimRow(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf, natEval[currentOffice])];
+          var claimRows=[buildCurrentMonthClaimRow(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf, natEval[currentOffice], natMrEval[currentOffice])];
+          var mrClaimRows=(natMrEval[currentOffice]||[]).map(function(mr){ return buildMrClaimRow(currentOffice, mr, asOf); });
           Object.keys(natToday).forEach(function(o){
             // 사무소 배정 불일치로 clinics 반영 자체가 보호돼서 건너뛴 사무소는 청구현황도 같이 건너뜀(일관성 유지).
             // stale 사무소는 "현재"만 안 건드리는 거라 청구현황(그 과거 달 몫)은 정상적으로 반영해야 함
-            if(allTouchedOffices.indexOf(o)>=0) claimRows.push(buildCurrentMonthClaimRow(o, natBusiness[o], natToday[o], asOf, natEval[o]));
+            if(allTouchedOffices.indexOf(o)>=0){
+              claimRows.push(buildCurrentMonthClaimRow(o, natBusiness[o], natToday[o], asOf, natEval[o], natMrEval[o]));
+              (natMrEval[o]||[]).forEach(function(mr){ mrClaimRows.push(buildMrClaimRow(o, mr, asOf)); });
+            }
           });
           // 사무소 수와 무관하게 요청 1건으로 한 번에 upsert(과거엔 사무소당 1건씩 Promise.all로 동시에
           // 쐈는데, "전체" 업로드처럼 수십 곳이 한꺼번에 몰리면 동시 연결 수 초과로 대부분 조용히
-          // 실패하는 사고가 있었음 - 아래 saveCurrentMonthClaimsBatch 주석 참고)
-          return saveCurrentMonthClaimsBatch(claimRows);
+          // 실패하는 사고가 있었음 - 아래 saveCurrentMonthClaimsBatch 주석 참고). mr_claims도 같은
+          // 이유로 담당자 수(수백 명)와 무관하게 요청 1건으로 묶어서 보냄.
+          return Promise.all([saveCurrentMonthClaimsBatch(claimRows), saveMrClaimsBatch(mrClaimRows)]).then(function(resArr){ return resArr[0]; });
         }).then(function(claimRes){
-          return loadOfficeClaims().then(function(){ return claimRes; });
+          return Promise.all([loadOfficeClaims(), loadMrClaims()]).then(function(){ return claimRes; });
         }).then(function(claimRes){
           if(document.getElementById('view-claim')&&document.getElementById('view-claim').classList.contains('v-active')) renderClaimView();
           if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
@@ -4969,7 +5052,7 @@ function clinicEvalGap(c){
 }
 var stTrendChart=null;
 function renderStrategyView(){
-  Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot()]).then(function(){
+  Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot(),loadMrClaims()]).then(function(){
     buildClaimMap();
     renderStKPI();
     renderStMrCards();
@@ -5189,7 +5272,10 @@ function stEvalConversion(){
     var estEvalScore=(cur.est_ilmansa_patient||0)*10000;
     return {month:cur.month, evalScore:estEvalScore, actualClaim:cur.est_claim_amt||0, rate:estRate,
       gap:(cur.est_claim_amt||0)-estEvalScore, evalCnt:cur.est_ilmansa_active, claimCnt:cur.est_claim_cnt||0,
-      patientCnt:cur.est_ilmansa_patient||0, official:false};
+      patientCnt:cur.est_ilmansa_patient||0, official:false,
+      // [2026-10월부터] 담당자 등급(B등급↑=100%/C등급=50%) 반영 청구금액 - MR현황 시트가 없던 옛 파일이나
+      // 아직 담당자 정보가 안 잡힌 사무소는 null(= "등급반영 데이터 없음", 0원과 구분)
+      claimWeighted: cur.est_claim_amt_weighted!=null?cur.est_claim_amt_weighted:null};
   }
   // 이번달 베이스라인도, RAW의 est_* 값도 없으면(예: RAW 파일이 아직 이 항목을 안 주던 예전 형식),
   // 가장 최근 공식 마감월의 실제 값을 그대로 보여준다.
@@ -5502,12 +5588,18 @@ function renderStKPI(){
       var rowCls='eval-row'+(opts.borderTop?' eval-row-gap':'');
       var lblCls='eval-row-lbl'+(opts.big?' eval-row-lbl-big':'');
       var valCls='eval-row-val'+(opts.big?' eval-row-val-big':'');
+      var color=opts.muted?'var(--t3)':opts.color;
       return '<span class="'+rowCls+'">'
-        +'<span class="'+lblCls+'"'+(opts.color?(' style="color:'+opts.color+'"'):'')+'>'+lbl+'</span>'
-        +'<span class="'+valCls+'"'+(opts.color?(' style="color:'+opts.color+'"'):'')+'>'+val+'</span></span>';
+        +'<span class="'+lblCls+'"'+(color?(' style="color:'+color+'"'):'')+'>'+lbl+'</span>'
+        +'<span class="'+valCls+'"'+(color?(' style="color:'+color+';font-weight:600"'):'')+'>'+val+'</span></span>';
     }
+    // [2026-10월부터] 담당자 등급(B등급↑=100%/C등급=50%)에 따라 청구금액 인정률이 달라져서, "청구금액"
+    // (실제, 등급 무관) 바로 아래에 "청구금액(등급반영)"을 회색으로 추가 - GAP 계산 자체는 여전히
+    // 실제 청구금액 기준(건드리지 않음), 등급반영 수치는 참고용으로 나란히만 보여줌(사용자 확인).
+    var weightedRow=ec.claimWeighted!=null?evalRow('청구금액(등급반영)', companyMoney(ec.claimWeighted), {muted:true}):'';
     evalMinis.push(['evalScore','일만사 평가·청구'+estBadge,
       evalRow('청구금액', companyMoney(ec.actualClaim), {})
+      + weightedRow
       + evalRow('평가실적(환자수×10)', companyMoney(ec.evalScore), {})
       + evalRow('GAP', (gapPositive?'+':'')+companyMoney(ec.gap), {color:gapColor, big:true, borderTop:true}),
       '', null]);
@@ -5584,6 +5676,19 @@ function openMrTargetModal(mrCode){
           +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+(mT!=null?mT+'처':'-')+'</td></tr>';
       }).join('')
       +'</tbody></table>';
+  }
+  // [2026-10월부터] 담당자 개인 등급(활성처 달성률 기준)에 따라 청구금액 인정률이 50%/100%로
+  // 갈려서("MR현황" 시트에서 그대로 옴 - mr_claims), 실제 청구금액과 등급반영 청구금액을 나란히
+  // 보여줌. 사번이 없거나 이번 회차 MR현황에 이 담당자 행이 없으면(mr_claims 비어있음) 조용히 생략.
+  var mrClaimRows=m.emp_no?mrClaimsFor(m.emp_no):[];
+  if(mrClaimRows.length){
+    var mc=mrClaimRows[mrClaimRows.length-1];
+    var mcBadge=mc.grade?(' <span class="gradePill gradePill-sm '+gradeClass(mc.grade)+'">'+mc.grade+'등급</span>'):'';
+    body+='<div style="margin-top:10px;background:#f8f8f8;border-radius:8px;padding:10px 12px;font-size:12px">'
+      +'<div style="font-weight:700;margin-bottom:6px">'+parseInt(mc.month.slice(5,7),10)+'월 청구금액(진행중 추정)'+mcBadge+'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t3)">실제 청구금액</span><b>'+companyMoney(mc.claim_amt_raw)+'</b></div>'
+      +'<div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">등급반영 청구금액(인정률 '+Math.round((mc.apply_rate||1)*100)+'%)</span><b style="color:'+(mc.apply_rate<1?'#B01A1A':'#145C38')+'">'+companyMoney(mc.claim_amt_weighted)+'</b></div>'
+      +'</div>';
   }
   body+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'simple-modal-ov\').remove();switchView(\'clinicslist\');setStMR(\''+m.code+'\')" style="background:#F47920;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">'+m.name+'담당 거래처 보기 →</button></div>';
   showSimpleModal(m.name+'담당 · 월별 목표', body);
@@ -6000,6 +6105,17 @@ function loadOfficeClaims(){
     OFFICE_CLAIMS=res.data.sort(function(a,b){return a.month<b.month?-1:a.month>b.month?1:0;});
   });
 }
+// 담당자별(mr_claims) 등급 반영 청구금액 - 담당자 목표/등급 팝업(openMrTargetModal)에서 "실제 청구금액
+// vs 등급반영 청구금액" 비교에 씀. 전사 담당자 전체를 들고 있어도 몇백 행 수준이라 office_claims처럼
+// 전체를 그냥 메모리에 올려두고 mrClaimsFor(sabun)으로 조회.
+var MR_CLAIMS = [];
+function loadMrClaims(){
+  return fetchAllRows('mr_claims','*').then(function(res){
+    if(res.error){ console.error(res.error); MR_CLAIMS=[]; return; }
+    MR_CLAIMS=res.data.sort(function(a,b){return a.month<b.month?-1:a.month>b.month?1:0;});
+  });
+}
+function mrClaimsFor(sabun){ return MR_CLAIMS.filter(function(r){ return r.mr_sabun===sabun; }); }
 function loadClinicClaims(){
   return fetchAllRows('clinic_claims','*').then(function(res){
     if(res.error){ console.error(res.error); CLINIC_CLAIMS=[]; return; }
