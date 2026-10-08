@@ -383,7 +383,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
    맞춤)으로 되돌리고, 대신 카드 내부를 flex-column + khint에 margin-top:auto를 줘서(아래
    .miniCard 참고) 부연설명이 카드 맨 아래로 붙게 함 - 높이는 맞추면서 "숫자 바로 밑 여백"
    대신 "숫자와 설명 사이"에 여백이 생기게 하는 절충 */
-.miniGrid{display:grid;grid-template-columns:1.3fr 1.2fr 1.1fr 0.8fr;gap:12px}
+.miniGrid{display:grid;grid-template-columns:1.1fr 1fr 1.1fr 0.9fr 0.7fr;gap:12px}
 .miniCard{border:1px solid #eadfd4;background:#fff;border-radius:16px;padding:12px 14px;cursor:pointer;min-height:78px;display:flex;flex-direction:column}
 .miniCard:hover{box-shadow:0 8px 18px rgba(80,50,20,.08)}
 /* 카드마다 숫자 굵기가 서로 달라 보인다는 지적 - <b>는 브라우저 기본 굵기(보통 700)만 걸리고
@@ -403,8 +403,19 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .miniCard.mNext{border-top:4px solid #C6B8EA}
 .mrGoalChip{border:1px solid #F0D9A8;background:#FFFBF3;border-radius:12px;padding:9px 12px;cursor:pointer;min-width:132px}
 .mrGoalChip:hover{box-shadow:0 4px 12px rgba(178,106,0,.12);border-color:#F6B37C}
-/* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드 2개로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드) */
-.miniCard.evalScore,.miniCard.evalRate{border-top:4px solid #E6C06A}
+/* 청구기준 대응(예전엔 하단 별도 섹션이었음)을 미니카드로 합쳐서 여기로 옮김 - 청구금액 계열 색(골드).
+   [2026-10월] 청구카드를 "실제 청구금액"(evalScore, 등급 무관 - 회색으로 격하)과 "공식 인정
+   청구금액"(evalWeighted, 등급 반영 - 이제 이 카드가 골드 강조) 2개로 분리(사용자 확인: 등급별
+   50%/100% 인정률이 생긴 뒤로는 "실제로 인정받는 금액"이 더 중요한 지표가 됨) */
+.miniCard.evalScore{border-top:4px solid #CEC9C2}
+.miniCard.evalWeighted,.miniCard.evalRate{border-top:4px solid #E6C06A}
+.miniCard.evalWeighted{background:#FFFBF2}
+.gradeMixRow{margin-top:8px;padding-top:8px;border-top:1px dashed #eadfd4;display:flex;flex-wrap:wrap;gap:4px}
+.gradeMixChip{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:999px}
+.gradeMixChip.g-S{background:#E0F2FE;color:#0369A1}
+.gradeMixChip.g-A{background:#E4F5EE;color:#145C38}
+.gradeMixChip.g-B{background:#FEF3C7;color:#92700A}
+.gradeMixChip.g-C{background:#fee6e9;color:#c92f3f}
 /* 7~12월 등급 카드의 달별 한 줄 - 6개월치라 한 줄씩 세로로 쌓으면 카드가(그리고 grid라서 옆 카드들까지)
    너무 길어져서 2열로 나눠 배치(month-grid) */
 .month-line{display:block;font-size:14px;font-weight:700}
@@ -5314,6 +5325,38 @@ function openOfficeClaimGapBreakdown(){
     +'</tbody></table>';
   showSimpleModal(currentOffice+' · 월별 청구 GAP 내역', body);
 }
+// "공식 인정 청구금액" 카드 클릭 시 - 담당자 등급(B등급↑=100%/C등급=50%) 반영 추정치가 달마다 어떻게
+// 움직였는지 보여주고, 그 달 공식 마감이 들어오면 "공식 확정" 열과 나란히 비교해서 추정이 실제랑
+// 얼마나 맞았는지 확인할 수 있게 한다(사용자 요청: "인정금액이 실제 맞는지까지 확인"). 공식 마감
+// 파일("평가-청구(사무소)" 시트)이 아직 이 새 등급 가중치를 반영해서 내려주는지는 회사가 10월
+// 마감을 내야 알 수 있어서(2026-10월 기준 아직 한 번도 안 내려옴), 지금은 공식 확정 열을 "-"로 비워
+// 두고 월마감이 들어오는 대로 자동으로 채워지게만 해둠.
+function openOfficeClaimWeightedBreakdown(){
+  var rows=stOfficeClaims().filter(function(r){ return r.est_claim_amt_weighted!=null; });
+  if(!rows.length){ showSimpleModal('월별 공식 인정 청구금액', '<div class="sub" style="padding:10px 0">아직 담당자 등급 반영 데이터가 없어요(MR현황 시트가 있는 10월 이후 파일부터 생겨요).</div>'); return; }
+  var body='<div class="sub" style="margin-bottom:8px">달마다 실제 청구금액과, 담당자 등급(B등급↑=100%/C등급=50%) 반영한 "공식 인정" 추정치예요. 그 달 공식 마감이 들어오면 "공식 확정" 열이 채워지면서 추정이 얼마나 맞았는지(오차 %) 자동으로 비교돼요.</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">실제청구금액</th><th style="padding:5px 6px">공식인정(추정)</th><th style="padding:5px 6px">공식확정</th><th style="padding:5px 6px">오차</th></tr></thead><tbody>'
+    +rows.map(function(r){
+      var official=!!r.eval_clinic_cnt;
+      var actual=official?(r.claim_ilmansa_amt||0):(r.est_claim_amt||0);
+      var weighted=r.est_claim_amt_weighted||0;
+      var officialAmt=official?(r.claim_ilmansa_amt||0):null;
+      var diffTxt='-', diffColor='var(--t3)';
+      if(officialAmt!=null && officialAmt>0){
+        var diffPct=Math.round((weighted-officialAmt)/officialAmt*100);
+        diffTxt=(diffPct>=0?'+':'')+diffPct+'%';
+        diffColor=Math.abs(diffPct)<=5?'#145C38':'#B01A1A';
+      }
+      return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월</td>'
+        +'<td style="text-align:right;padding:5px 6px;color:var(--t3)">'+companyMoney(actual)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;font-weight:800">'+companyMoney(weighted)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px">'+(officialAmt!=null?companyMoney(officialAmt):'-')+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;font-weight:800;color:'+diffColor+'">'+diffTxt+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  showSimpleModal(currentOffice+' · 월별 공식 인정 청구금액', body);
+}
 function renderClinicsListView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
     buildClaimMap();
@@ -5593,16 +5636,28 @@ function renderStKPI(){
         +'<span class="'+lblCls+'"'+(color?(' style="color:'+color+'"'):'')+'>'+lbl+'</span>'
         +'<span class="'+valCls+'"'+(color?(' style="color:'+color+';font-weight:600"'):'')+'>'+val+'</span></span>';
     }
-    // [2026-10월부터] 담당자 등급(B등급↑=100%/C등급=50%)에 따라 청구금액 인정률이 달라져서, "청구금액"
-    // (실제, 등급 무관) 바로 아래에 "청구금액(등급반영)"을 회색으로 추가 - GAP 계산 자체는 여전히
-    // 실제 청구금액 기준(건드리지 않음), 등급반영 수치는 참고용으로 나란히만 보여줌(사용자 확인).
-    var weightedRow=ec.claimWeighted!=null?evalRow('청구금액(등급반영)', companyMoney(ec.claimWeighted), {muted:true}):'';
-    evalMinis.push(['evalScore','일만사 평가·청구'+estBadge,
+    // [2026-10월부터, 사용자 확인] 담당자 등급(B등급↑=100%/C등급=50%)에 따라 청구금액 인정률이
+    // 달라지면서 "실제 청구금액"과 "실제로 인정받는 청구금액"이 갈라짐 - 한 카드에 줄 추가가 아니라
+    // 아예 카드를 2개로 분리함(실제 청구카드는 회색으로 격하, 공식 인정 청구카드를 새로 만들어 강조).
+    // GAP 계산 자체는 여전히 기존 그대로(실제 청구금액 - 평가실적, 건드리지 않음).
+    evalMinis.push(['evalScore','실제 청구금액'+estBadge,
       evalRow('청구금액', companyMoney(ec.actualClaim), {})
-      + weightedRow
       + evalRow('평가실적(환자수×10)', companyMoney(ec.evalScore), {})
       + evalRow('GAP', (gapPositive?'+':'')+companyMoney(ec.gap), {color:gapColor, big:true, borderTop:true}),
       '', null]);
+    if(ec.claimWeighted!=null){
+      // 이번달 담당자 등급 구성(B등급↑ 몇 명 100% 인정 / C등급 몇 명 50% 인정)을 칩으로 보여줘서,
+      // 왜 실제 청구금액보다 깎였는지 카드만 보고도 바로 이해되게 함
+      var mrThisMonth=MR_CLAIMS.filter(function(r){ return r.office===currentOffice && r.month===ec.month; });
+      var gradeChips=mrThisMonth.map(function(r){
+        var g=r.grade||'?';
+        return '<span class="gradeMixChip g-'+g+'">'+(r.mr_name||'')+' '+g+'</span>';
+      }).join('');
+      var gradeMix=gradeChips?('<div class="gradeMixRow">'+gradeChips+'</div>'):'';
+      evalMinis.push(['evalWeighted','공식 인정 청구금액'+estBadge+' <span style="font-size:9px;font-weight:700;color:#0369A1;background:#E0F2FE;border-radius:999px;padding:1px 5px;vertical-align:middle">등급반영</span>',
+        '<span style="font-size:24px">'+companyMoney(ec.claimWeighted)+'</span>'+gradeMix,
+        '', null]);
+    }
     // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
     // 둬서 카드 안에 고르게 퍼지도록 함(예전엔 %만 크고 나머진 카드 위쪽에 작게 몰려 있어 불균형했음).
     evalMinis.push(['evalRate','청구전환율'+estBadge,
@@ -5618,9 +5673,10 @@ function renderStKPI(){
     // "일만사 평가·청구"(GAP) 카드는 다른 미니카드처럼 목록 필터가 아니라 월별 드릴다운 팝업을 여는
     // 특수 케이스라, setStFilter가 아니라 별도 함수를 바로 붙임
     var isGapCard=x[0]==='evalScore';
+    var isWeightedCard=x[0]==='evalWeighted';
     var isGradeCard=x[0]==='mNext';
-    var clickable=!!x[4]||isGapCard||isGradeCard;
-    var attr=isGapCard?' onclick="openOfficeClaimGapBreakdown()"':(isGradeCard?' onclick="openOfficeGradeModal()"':(clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"'));
+    var clickable=!!x[4]||isGapCard||isWeightedCard||isGradeCard;
+    var attr=isGapCard?' onclick="openOfficeClaimGapBreakdown()"':(isWeightedCard?' onclick="openOfficeClaimWeightedBreakdown()"':(isGradeCard?' onclick="openOfficeGradeModal()"':(clickable?(' onclick="setStFilter(\''+x[4]+'\')"'):' style="cursor:default"')));
     var arrow=clickable?' ▼':'';
     return '<div class="miniCard '+x[0]+'"'+attr+'><div class="klbl">'+x[1]+arrow+'</div><b>'+x[2]+'</b><div class="khint">'+x[3]+'</div></div>';
   }).join('');
@@ -5684,10 +5740,16 @@ function openMrTargetModal(mrCode){
   if(mrClaimRows.length){
     var mc=mrClaimRows[mrClaimRows.length-1];
     var mcBadge=mc.grade?(' <span class="gradePill gradePill-sm '+gradeClass(mc.grade)+'">'+mc.grade+'등급</span>'):'';
-    body+='<div style="margin-top:10px;background:#f8f8f8;border-radius:8px;padding:10px 12px;font-size:12px">'
-      +'<div style="font-weight:700;margin-bottom:6px">'+parseInt(mc.month.slice(5,7),10)+'월 청구금액(진행중 추정)'+mcBadge+'</div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="color:var(--t3)">실제 청구금액</span><b>'+companyMoney(mc.claim_amt_raw)+'</b></div>'
-      +'<div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">등급반영 청구금액(인정률 '+Math.round((mc.apply_rate||1)*100)+'%)</span><b style="color:'+(mc.apply_rate<1?'#B01A1A':'#145C38')+'">'+companyMoney(mc.claim_amt_weighted)+'</b></div>'
+    var penalized=mc.apply_rate!=null && mc.apply_rate<1;
+    var lost=Math.max(0,(mc.claim_amt_raw||0)-(mc.claim_amt_weighted||0));
+    var boxBg=penalized?'#FFF5F5':'#f8f8f8', boxBd=penalized?'1px solid #f3c3ca':'none';
+    body+='<div style="margin-top:10px;background:'+boxBg+';border:'+boxBd+';border-radius:10px;padding:11px 13px;font-size:12px">'
+      +'<div style="font-weight:800;margin-bottom:8px;color:#74695f">'+parseInt(mc.month.slice(5,7),10)+'월 청구금액(진행중 추정)'+mcBadge+'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--t3)">실제 청구금액</span><b>'+companyMoney(mc.claim_amt_raw)+'</b></div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:7px;border-top:1px dashed '+(penalized?'#f3c3ca':'#eadfd4')+'">'
+      +'<span style="font-weight:800;color:'+(penalized?'#B01A1A':'#145C38')+'">등급반영 인정액('+Math.round((mc.apply_rate||1)*100)+'%)</span>'
+      +'<b style="font-size:19px;color:'+(penalized?'#B01A1A':'#145C38')+'">'+companyMoney(mc.claim_amt_weighted)+'</b></div>'
+      +(penalized?('<div style="margin-top:5px;font-size:10.5px;color:#B01A1A;text-align:right">'+mc.grade+'등급(달성률 60% 미만)이라 '+moneyK(lost)+'이 인정에서 빠져요</div>'):'')
       +'</div>';
   }
   body+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'simple-modal-ov\').remove();switchView(\'clinicslist\');setStMR(\''+m.code+'\')" style="background:#F47920;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">'+m.name+'담당 거래처 보기 →</button></div>';
