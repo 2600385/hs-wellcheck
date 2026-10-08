@@ -2297,7 +2297,9 @@ function lockMonthlySnapshot(rows, asOf){
 // 호출(사무소당 1건씩 동시에 수십 건)하던 방식이, commitDailyMAU에서 이미 한 번 겪었던 것과 같은 유형의
 // 문제(동시 연결 수가 너무 많아져 대부분 조용히 실패 - res.error만 console.error로 찍히고 화면엔 아무
 // 표시도 없음)를 그대로 재현함(실제로 2026-10-06 전국 업로드에서 37개 사무소 전부 조용히 실패해서
-// "일만사 평가·청구" 카드가 9월 값에 멈춰있던 사고로 확인됨). DB 호출 자체를 없애고 row 계산만 하는
+// "일만사 평가·청구" 카드가 9월 값에 멈춰있던 사고로 확인됨). main에서 따로 고쳤던 버전은 공식 마감
+// 보호 로직만 추가했을 뿐 여전히 사무소당 upsert를 Promise.all로 동시에 날려서 같은 사고가 재발함
+// (2026-10-07 전국 업로드도 office_claims 0건으로 확인). DB 호출 자체를 없애고 row 계산만 하는
 // buildCurrentMonthClaimRow()와, 모은 row들을 한 번의 upsert로 합쳐 보내는 saveCurrentMonthClaimsBatch()로
 // 분리해서 사무소 수와 무관하게 항상 요청 1건으로 끝나게 함.
 function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData){
