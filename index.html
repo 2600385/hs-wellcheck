@@ -2187,11 +2187,20 @@ function parseCurrentRaw(wb){
         if(NATIONAL_OFFICES.indexOf(rOff4)>=0){
           natBusiness[rOff4]=drow4[colOff4-1]||NATIONAL_BUSINESS[rOff4]||'';
           if(ilmansaActiveCol>=0&&ilmansaPatientCol>=0&&claimCntCol>=0&&claimAmtCol>=0){
+            var rawClaimCnt4=Number(drow4[claimCntCol])||0;
+            var rawClaimAmt4=Number(drow4[claimAmtCol])||0;
+            // [2026-10-08] 10/8자 파일부터 이 "금액" 열이 안내 없이 원->백만원 단위로 바뀜(10/8 파일
+            // 경인1: 9.30373 / 처수 26건 = 처당 0.36원, 반면 가장 싼 청구단가도 11,910원이라 처당 몇
+            // 원대는 나올 수가 없음 - 단위 안내("단위: 백만원")도 이 열이 아니라 오른쪽에 새로 생긴
+            // "26년 4Q 평가" 블록 위에만 붙어있어서 헤더 텍스트로는 구분이 안 됨). 처당 금액이 제일 싼
+            // 청구단가보다도 비정상적으로 작으면 백만원 단위로 보고 보정한다.
+            var claimAmt4=rawClaimAmt4;
+            if(rawClaimCnt4>0 && (rawClaimAmt4/rawClaimCnt4)<1000) claimAmt4=rawClaimAmt4*1000000;
             natEval[rOff4]={
               ilmansaActive: Number(drow4[ilmansaActiveCol])||0,
               ilmansaPatient: Number(drow4[ilmansaPatientCol])||0,
-              claimCnt: Number(drow4[claimCntCol])||0,
-              claimAmt: Number(drow4[claimAmtCol])||0
+              claimCnt: rawClaimCnt4,
+              claimAmt: claimAmt4
             };
           }
         }
