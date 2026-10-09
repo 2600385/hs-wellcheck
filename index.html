@@ -2206,7 +2206,11 @@ function parseCurrentRaw(wb){
             // "26년 4Q 평가" 블록 위에만 붙어있어서 헤더 텍스트로는 구분이 안 됨). 처당 금액이 제일 싼
             // 청구단가보다도 비정상적으로 작으면 백만원 단위로 보고 보정한다.
             var claimAmt4=rawClaimAmt4;
-            if(rawClaimCnt4>0 && (rawClaimAmt4/rawClaimCnt4)<1000) claimAmt4=rawClaimAmt4*1000000;
+            // [2026-10-09, 재발 방지] *1000000은 부동소수점 오차로 8.38305*1000000 =
+            // 8383050.000000001 같은 끝자리 노이즈가 남는데, office_claims.est_claim_amt가 bigint라
+            // 그대로 upsert하면 "invalid input syntax for type bigint"로 통째로 실패함(2026-10-09
+            // 전국 업로드 사고로 확인) - Math.round로 정수화해서 저장.
+            if(rawClaimCnt4>0 && (rawClaimAmt4/rawClaimCnt4)<1000) claimAmt4=Math.round(rawClaimAmt4*1000000);
             natEval[rOff4]={
               ilmansaActive: Number(drow4[ilmansaActiveCol])||0,
               ilmansaPatient: Number(drow4[ilmansaPatientCol])||0,
@@ -2257,7 +2261,10 @@ function parseCurrentRaw(wb){
         if(NATIONAL_OFFICES.indexOf(rOff6)>=0){
           var sabun6=drow6[colOff6+1]!=null?String(drow6[colOff6+1]).replace(/\.0$/,''):null;
           if(sabun6 && claimAmtCol6>=0){
-            var rawAmt6=(Number(drow6[claimAmtCol6])||0)*1000; // 천원 -> 원
+            // 천원 -> 원. *1000이 8383.05*1000=8383049.999999999 같은 부동소수점 끝자리를 남기면
+            // mr_claims.claim_amt_raw(bigint)에 upsert할 때 "invalid input syntax for type bigint"로
+            // 조용히(사무소 전체가 묶여서) 실패하므로 Math.round로 정수화(2026-10-09 사고 재발 방지).
+            var rawAmt6=Math.round((Number(drow6[claimAmtCol6])||0)*1000);
             var rate6=applyRateCol6>=0?(Number(drow6[applyRateCol6])):null;
             if(rate6==null||!(rate6>0)) rate6=1; // 참고 블록이 없거나 값이 비어있으면 안전하게 100%로 간주
             if(!natMrEval[rOff6]) natMrEval[rOff6]=[];
