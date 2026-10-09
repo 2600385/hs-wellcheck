@@ -1731,23 +1731,12 @@ function saveUnmatchedClinics(list, sourceFile){
 // 있어도 체크 없이 매번 새로 insert해서, 하루에 여러 번(트러블슈팅 등으로) 재업로드하면 같은 거래처가
 // "미매칭 거래처" 목록에 계속 중복으로 쌓이는 사고가 있었음(실사고: 속편한정내과/조이비뇨기과의원/
 // 패밀리소아청소년과가 각각 3번씩 중복). saveUnmatchedClinics와 동일하게 이미 대기 중인 biz_no는 걸러냄.
-// [2026-10-09, 버그 수정 2] "유지"(=ignored)를 눌러도 다음 업로드 때 파일이 여전히 같은 다른 사무소를
-// 적어 보내면 똑같은 충돌이 또 대기로 생겨서, 같은 거래처를 수십 번씩 "유지"해야 했음(신영통성모내과·
-// 서울대치탑의원 33번, 아주편한내과 21번 등). 같은 (기존 사무소 -> 파일 사무소) 조합으로 이미 "유지"
-// 결정한 거래처는 다시 안 띄움 - 파일이 또 다른 사무소를 말하기 시작하면(새 조합) 그때만 다시 띄움.
+// 이미 "유지"한 거래처라도 다음 파일이 또 다른 사무소를 적어 보내면 다시 띄워서 매번 확인하게 함(사용자 확인).
 function saveOfficeConflicts(list){
   if(!list.length) return Promise.resolve();
-  var bizList=list.map(function(r){ return r.biz_no; }).filter(function(b){ return b; });
-  if(!bizList.length) return Promise.resolve();
-  return db.from('unmatched_clinics').select('biz_no,status,source_office,raw_data').in('biz_no',bizList).in('status',['pending','ignored']).then(function(res){
-    var pendingHere={}, keptPair={};
-    (res.data||[]).forEach(function(r){
-      if(r.status==='pending' && r.source_office===currentOffice) pendingHere[r.biz_no]=true;
-      if(r.status==='ignored' && r.raw_data) keptPair[r.biz_no+'|'+r.raw_data.existing_office+'|'+r.raw_data.new_office]=true;
-    });
-    var fresh=list.filter(function(r){
-      return r.biz_no && !pendingHere[r.biz_no] && !keptPair[r.biz_no+'|'+r.existing_office+'|'+r.office];
-    });
+  return db.from('unmatched_clinics').select('biz_no').eq('source_office',currentOffice).eq('status','pending').then(function(res){
+    var already={}; (res.data||[]).forEach(function(r){ already[r.biz_no]=true; });
+    var fresh=list.filter(function(r){ return r.biz_no&&!already[r.biz_no]; });
     if(!fresh.length) return;
     var records=fresh.map(function(r){
       return {biz_no:r.biz_no, clinic_name:r.name||'', source_file:'current', source_office:currentOffice,
