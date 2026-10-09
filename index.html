@@ -1727,14 +1727,38 @@ function saveUnmatchedClinics(list, sourceFile){
 }
 // 사무소 배정 충돌(commitCurrentRaw에서 보호되어 건너뛴 거래처)도 "미매칭 거래처" 검토함에 같이 남겨서
 // 관리자가 어느 사무소가 맞는지 직접 확인하고 결정할 수 있게 함 - 그냥 카운트만 보여주고 끝나면 검토할 방법이 없어서
+// [2026-10-09, 버그 수정] saveUnmatchedClinics()와 달리 이미 같은 biz_no로 대기 중(pending)인 행이
+// 있어도 체크 없이 매번 새로 insert해서, 하루에 여러 번(트러블슈팅 등으로) 재업로드하면 같은 거래처가
+// "미매칭 거래처" 목록에 계속 중복으로 쌓이는 사고가 있었음(실사고: 속편한정내과/조이비뇨기과의원/
+// 패밀리소아청소년과가 각각 3번씩 중복). saveUnmatchedClinics와 동일하게 이미 대기 중인 biz_no는 걸러냄.
 function saveOfficeConflicts(list){
   if(!list.length) return Promise.resolve();
-  var records=list.map(function(r){
-    return {biz_no:r.biz_no, clinic_name:r.name||'', source_file:'current', source_office:currentOffice,
-      raw_data:{existing_office:r.existing_office, new_office:r.office, patients:r.patients||0},
-      note:'파일은 이 거래처를 "'+r.office+'" 사무소로 표기했지만, 이미 "'+r.existing_office+'" 사무소로 등록돼 있어 자동 반영을 건너뛰었어요. 실제로 사무소가 바뀐 거래처면 재배정하고, 파일 쪽 오류면 기존 배정을 유지하세요.'};
+  return db.from('unmatched_clinics').select('biz_no').eq('source_office',currentOffice).eq('status','pending').then(function(res){
+    var already={}; (res.data||[]).forEach(function(r){ already[r.biz_no]=true; });
+    var fresh=list.filter(function(r){ return r.biz_no&&!already[r.biz_no]; });
+    if(!fresh.length) return;
+    var records=fresh.map(function(r){
+      return {biz_no:r.biz_no, clinic_name:r.name||'', source_file:'current', source_office:currentOffice,
+        raw_data:{existing_office:r.existing_office, new_office:r.office, patients:r.patients||0},
+        note:'파일은 이 거래처를 "'+r.office+'" 사무소로 표기했지만, 이미 "'+r.existing_office+'" 사무소로 등록돼 있어 자동 반영을 건너뛰었어요. 실제로 사무소가 바뀐 거래처면 재배정하고, 파일 쪽 오류면 기존 배정을 유지하세요.'};
+    });
+    return db.from('unmatched_clinics').insert(records);
+  }).then(function(){ refreshUnmatchedBadge(); });
+}
+// 같은 거래처(사업자번호)가 예전 중복 버그로 대기 행이 여러 개 쌓여 있어도, 버튼 한 번에 그 거래처의
+// 대기 행 전부를 같이 처리해서 목록에 똑같은 거래처가 남아 다시 보이지 않게 함
+function resolveUnmatchedGroup(row, fields){
+  var q=db.from('unmatched_clinics').update(fields).eq('source_office',row.source_office).eq('status','pending');
+  return row.biz_no?q.eq('biz_no',row.biz_no):q.eq('id',row.id);
+}
+function dedupeUnmatchedRows(rows){
+  var seen={};
+  return rows.filter(function(r){
+    if(!r.biz_no) return true;
+    if(seen[r.biz_no]) return false;
+    seen[r.biz_no]=true;
+    return true;
   });
-  return db.from('unmatched_clinics').insert(records).then(function(){ refreshUnmatchedBadge(); });
 }
 function resolveOfficeConflict(id){
   db.from('unmatched_clinics').select('*').eq('id',id).then(function(res){
@@ -1743,7 +1767,7 @@ function resolveOfficeConflict(id){
     var fromOffice=row.raw_data.existing_office, toOffice=row.raw_data.new_office;
     db.from('clinics').update({office:toOffice}).eq('biz_no',row.biz_no).eq('office',fromOffice).then(function(res2){
       if(res2.error){ alert('재배정 실패: '+res2.error.message); return; }
-      db.from('unmatched_clinics').update({status:'confirmed_new', resolved_at:new Date().toISOString()}).eq('id',id).then(function(){
+      resolveUnmatchedGroup(row, {status:'confirmed_new', resolved_at:new Date().toISOString()}).then(function(){
         loadClinics().then(function(){ openUnmatchedModal(); refreshUnmatchedBadge(); });
       });
     });
@@ -1752,8 +1776,8 @@ function resolveOfficeConflict(id){
 function refreshUnmatchedBadge(){
   var el=document.getElementById('unmatched-link');
   if(!el) return;
-  db.from('unmatched_clinics').select('id').eq('source_office',currentOffice).eq('status','pending').then(function(res){
-    var n=(res.data||[]).length;
+  db.from('unmatched_clinics').select('id,biz_no').eq('source_office',currentOffice).eq('status','pending').then(function(res){
+    var n=dedupeUnmatchedRows(res.data||[]).length;
     el.textContent='⚠️ 미매칭 거래처'+(n?' ('+n+')':'');
   });
 }
@@ -1761,7 +1785,7 @@ function openUnmatchedModal(){
   db.from('unmatched_clinics').select('*').eq('source_office',currentOffice).eq('status','pending').order('created_at',{ascending:false}).then(function(res){
     var el=document.getElementById('unmatched-list');
     if(res.error){ el.innerHTML='불러오기 실패: '+res.error.message; return; }
-    var rows=res.data||[];
+    var rows=dedupeUnmatchedRows(res.data||[]);
     if(!rows.length){ el.innerHTML='<div style="color:var(--t3);text-align:center;padding:16px 0">미매칭 거래처가 없습니다.</div>'; return; }
     el.innerHTML=rows.map(function(r){
       var isConflict=r.raw_data&&r.raw_data.existing_office;
@@ -1818,7 +1842,7 @@ function resolveUnmatchedAsMerge(id, clinicId){
     var rd=row.raw_data||{};
     db.from('clinics').update({biz_no:row.biz_no, patients:rd.patients||0, non_patients:rd.non_patients||0}).eq('id',clinicId).then(function(res2){
       if(res2.error){ alert('연결 실패: '+res2.error.message); return; }
-      db.from('unmatched_clinics').update({status:'confirmed_new', matched_clinic_id:clinicId, resolved_at:new Date().toISOString()}).eq('id',id).then(function(){
+      resolveUnmatchedGroup(row, {status:'confirmed_new', matched_clinic_id:clinicId, resolved_at:new Date().toISOString()}).then(function(){
         loadClinics().then(function(){ openUnmatchedModal(); refreshUnmatchedBadge(); });
       });
     });
@@ -1831,15 +1855,19 @@ function resolveUnmatchedAsNew(id){
     db.from('clinics').insert({biz_no:row.biz_no, name:row.clinic_name, office:currentOffice, mr:'-'}).select('id').then(function(res2){
       if(res2.error){ alert('거래처 추가 실패: '+res2.error.message); return; }
       var newId=res2.data&&res2.data[0]&&res2.data[0].id;
-      db.from('unmatched_clinics').update({status:'confirmed_new', matched_clinic_id:newId, resolved_at:new Date().toISOString()}).eq('id',id).then(function(){
+      resolveUnmatchedGroup(row, {status:'confirmed_new', matched_clinic_id:newId, resolved_at:new Date().toISOString()}).then(function(){
         loadClinics().then(function(){ openUnmatchedModal(); refreshUnmatchedBadge(); });
       });
     });
   });
 }
 function ignoreUnmatched(id){
-  db.from('unmatched_clinics').update({status:'ignored', resolved_at:new Date().toISOString()}).eq('id',id).then(function(){
-    openUnmatchedModal(); refreshUnmatchedBadge();
+  db.from('unmatched_clinics').select('*').eq('id',id).then(function(res){
+    var row=res.data&&res.data[0];
+    if(!row) return;
+    resolveUnmatchedGroup(row, {status:'ignored', resolved_at:new Date().toISOString()}).then(function(){
+      openUnmatchedModal(); refreshUnmatchedBadge();
+    });
   });
 }
 
