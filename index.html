@@ -2062,6 +2062,13 @@ function buildValidationDaily(parsed){
   ], detail:'사업자번호로 전국 사무소를 자동 매칭해서 반영합니다('+currentOffice+'뿐 아니라 파일에 포함된 모든 사무소).'};
 }
 // "현재 활성처 현황(RAW)" 파일 → clinics 테이블(patients/is_active/inactive_transition/prev_active/prev_patients) 파싱
+// "사업부사무소현황"의 사무소 단위 금액은 10/8 파일부터 안내 없이 백만원 단위로 내려옴 - 사무소 하나의
+// 평가금액이 1,000원 미만일 수는 없으니 절대값이 1,000 미만이면 백만원으로 보고 원으로 환산(부동소수점
+// 끝자리는 bigint 저장이 실패하므로 정수로 반올림)
+function officeAmtToWon(v){
+  v=Number(v)||0;
+  return Math.round(Math.abs(v)>0&&Math.abs(v)<1000?v*1000000:v);
+}
 function parseCurrentRaw(wb){
   var rows=sheetRows(wb, '거래처별 RAW');
   if(!rows) return {error:'시트 "거래처별 RAW"를 찾을 수 없습니다.'};
@@ -2222,6 +2229,18 @@ function parseCurrentRaw(wb){
       var ilmansaPatientCol=patientBlockCol>=0?patientBlockCol+1:-1;
       var claimCntCol=claimBlockCol>=0?claimBlockCol:-1;
       var claimAmtCol=claimBlockCol>=0?claimBlockCol+1:-1;
+      // [2026-10월부터] 회사 평가실적이 "환자수x1만원"에서 "(일만사 청구금액 + 비일만사 환자 1명당 1만원)
+      // x 인정률(50%/100%)"로 바뀜. "26년 4Q 평가" 블록의 평가 100% / 최종평가 / GAP(100% 적용시)를
+      // 그대로 읽음 - 블록 이름은 분기마다 바뀔 테니(27년 1Q...) 바로 아래 소제목 줄에서 열 이름으로 찾음.
+      var subRow4=officeSheetRows2[hIdx4+1]||[];
+      function findSubCol4(needle){
+        for(var c=0;c<subRow4.length;c++){
+          if(subRow4[c]!=null && String(subRow4[c]).replace(/\s+/g,'').indexOf(needle)>=0) return c;
+        }
+        return -1;
+      }
+      var nonIlmansaPatientCol=patientBlockCol>=0?patientBlockCol+2:-1;
+      var evalFullCol=findSubCol4('평가100%'), evalFinalCol=findSubCol4('최종평가'), evalGapCol=findSubCol4('GAP');
       for(var r5=hIdx4+2;r5<officeSheetRows2.length;r5++){
         var drow4=officeSheetRows2[r5];
         if(!drow4||(drow4[colOff4-1]==null&&drow4[colOff4]==null)) break;
@@ -2246,7 +2265,11 @@ function parseCurrentRaw(wb){
               ilmansaActive: Number(drow4[ilmansaActiveCol])||0,
               ilmansaPatient: Number(drow4[ilmansaPatientCol])||0,
               claimCnt: rawClaimCnt4,
-              claimAmt: claimAmt4
+              claimAmt: claimAmt4,
+              nonIlmansaPatient: nonIlmansaPatientCol>=0?(Number(drow4[nonIlmansaPatientCol])||0):null,
+              evalFull: evalFullCol>=0?officeAmtToWon(drow4[evalFullCol]):null,
+              evalFinal: evalFinalCol>=0?officeAmtToWon(drow4[evalFinalCol]):null,
+              evalGap: evalGapCol>=0?officeAmtToWon(drow4[evalGapCol]):null
             };
           }
         }
@@ -2285,13 +2308,28 @@ function parseCurrentRaw(wb){
       var claimAmtCol6=claimBlockCol6>=0?claimBlockCol6+1:-1;
       var refBlockCol6=findTopCol6('참고'); // 사무소평가(+0)/평가적용률(+1)
       var applyRateCol6=refBlockCol6>=0?refBlockCol6+1:-1;
+      // 비일만사 환자수(환자수 블록 +2)와 "평가금액 100% / 최종평가 / GAP"(천원 단위) - 소제목 줄에서 열 이름으로 찾음
+      var patientBlockCol6=findTopCol6('환자수');
+      var nonIlmansaCol6=patientBlockCol6>=0?patientBlockCol6+2:-1;
+      var subRow6=mrSheetRows[hIdx6+1]||[];
+      function findSubCol6(needle){
+        for(var c=0;c<subRow6.length;c++){
+          if(subRow6[c]!=null && String(subRow6[c]).replace(/\s+/g,'').indexOf(needle)>=0) return c;
+        }
+        return -1;
+      }
+      var evalFullCol6=findSubCol6('평가금액'), evalFinalCol6=findSubCol6('최종평가');
+      function kToWon6(v){ return Math.round((Number(v)||0)*1000); }
       for(var r7=hIdx6+2;r7<mrSheetRows.length;r7++){
         var drow6=mrSheetRows[r7];
         if(!drow6||(drow6[colOff6-1]==null&&drow6[colOff6]==null)) break;
         var rOff6=drow6[colOff6];
         if(NATIONAL_OFFICES.indexOf(rOff6)>=0){
           var sabun6=drow6[colOff6+1]!=null?String(drow6[colOff6+1]).replace(/\.0$/,''):null;
-          if(sabun6 && claimAmtCol6>=0){
+          // 등급별 인정률은 10월 파일부터 생긴 제도라, "최종평가" 열이 있는 새 양식일 때만 읽음 - 9월 이전
+          // 양식은 MR현황의 열 배치·단위가 달라서(금액이 원 단위, 활성처수 블록 구성도 다름) 그대로 읽으면
+          // 등급 자리에 숫자가, 청구금액이 1,000배로 들어가는 걸 9/23 파일로 확인함
+          if(sabun6 && claimAmtCol6>=0 && evalFinalCol6>=0){
             // 천원 -> 원. *1000이 8383.05*1000=8383049.999999999 같은 부동소수점 끝자리를 남기면
             // mr_claims.claim_amt_raw(bigint)에 upsert할 때 "invalid input syntax for type bigint"로
             // 조용히(사무소 전체가 묶여서) 실패하므로 Math.round로 정수화(2026-10-09 사고 재발 방지).
@@ -2303,7 +2341,13 @@ function parseCurrentRaw(wb){
               sabun: sabun6, name: drow6[colOff6+2]||'', business: drow6[colOff6-1]||'',
               grade: gradeCol6>=0?(drow6[gradeCol6]||null):null,
               active: claimCntCol6>=0?(Number(drow6[claimCntCol6])||0):0,
-              claimAmt: rawAmt6, applyRate: rate6, weightedAmt: Math.round(rawAmt6*rate6)
+              claimAmt: rawAmt6, applyRate: rate6, weightedAmt: Math.round(rawAmt6*rate6),
+              nonIlmansaPatient: nonIlmansaCol6>=0?(Number(drow6[nonIlmansaCol6])||0):null,
+              evalFull: evalFullCol6>=0?kToWon6(drow6[evalFullCol6]):null,
+              evalFinal: evalFinalCol6>=0?kToWon6(drow6[evalFinalCol6]):null,
+              // MR현황의 GAP 열은 양수(못 받은 금액)로, 사업부사무소현황은 음수로 적혀 있어서 부호가 반대 -
+              // 사무소와 같은 뜻(최종평가 - 평가 100%, 못 받으면 음수)으로 통일해서 직접 계산
+              evalGap: (evalFullCol6>=0&&evalFinalCol6>=0)?(kToWon6(drow6[evalFinalCol6])-kToWon6(drow6[evalFullCol6])):null
             });
           }
         }
@@ -2445,6 +2489,14 @@ function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData, mrRows
     row.est_ilmansa_patient=evalData.ilmansaPatient||0;
     row.est_claim_cnt=evalData.claimCnt||0;
     row.est_claim_amt=evalData.claimAmt||0;
+    // [2026-10월부터] 새 평가기준(일만사 청구 + 비일만사 1만원/명, 인정률 적용) - 해당 블록이 없는 예전
+    // 파일이면 아예 안 채워서 "새 기준 데이터 없음"과 0원을 구분
+    if(evalData.evalFinal!=null){
+      row.est_nonilmansa_patient=evalData.nonIlmansaPatient||0;
+      row.est_eval_full=evalData.evalFull||0;
+      row.est_eval_final=evalData.evalFinal||0;
+      row.est_eval_gap=evalData.evalGap||0;
+    }
   }
   // [2026-10월부터 신규] 담당자 등급(B등급↑=100%/C등급=50%) 반영 청구금액의 사무소 합계. est_claim_amt
   // (실제 청구금액, 등급 무관)와 짝을 이뤄 "일만사 평가·청구" 카드에 같이 보여줌. mrRows는 natMrEval[office]
@@ -2473,7 +2525,8 @@ function buildMrClaimRow(office, mrRow, asOf){
   return {
     mr_sabun: mrRow.sabun, mr_name: mrRow.name||'', office: office, business: mrRow.business||'', month: month,
     grade: mrRow.grade||null, active_count: mrRow.active||0,
-    claim_amt_raw: mrRow.claimAmt||0, apply_rate: mrRow.applyRate||1, claim_amt_weighted: mrRow.weightedAmt||0
+    claim_amt_raw: mrRow.claimAmt||0, apply_rate: mrRow.applyRate||1, claim_amt_weighted: mrRow.weightedAmt||0,
+    nonilmansa_patient: mrRow.nonIlmansaPatient, eval_full: mrRow.evalFull, eval_final: mrRow.evalFinal, eval_gap: mrRow.evalGap
   };
 }
 function saveMrClaimsBatch(rows){
@@ -5324,7 +5377,13 @@ function stEvalConversion(){
       patientCnt:cur.est_ilmansa_patient||0, official:false,
       // [2026-10월부터] 담당자 등급(B등급↑=100%/C등급=50%) 반영 청구금액 - MR현황 시트가 없던 옛 파일이나
       // 아직 담당자 정보가 안 잡힌 사무소는 null(= "등급반영 데이터 없음", 0원과 구분)
-      claimWeighted: cur.est_claim_amt_weighted!=null?cur.est_claim_amt_weighted:null};
+      claimWeighted: cur.est_claim_amt_weighted!=null?cur.est_claim_amt_weighted:null,
+      // [2026-10월부터] 새 평가기준 - 회사 "최종평가"(인정 합계), 평가 100%(인정률 적용 전), GAP(등급 미달로
+      // 못 받은 금액), 비일만사 환자수. 이 블록이 없는 예전 파일이면 null
+      evalFinal: cur.est_eval_final!=null?Number(cur.est_eval_final):null,
+      evalFull: cur.est_eval_full!=null?Number(cur.est_eval_full):null,
+      evalGap: cur.est_eval_gap!=null?Number(cur.est_eval_gap):null,
+      nonIlmansaPatient: cur.est_nonilmansa_patient!=null?cur.est_nonilmansa_patient:null};
   }
   // 이번달 베이스라인도, RAW의 est_* 값도 없으면(예: RAW 파일이 아직 이 항목을 안 주던 예전 형식),
   // 가장 최근 공식 마감월의 실제 값을 그대로 보여준다.
@@ -5354,7 +5413,12 @@ function openOfficeClaimGapBreakdown(){
       var gap=claimAmt-evalScore;
       var gapColor=gap>=0?'#1048A0':'#B01A1A';
       var badge=official?'':' <span style="font-size:9px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:1px 5px">추정</span>';
-      return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월'+badge+'</td>'
+      // 2026-10월부터 회사 평가기준이 "환자수x1만원" -> "등급반영 청구금액"으로 바뀜 - 이 표(실제 청구금액 카드)는
+      // 옛 기준 비교를 그대로 유지하되, 바뀌는 지점에 구분줄을 넣어 새 기준은 어디서 보는지 안내
+      var divider=(r.month==='2026-10-01')
+        ?'<tr><td colspan="5" style="padding:6px;font-size:11px;font-weight:800;color:#B26A00;background:#FFF7EF;text-align:center">10월부터 평가기준 변경 (환자수×1만원 → 등급반영 청구금액) · 새 기준 GAP은 "공식 인정 청구금액" 카드에서 확인</td></tr>'
+        :'';
+      return divider+'<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월'+badge+'</td>'
         +'<td style="text-align:center;padding:5px 6px">'+claimCnt+'처</td>'
         +'<td style="text-align:right;padding:5px 6px">'+companyMoney(claimAmt)+'</td>'
         +'<td style="text-align:right;padding:5px 6px">'+companyMoney(evalScore)+'</td>'
@@ -5370,27 +5434,32 @@ function openOfficeClaimGapBreakdown(){
 // 마감을 내야 알 수 있어서(2026-10월 기준 아직 한 번도 안 내려옴), 지금은 공식 확정 열을 "-"로 비워
 // 두고 월마감이 들어오는 대로 자동으로 채워지게만 해둠.
 function openOfficeClaimWeightedBreakdown(){
-  var rows=stOfficeClaims().filter(function(r){ return r.est_claim_amt_weighted!=null; });
-  if(!rows.length){ showSimpleModal('월별 공식 인정 청구금액', '<div class="sub" style="padding:10px 0">아직 담당자 등급 반영 데이터가 없어요(MR현황 시트가 있는 10월 이후 파일부터 생겨요).</div>'); return; }
-  var body='<div class="sub" style="margin-bottom:8px">달마다 실제 청구금액과, 담당자 등급(B등급↑=100%/C등급=50%) 반영한 "공식 인정" 추정치예요. 그 달 공식 마감이 들어오면 "공식 확정" 열이 채워지면서 추정이 얼마나 맞았는지(오차 %) 자동으로 비교돼요.</div>'
+  var rows=stOfficeClaims().filter(function(r){ return r.est_claim_amt_weighted!=null || r.est_eval_final!=null; });
+  if(!rows.length){ showSimpleModal('월별 공식 인정 청구금액', '<div class="sub" style="padding:10px 0">아직 새 평가기준 데이터가 없어요(10월 이후 파일부터 생겨요).</div>'); return; }
+  var th='padding:5px 6px';
+  var body='<div class="sub" style="margin-bottom:8px">10월부터 바뀐 평가기준이에요: <b>(일만사 청구금액 + 비일만사 환자 1명당 1만원) × 인정률</b>(담당자 B등급↑ 또는 사무소 B등급↑이면 100%, 아니면 50%). GAP은 등급 미달로 인정 못 받은 금액이에요. 그 달 월마감 파일이 들어오면 "공식확정"이 채워지면서 추정이 얼마나 맞았는지(오차) 비교돼요. (단위: 천원)</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
-    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">실제청구금액</th><th style="padding:5px 6px">공식인정(추정)</th><th style="padding:5px 6px">공식확정</th><th style="padding:5px 6px">오차</th></tr></thead><tbody>'
+    +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;'+th+'">월</th><th style="'+th+'">일만사 청구</th><th style="'+th+'">비일만사</th><th style="'+th+'">인정 합계</th><th style="'+th+'">GAP</th><th style="'+th+'">공식확정(오차)</th></tr></thead><tbody>'
     +rows.map(function(r){
-      var official=!!r.eval_clinic_cnt;
-      var actual=official?(r.claim_ilmansa_amt||0):(r.est_claim_amt||0);
-      var weighted=r.est_claim_amt_weighted||0;
-      var officialAmt=official?(r.claim_ilmansa_amt||0):null;
-      var diffTxt='-', diffColor='var(--t3)';
+      var claimW=r.est_claim_amt_weighted||0;
+      var finalAmt=r.est_eval_final!=null?Number(r.est_eval_final):claimW;
+      var nonAmt=r.est_eval_final!=null?Math.max(0,finalAmt-claimW):null;
+      var gap=r.est_eval_gap!=null?Number(r.est_eval_gap):null;
+      // 공식 확정치: 그 달 월마감 파일의 평가실적(eval_score) - 10월부터는 새 기준 평가실적이 들어올 것으로 보고
+      // 추정 인정 합계와 비교
+      var official=!!r.eval_clinic_cnt, officialAmt=official?Number(r.eval_score||0):null;
+      var offTxt='-', offColor='var(--t3)';
       if(officialAmt!=null && officialAmt>0){
-        var diffPct=Math.round((weighted-officialAmt)/officialAmt*100);
-        diffTxt=(diffPct>=0?'+':'')+diffPct+'%';
-        diffColor=Math.abs(diffPct)<=5?'#145C38':'#B01A1A';
+        var diffPct=Math.round((finalAmt-officialAmt)/officialAmt*100);
+        offTxt=companyMoney(officialAmt)+' ('+(diffPct>=0?'+':'')+diffPct+'%)';
+        offColor=Math.abs(diffPct)<=5?'#1048A0':'#B01A1A';
       }
       return '<tr style="border-bottom:0.5px solid var(--bd2)"><td style="padding:5px 6px;font-weight:700">'+parseInt(r.month.slice(5,7),10)+'월</td>'
-        +'<td style="text-align:right;padding:5px 6px;color:var(--t3)">'+companyMoney(actual)+'</td>'
-        +'<td style="text-align:right;padding:5px 6px;font-weight:800">'+companyMoney(weighted)+'</td>'
-        +'<td style="text-align:right;padding:5px 6px">'+(officialAmt!=null?companyMoney(officialAmt):'-')+'</td>'
-        +'<td style="text-align:right;padding:5px 6px;font-weight:800;color:'+diffColor+'">'+diffTxt+'</td></tr>';
+        +'<td style="text-align:right;padding:5px 6px">'+companyMoney(claimW)+'<div style="font-size:10px;color:var(--t3)">실제 '+companyMoney(r.est_claim_amt||0)+'</div></td>'
+        +'<td style="text-align:right;padding:5px 6px">'+(nonAmt!=null?companyMoney(nonAmt)+(r.est_nonilmansa_patient!=null?'<div style="font-size:10px;color:var(--t3)">'+r.est_nonilmansa_patient+'명</div>':''):'-')+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;font-weight:800">'+companyMoney(finalAmt)+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;font-weight:800;color:'+(gap!=null&&gap<0?'#B01A1A':'#1048A0')+'">'+(gap!=null?((gap>0?'+':'')+companyMoney(gap)):'-')+'</td>'
+        +'<td style="text-align:right;padding:5px 6px;color:'+offColor+'">'+offTxt+'</td></tr>';
     }).join('')
     +'</tbody></table>';
   showSimpleModal(currentOffice+' · 월별 공식 인정 청구금액', body);
@@ -5698,8 +5767,22 @@ function renderStKPI(){
       var officeLine=officeBNeed
         ?('<span style="color:#8A6800">사무소 B등급까지 '+officeBNeed.need+'처 필요 (전원 100% 인정)</span>')
         :'<span style="color:#1048A0">사무소 B등급 이상 (전원 100% 인정)</span>';
+      // [2026-10월부터 새 평가기준] 회사가 인정하는 평가실적 = (일만사 청구 + 비일만사 1만원/명) x 인정률.
+      // 큰 숫자는 회사 "최종평가"와 똑같이 맞추되, 일만사·비일만사가 섞여 헷갈리지 않게 바로 밑에 나눠서
+      // 표기하고, 새 기준 GAP(등급 미달로 못 받은 금액)은 이 카드에서 따로 보여줌(실제 청구금액 카드의
+      // 옛 기준 GAP - 일만사 청구 vs 환자수x1만원 - 은 그대로 둠, 사용자 확인).
+      var hasNewEval=ec.evalFinal!=null;
+      var bigAmt=hasNewEval?ec.evalFinal:ec.claimWeighted;
+      var splitLine='', newGapRow='';
+      if(hasNewEval){
+        var nonIlmansaAmt=Math.max(0,ec.evalFinal-ec.claimWeighted);
+        splitLine='<div style="font-size:10.5px;font-weight:700;color:var(--t3);margin-top:1px">일만사 청구 '+companyMoney(ec.claimWeighted)
+          +' + 비일만사 '+companyMoney(nonIlmansaAmt)+(ec.nonIlmansaPatient!=null?(' ('+ec.nonIlmansaPatient+'명)'):'')+'</div>';
+        var g=ec.evalGap||0;
+        newGapRow=evalRow('GAP(등급 미달분)', (g>0?'+':'')+companyMoney(g), {color:(g<0?'#B01A1A':'#1048A0'), borderTop:true});
+      }
       evalMinis.push(['evalWeighted','공식 인정 청구금액'+estBadge+' <span style="font-size:9px;font-weight:700;color:#0369A1;background:#E0F2FE;border-radius:999px;padding:1px 5px;vertical-align:middle">등급반영</span>',
-        '<span style="font-size:24px">'+companyMoney(ec.claimWeighted)+'</span><span style="font-size:12px;font-weight:700;color:var(--t3);margin-left:3px">천원</span>'+gradeMix,
+        '<span style="font-size:24px">'+companyMoney(bigAmt)+'</span><span style="font-size:12px;font-weight:700;color:var(--t3);margin-left:3px">천원</span>'+splitLine+newGapRow+gradeMix,
         officeLine, null]);
     }
     // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
