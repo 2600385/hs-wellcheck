@@ -297,6 +297,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ===== 청구현황판 (원본 전략판 UI 그대로) ===== */
 .sub{color:#80766d;font-weight:700}
 .sectionTitle{font-size:22px;font-weight:950;margin:28px 0 14px}
+/* 섹션 제목 옆 한 번만 보이는 안내(카드마다 반복하면 자리를 차지해서 제목 옆에 한 번만 둠) */
+.titleHint{display:inline-block;vertical-align:middle;margin-left:8px;font-size:11px;font-weight:700;color:#B26A00;background:#FFF1DB;border-radius:999px;padding:2px 9px}
 .card{background:#fff;border:1px solid #e9ddd2;border-radius:18px;padding:18px;box-shadow:0 6px 18px rgba(80,50,20,.05)}
 .chartBox{height:500px}
 .claimLegend{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;color:#8a8078;font-weight:700;font-size:10px}
@@ -983,7 +985,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
     <div id="st-info" class="infoBar2"></div>
     <div class="sectionTitle" style="margin-top:0">현재 지표</div>
     <div class="kpiGrid" id="st-kpi"></div>
-    <div class="sectionTitle">담당자별 목표</div>
+    <div class="sectionTitle">담당자별 목표 <span class="titleHint">카드 클릭 시 현재 청구금액 확인 가능</span></div>
     <div class="card" style="padding:8px 14px" id="st-mr-cards"></div>
     <div class="sectionTitle">평가기준 대응</div>
     <div class="miniGrid" id="st-mini"></div>
@@ -5690,9 +5692,15 @@ function renderStKPI(){
         return '<span class="gradeMixChip g-'+g+'">'+(r.mr_name||'')+' '+g+'</span>';
       }).join('');
       var gradeMix=gradeChips?('<div class="gradeMixRow">'+gradeChips+'</div>'):'';
+      // 회사 규칙상 사무소가 B등급 이상이면 소속 담당자 전원 100% 인정(개인이 C등급이어도) - 담당자
+      // 칩 바로 밑에 사무소가 B등급까지 몇 처 남았는지 한 줄로 보여줌(사용자 확인)
+      var officeBNeed=(k.gradeNeeds||[]).find(function(g){ return g.grade==='B'; });
+      var officeLine=officeBNeed
+        ?('<span style="color:#B01A1A">사무소 B등급까지 '+officeBNeed.need+'처 더 확보하면 전원 100% 인정</span>')
+        :'<span style="color:#1048A0">사무소 B등급 이상 → 전원 100% 인정</span>';
       evalMinis.push(['evalWeighted','공식 인정 청구금액'+estBadge+' <span style="font-size:9px;font-weight:700;color:#0369A1;background:#E0F2FE;border-radius:999px;padding:1px 5px;vertical-align:middle">등급반영</span>',
         '<span style="font-size:24px">'+companyMoney(ec.claimWeighted)+'</span>'+gradeMix,
-        '', null]);
+        officeLine, null]);
     }
     // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
     // 둬서 카드 안에 고르게 퍼지도록 함(예전엔 %만 크고 나머진 카드 위쪽에 작게 몰려 있어 불균형했음).
@@ -5724,6 +5732,24 @@ function renderStKPI(){
 // 카드를 페이지에 죽 늘어놓으면(처음 버전) 담당자 많은 사무소에서 sprawl되는 문제가 있었으므로,
 // 카드 하나(섹션 박스) 안에 작은 칩형 카드를 담당자 수만큼 넣고 줄바꿈(flex-wrap)되게 해서
 // "카드 디자인"은 유지하면서 담당자가 몇 명이든 한 섹션 안에서 깔끔하게 정리되도록 함.
+// 담당자의 가장 최근 회차 청구금액(mr_claims) - 실제 금액과 인정률(B등급↑ 또는 사무소 B등급↑=100%,
+// 그 외 C등급=50%)은 회사 MR현황 시트 값을 그대로 씀
+function mrLatestClaim(m){
+  if(!m.emp_no) return null;
+  var rows=mrClaimsFor(m.emp_no);
+  return rows.length?rows[rows.length-1]:null;
+}
+// 다음 등급까지 필요한 처수 - 등급 기준선(B 60%/A 80%/S 100%)은 소수점이면 올림해서 채워야 하므로
+// (예: 목표 17처의 60% = 10.2처 -> 11처) ceil. 이미 S등급이면 null.
+function mrNextGradeNeed(target, active){
+  if(!target) return null;
+  var steps=[{grade:'B',pct:60},{grade:'A',pct:80},{grade:'S',pct:100}];
+  for(var i=0;i<steps.length;i++){
+    var need=Math.ceil(target*steps[i].pct/100)-active;
+    if(need>0) return {grade:steps[i].grade, need:need};
+  }
+  return null;
+}
 function renderStMrCards(){
   var el=document.getElementById('st-mr-cards');
   if(!el) return;
@@ -5738,10 +5764,18 @@ function renderStMrCards(){
       // "지난달 실제 확정" 수치는 회사도 안 줌 - 그래서 사무소 카드처럼 확정/예상 구분은 없음).
       var pct=t?Math.round(active/t*100):null;
       var gradeHtml=pct!=null?(' <span class="gradePill gradePill-sm '+gradeClass(achievementGrade(pct))+'">'+achievementGrade(pct)+'등급</span>'):'';
+      // 카드에서 바로 "지금 등급 기준으로 인정되는 청구금액"이 보이게 요약 한 줄(상세는 팝업) -
+      // 50% 인정이면 빨강, 100%면 파랑(사용자 확인)
+      var mc=mrLatestClaim(m), claimLine='';
+      if(mc){
+        var rate=mc.apply_rate!=null?Number(mc.apply_rate):1;
+        claimLine='<div style="margin-top:3px;font-size:11px;font-weight:800;color:'+(rate<1?'#B01A1A':'#1048A0')+'">인정 청구 '+moneyK(mc.claim_amt_weighted)+' ('+Math.round(rate*100)+'%)</div>';
+      }
       return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
-        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당<span style="margin-left:auto;color:var(--t3);font-weight:700">›</span></div>'
         +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
-        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처 → '+pct+'%'):'목표 데이터 없음')+gradeHtml+'</div></div>';
+        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처 → '+pct+'%'):'목표 데이터 없음')+gradeHtml+'</div>'
+        +claimLine+'</div>';
     }).join('')
     +'</div>';
 }
@@ -5772,20 +5806,35 @@ function openMrTargetModal(mrCode){
   // [2026-10월부터] 담당자 개인 등급(활성처 달성률 기준)에 따라 청구금액 인정률이 50%/100%로
   // 갈려서("MR현황" 시트에서 그대로 옴 - mr_claims), 실제 청구금액과 등급반영 청구금액을 나란히
   // 보여줌. 사번이 없거나 이번 회차 MR현황에 이 담당자 행이 없으면(mr_claims 비어있음) 조용히 생략.
-  var mrClaimRows=m.emp_no?mrClaimsFor(m.emp_no):[];
-  if(mrClaimRows.length){
-    var mc=mrClaimRows[mrClaimRows.length-1];
+  var mc=mrLatestClaim(m);
+  if(mc){
     var mcBadge=mc.grade?(' <span class="gradePill gradePill-sm '+gradeClass(mc.grade)+'">'+mc.grade+'등급</span>'):'';
-    var penalized=mc.apply_rate!=null && mc.apply_rate<1;
+    var rate=mc.apply_rate!=null?Number(mc.apply_rate):1;
+    var penalized=rate<1;
     var lost=Math.max(0,(mc.claim_amt_raw||0)-(mc.claim_amt_weighted||0));
-    var boxBg=penalized?'#FFF5F5':'#f8f8f8', boxBd=penalized?'1px solid #f3c3ca':'none';
+    var accent=penalized?'#B01A1A':'#1048A0';
+    var boxBg=penalized?'#FFF5F5':'#F2F6FD', boxBd=penalized?'1px solid #f3c3ca':'1px solid #CFDDF3';
+    // 다음 등급까지 필요한 처수(현재 활성처·당월 목표 기준, 소수점 기준선은 올림). B등급 미만이면서 지금
+    // 50%만 인정받고 있으면, B등급을 채웠을 때 더 인정받는 금액까지 같이 보여줌.
+    var curT=m.emp_no?h2MrTarget(m.emp_no,todayMonthStr()):null;
+    var nextNeed=mrNextGradeNeed(curT, active);
+    var nextLine='';
+    if(nextNeed){
+      nextLine='<div style="margin-top:8px;padding-top:7px;border-top:1px dashed '+(penalized?'#f3c3ca':'#CFDDF3')+';font-size:11.5px;font-weight:800;color:#74695f">'
+        +nextNeed.grade+'등급까지 <span style="color:'+accent+'">'+nextNeed.need+'처</span> 확보 필요'
+        +(nextNeed.grade==='B'&&penalized&&lost>0?(' → <span style="color:#1048A0">+'+moneyK(lost)+' 인정</span>'):'')
+        +'</div>';
+    }
+    var reasonLine=penalized
+      ?('<div style="margin-top:5px;font-size:10.5px;color:#B01A1A;text-align:right">'+(mc.grade||'C')+'등급(달성률 60% 미만)이라 '+moneyK(lost)+'이 인정에서 빠져요</div>')
+      :(mc.grade==='C'?'<div style="margin-top:5px;font-size:10.5px;color:#1048A0;text-align:right">개인은 C등급이지만 사무소가 B등급 이상이라 100% 인정돼요</div>':'');
     body+='<div style="margin-top:10px;background:'+boxBg+';border:'+boxBd+';border-radius:10px;padding:11px 13px;font-size:12px">'
       +'<div style="font-weight:800;margin-bottom:8px;color:#74695f">'+parseInt(mc.month.slice(5,7),10)+'월 청구금액(진행중 추정)'+mcBadge+'</div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--t3)">실제 청구금액</span><b>'+companyMoney(mc.claim_amt_raw)+'</b></div>'
-      +'<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:7px;border-top:1px dashed '+(penalized?'#f3c3ca':'#eadfd4')+'">'
-      +'<span style="font-weight:800;color:'+(penalized?'#B01A1A':'#145C38')+'">등급반영 인정액('+Math.round((mc.apply_rate||1)*100)+'%)</span>'
-      +'<b style="font-size:19px;color:'+(penalized?'#B01A1A':'#145C38')+'">'+companyMoney(mc.claim_amt_weighted)+'</b></div>'
-      +(penalized?('<div style="margin-top:5px;font-size:10.5px;color:#B01A1A;text-align:right">'+mc.grade+'등급(달성률 60% 미만)이라 '+moneyK(lost)+'이 인정에서 빠져요</div>'):'')
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--t3)">실제 청구금액</span><b>'+moneyK(mc.claim_amt_raw)+'</b></div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:7px;border-top:1px dashed '+(penalized?'#f3c3ca':'#CFDDF3')+'">'
+      +'<span style="font-weight:800;color:'+accent+'">등급반영 인정액('+Math.round(rate*100)+'%)</span>'
+      +'<b style="font-size:19px;color:'+accent+'">'+moneyK(mc.claim_amt_weighted)+'</b></div>'
+      +reasonLine+nextLine
       +'</div>';
   }
   body+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'simple-modal-ov\').remove();switchView(\'clinicslist\');setStMR(\''+m.code+'\')" style="background:#F47920;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">'+m.name+'담당 거래처 보기 →</button></div>';
