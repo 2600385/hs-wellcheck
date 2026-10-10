@@ -5696,10 +5696,10 @@ function renderStKPI(){
       // 칩 바로 밑에 사무소가 B등급까지 몇 처 남았는지 한 줄로 보여줌(사용자 확인)
       var officeBNeed=(k.gradeNeeds||[]).find(function(g){ return g.grade==='B'; });
       var officeLine=officeBNeed
-        ?('<span style="color:#B01A1A">사무소 B등급까지 '+officeBNeed.need+'처 더 확보하면 전원 100% 인정</span>')
-        :'<span style="color:#1048A0">사무소 B등급 이상 → 전원 100% 인정</span>';
+        ?('<span style="color:#8A6800">사무소 B등급까지 '+officeBNeed.need+'처 필요 (전원 100% 인정)</span>')
+        :'<span style="color:#1048A0">사무소 B등급 이상 (전원 100% 인정)</span>';
       evalMinis.push(['evalWeighted','공식 인정 청구금액'+estBadge+' <span style="font-size:9px;font-weight:700;color:#0369A1;background:#E0F2FE;border-radius:999px;padding:1px 5px;vertical-align:middle">등급반영</span>',
-        '<span style="font-size:24px">'+companyMoney(ec.claimWeighted)+'</span>'+gradeMix,
+        '<span style="font-size:24px">'+companyMoney(ec.claimWeighted)+'</span><span style="font-size:12px;font-weight:700;color:var(--t3);margin-left:3px">천원</span>'+gradeMix,
         officeLine, null]);
     }
     // %를 위 KPI 카드들처럼 포인트색(골드)으로 큼직하게, 아래 설명(일만사처/청구처)은 줄바꿈+여백을
@@ -5766,15 +5766,18 @@ function renderStMrCards(){
       var gradeHtml=pct!=null?(' <span class="gradePill gradePill-sm '+gradeClass(achievementGrade(pct))+'">'+achievementGrade(pct)+'등급</span>'):'';
       // 카드에서 바로 "지금 등급 기준으로 인정되는 청구금액"이 보이게 요약 한 줄(상세는 팝업) -
       // 50% 인정이면 빨강, 100%면 파랑(사용자 확인)
+      // 빨간 글씨가 카드마다 여러 줄이라 지저분하다는 피드백 - 등급 색은 이름 옆 뱃지 하나가 맡고,
+      // 목표·금액은 검정, 인정률(50%/100%)만 빨강/파랑으로 남김(사용자 확인)
       var mc=mrLatestClaim(m), claimLine='';
       if(mc){
         var rate=mc.apply_rate!=null?Number(mc.apply_rate):1;
-        claimLine='<div style="margin-top:3px;font-size:11px;font-weight:800;color:'+(rate<1?'#B01A1A':'#1048A0')+'">인정 청구 '+moneyK(mc.claim_amt_weighted)+' ('+Math.round(rate*100)+'%)</div>';
+        claimLine='<div style="margin-top:3px;font-size:11px;font-weight:800;color:var(--t1)">인정 청구 '+moneyK(mc.claim_amt_weighted)
+          +' <span style="color:'+(rate<1?'#B01A1A':'#1048A0')+'">('+Math.round(rate*100)+'%)</span></div>';
       }
       return '<div class="mrGoalChip" onclick="openMrTargetModal(\''+m.code+'\')">'
-        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당<span style="margin-left:auto;color:var(--t3);font-weight:700">›</span></div>'
+        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+mrCircle(m)+m.name+'담당'+gradeHtml+'<span style="margin-left:auto;color:var(--t3);font-weight:700">›</span></div>'
         +'<div style="margin-top:4px"><b style="font-size:18px">'+active+'처</b><span style="color:var(--t3);font-size:11px"> 현재</span></div>'
-        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'#B01A1A':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처 → '+pct+'%'):'목표 데이터 없음')+gradeHtml+'</div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+(t!=null?'var(--t1)':'var(--t3)')+'">'+(t!=null?('당월목표 '+t+'처 ('+pct+'% 달성)'):'목표 데이터 없음')+'</div>'
         +claimLine+'</div>';
     }).join('')
     +'</div>';
