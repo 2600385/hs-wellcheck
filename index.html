@@ -2241,6 +2241,11 @@ function parseCurrentRaw(wb){
       }
       var nonIlmansaPatientCol=patientBlockCol>=0?patientBlockCol+2:-1;
       var evalFullCol=findSubCol4('평가100%'), evalFinalCol=findSubCol4('최종평가'), evalGapCol=findSubCol4('GAP');
+      // 회사의 사무소 등급: 달성률(+0) = 마감예측(전월마감+당월신규) / 목표(+2), 평가(+1). "사무소 B등급 이상이면
+      // 전원 100% 인정" 판단이 이 기준이라 그대로 읽음 - 앱 화면의 사무소 등급(현재 활성처 / 목표)과 다름.
+      // 마감예측 열은 9월 이전 양식엔 없어서 소제목 이름으로 찾음.
+      var officeRateCol=activeBlockCol, officeGradeCol=activeBlockCol>=0?activeBlockCol+1:-1, officeTargetCol=activeBlockCol>=0?activeBlockCol+2:-1;
+      var officeForecastCol=findSubCol4('마감예측');
       for(var r5=hIdx4+2;r5<officeSheetRows2.length;r5++){
         var drow4=officeSheetRows2[r5];
         if(!drow4||(drow4[colOff4-1]==null&&drow4[colOff4]==null)) break;
@@ -2269,7 +2274,11 @@ function parseCurrentRaw(wb){
               nonIlmansaPatient: nonIlmansaPatientCol>=0?(Number(drow4[nonIlmansaPatientCol])||0):null,
               evalFull: evalFullCol>=0?officeAmtToWon(drow4[evalFullCol]):null,
               evalFinal: evalFinalCol>=0?officeAmtToWon(drow4[evalFinalCol]):null,
-              evalGap: evalGapCol>=0?officeAmtToWon(drow4[evalGapCol]):null
+              evalGap: evalGapCol>=0?officeAmtToWon(drow4[evalGapCol]):null,
+              officeRate: (officeForecastCol>=0&&officeRateCol>=0&&drow4[officeRateCol]!=null)?Number(drow4[officeRateCol]):null,
+              officeGrade: (officeForecastCol>=0&&officeGradeCol>=0)?(drow4[officeGradeCol]||null):null,
+              officeTarget: (officeForecastCol>=0&&officeTargetCol>=0)?(Number(drow4[officeTargetCol])||null):null,
+              officeForecast: officeForecastCol>=0?(Number(drow4[officeForecastCol])||0):null
             };
           }
         }
@@ -2496,6 +2505,12 @@ function buildCurrentMonthClaimRow(office, business, agg, asOf, evalData, mrRows
       row.est_eval_full=evalData.evalFull||0;
       row.est_eval_final=evalData.evalFinal||0;
       row.est_eval_gap=evalData.evalGap||0;
+    }
+    if(evalData.officeForecast!=null){
+      row.est_office_rate=evalData.officeRate;
+      row.est_office_grade=evalData.officeGrade;
+      row.est_office_target=evalData.officeTarget;
+      row.est_office_forecast=evalData.officeForecast;
     }
   }
   // [2026-10월부터 신규] 담당자 등급(B등급↑=100%/C등급=50%) 반영 청구금액의 사무소 합계. est_claim_amt
@@ -5383,7 +5398,11 @@ function stEvalConversion(){
       evalFinal: cur.est_eval_final!=null?Number(cur.est_eval_final):null,
       evalFull: cur.est_eval_full!=null?Number(cur.est_eval_full):null,
       evalGap: cur.est_eval_gap!=null?Number(cur.est_eval_gap):null,
-      nonIlmansaPatient: cur.est_nonilmansa_patient!=null?cur.est_nonilmansa_patient:null};
+      nonIlmansaPatient: cur.est_nonilmansa_patient!=null?cur.est_nonilmansa_patient:null,
+      // 회사 기준 사무소 등급(마감예측 / 목표) - "사무소 B등급 이상이면 전원 100% 인정" 판단용
+      officeGrade: cur.est_office_grade||null,
+      officeTarget: cur.est_office_target!=null?cur.est_office_target:null,
+      officeForecast: cur.est_office_forecast!=null?cur.est_office_forecast:null};
   }
   // 이번달 베이스라인도, RAW의 est_* 값도 없으면(예: RAW 파일이 아직 이 항목을 안 주던 예전 형식),
   // 가장 최근 공식 마감월의 실제 값을 그대로 보여준다.
@@ -5763,10 +5782,19 @@ function renderStKPI(){
       var gradeMix=gradeChips?('<div class="gradeMixRow">'+gradeChips+'</div>'):'';
       // 회사 규칙상 사무소가 B등급 이상이면 소속 담당자 전원 100% 인정(개인이 C등급이어도) - 담당자
       // 칩 바로 밑에 사무소가 B등급까지 몇 처 남았는지 한 줄로 보여줌(사용자 확인)
-      var officeBNeed=(k.gradeNeeds||[]).find(function(g){ return g.grade==='B'; });
-      var officeLine=officeBNeed
-        ?('<span style="color:#8A6800">사무소 B등급까지 '+officeBNeed.need+'처 필요 (전원 100% 인정)</span>')
-        :'<span style="color:#1048A0">사무소 B등급 이상 (전원 100% 인정)</span>';
+      // [수정] 예전엔 앱 화면 기준(현재 활성처 / 목표)으로 계산해서 경인1이 "19처 필요"로 크게 잘못 안내됐음 -
+      // 회사는 사무소 등급을 마감예측(전월마감 + 당월신규) / 목표로 매기고 100% 인정 여부도 그 기준이라
+      // (경인1: 60/107 = 56% C -> B 기준 65처까지 5처), 회사 파일 값을 그대로 써서 계산. 그 값이 없는
+      // 예전 파일이면 잘못된 숫자를 보여주느니 안 보여줌.
+      var officeLine='';
+      if(ec.officeForecast!=null && ec.officeTarget){
+        var bLine=Math.ceil(ec.officeTarget*60/100);
+        var officeNeed=bLine-ec.officeForecast;
+        var basisTag=' <span style="color:var(--t3);font-weight:700" title="마감예측 = 전월마감 + 당월신규 (회사가 사무소 등급을 매기는 기준, 현재 활성처 기준과 다름)">*마감예측 기준</span>';
+        officeLine=(officeNeed>0
+          ?('<span style="color:#8A6800">사무소 B등급까지 '+officeNeed+'처 필요 (전원 100% 인정)</span>')
+          :'<span style="color:#1048A0">사무소 '+(ec.officeGrade||'B')+'등급 (전원 100% 인정)</span>')+basisTag;
+      }
       // [2026-10월부터 새 평가기준] 회사가 인정하는 평가실적 = (일만사 청구 + 비일만사 1만원/명) x 인정률.
       // 큰 숫자는 회사 "최종평가"와 똑같이 맞추되, 일만사·비일만사가 섞여 헷갈리지 않게 바로 밑에 나눠서
       // 표기하고, 새 기준 GAP(등급 미달로 못 받은 금액)은 이 카드에서 따로 보여줌(실제 청구금액 카드의
