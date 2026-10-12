@@ -284,6 +284,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ri-sub{color:var(--t2);font-size:10px;margin-top:1px}
 .memo-area{width:100%;min-height:108px;font-size:12px;padding:8px 10px;border-radius:var(--r);border:0.5px solid var(--bd2);background:var(--bg2);color:var(--t1);resize:vertical;font-family:inherit;line-height:1.6}
 .memo-area:focus{outline:none;border-color:var(--dw);background:var(--white)}
+/* 방문 후 특이사항 메모판 - 굵게/빨강/파랑만 쓸 수 있는 서식 입력칸(급한 줄을 눈에 띄게) */
+.memo-toolbar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.memo-tb-btn{font-size:11px;font-weight:700;padding:3px 9px;border:0.5px solid var(--bd2);border-radius:6px;background:var(--white);color:var(--t2);cursor:pointer;font-family:inherit}
+.memo-tb-btn:hover{border-color:var(--dw)}
+.memo-rich{overflow-y:auto;max-height:520px;white-space:pre-wrap;word-break:break-word}
+.memo-rich:empty:before{content:attr(data-placeholder);color:var(--t3);white-space:pre-line;pointer-events:none}
 
 /* ===== 거래처 현황판 뷰 ===== */
 .list-head{background:var(--white);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
@@ -943,9 +949,15 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 
                   <div class="pnl">
         <div class="pnl-title">📝 거래처 방문 후 특이사항</div>
-        <textarea class="memo-area" id="visit-notes" style="min-height:220px" placeholder="방문 후 특이사항을 기록하세요.
+        <div class="memo-toolbar" id="visit-notes-toolbar">
+          <button type="button" class="memo-tb-btn" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b> 굵게</button>
+          <button type="button" class="memo-tb-btn" data-cmd="red" title="빨간 글씨" style="color:#B01A1A">● 빨강</button>
+          <button type="button" class="memo-tb-btn" data-cmd="blue" title="파란 글씨" style="color:#1048A0">● 파랑</button>
+          <button type="button" class="memo-tb-btn" data-cmd="clear" title="고른 부분의 굵게·색 없애기">서식 지우기</button>
+        </div>
+        <div class="memo-area memo-rich" id="visit-notes" contenteditable="true" spellcheck="false" style="min-height:220px" data-placeholder="방문 후 특이사항을 기록하세요.
 예) 5.14 성모누리의원 6/11 반드시 방문 요청함(환자내원예정)
-예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></textarea>
+예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></div>
       </div>
     </div>
   </div>
@@ -4063,27 +4075,94 @@ function saveClinicField(c, fields){
 var _notesTimer=null;
 // site_notes.key에 사무소명을 붙여서 사무소별로 완전히 분리(과거엔 'visit_notes' 고정 키라 전 사무소가 메모를 공유하는 버그가 있었음)
 function visitNotesKey(){ return 'visit_notes_'+currentOffice; }
+// 굵게/빨강/파랑 서식을 쓸 수 있게 되면서(사용자 요청) 내용을 HTML로 저장함 - 예전 글자만 있던 메모와
+// 구분하려고 앞에 표시를 붙여 저장하고, 표시가 없으면 예전 글자 메모로 보고 줄바꿈만 살려서 보여줌.
+// 사무소 사람들이 같이 보는 메모라 저장·표시 때마다 굵게/허용된 두 색/줄바꿈 말고는 전부 걸러냄.
+var VISIT_NOTES_RICH_MARK='<!--rich-->';
+var MEMO_ALLOWED_COLORS={'#b01a1a':'#B01A1A','#1048a0':'#1048A0'};
+function escapeMemoText(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function normMemoColor(c){
+  if(!c) return null;
+  c=String(c).trim().toLowerCase();
+  var m=c.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+  if(m) c='#'+[m[1],m[2],m[3]].map(function(x){ var h=(+x).toString(16); return h.length<2?'0'+h:h; }).join('');
+  return MEMO_ALLOWED_COLORS[c]||null;
+}
+function sanitizeMemoHtml(html){
+  var root=new DOMParser().parseFromString('<div>'+html+'</div>','text/html').body.firstChild;
+  function walk(node){
+    var out='';
+    Array.prototype.forEach.call(node.childNodes, function(n){
+      if(n.nodeType===3){ out+=escapeMemoText(n.nodeValue); return; }
+      if(n.nodeType!==1) return;
+      var tag=n.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE') return;
+      if(tag==='BR'){ out+='<br>'; return; }
+      var inner=walk(n);
+      if(tag==='DIV'||tag==='P'){ out+='<div>'+(inner||'<br>')+'</div>'; return; }
+      var bold=(tag==='B'||tag==='STRONG'), color=(tag==='FONT')?normMemoColor(n.getAttribute('color')):null;
+      if(n.style){
+        if(/^(bold|bolder|[6-9]00)$/.test(n.style.fontWeight)) bold=true;
+        if(n.style.color) color=normMemoColor(n.style.color)||color;
+      }
+      if(color) inner='<span style="color:'+color+'">'+inner+'</span>';
+      if(bold) inner='<b>'+inner+'</b>';
+      out+=inner;
+    });
+    return out;
+  }
+  return root?walk(root):'';
+}
 function loadVisitNotes(){
-  var ta=document.getElementById('visit-notes');
-  if(!ta) return Promise.resolve();
-  ta.value='';
+  var el=document.getElementById('visit-notes');
+  if(!el) return Promise.resolve();
+  el.innerHTML='';
   return db.from('site_notes').select('content').eq('key',visitNotesKey()).maybeSingle().then(function(res){
     if(res.error||!res.data) return;
-    ta.value=res.data.content||'';
+    var c=res.data.content||'';
+    el.innerHTML=c.indexOf(VISIT_NOTES_RICH_MARK)===0
+      ? sanitizeMemoHtml(c.slice(VISIT_NOTES_RICH_MARK.length))
+      : escapeMemoText(c).replace(/\r?\n/g,'<br>');
   });
 }
 function initVisitNotes(){
-  var ta=document.getElementById('visit-notes');
-  if(!ta) return;
-  ta.addEventListener('input', function(){
-    var val=ta.value;
+  var el=document.getElementById('visit-notes');
+  if(!el) return;
+  try{ document.execCommand('styleWithCSS', false, true); document.execCommand('defaultParagraphSeparator', false, 'div'); }catch(e){}
+  function scheduleSave(){
+    if(!el.textContent.trim()) el.innerHTML=''; // 글자를 다 지우면 안내 문구(placeholder)가 다시 보이게
+    var val=VISIT_NOTES_RICH_MARK+sanitizeMemoHtml(el.innerHTML);
     clearTimeout(_notesTimer);
     _notesTimer=setTimeout(function(){
       db.from('site_notes').upsert({key:visitNotesKey(), content:val, updated_at:new Date().toISOString()}).then(function(res){
         if(res.error) console.error(res.error);
       });
     }, 800);
+  }
+  el.addEventListener('input', scheduleSave);
+  // 다른 곳(엑셀·웹)에서 복사해 붙여넣을 때 글꼴·배경색 등이 딸려오지 않게 글자만 붙임
+  el.addEventListener('paste', function(e){
+    e.preventDefault();
+    var text=(e.clipboardData||window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text);
   });
+  el.addEventListener('drop', function(e){ e.preventDefault(); });
+  var tb=document.getElementById('visit-notes-toolbar');
+  if(tb){
+    // mousedown을 막아야 버튼을 눌러도 메모에서 고른 글자(선택 영역)가 풀리지 않음
+    tb.addEventListener('mousedown', function(e){ if(e.target.closest('.memo-tb-btn')) e.preventDefault(); });
+    tb.addEventListener('click', function(e){
+      var btn=e.target.closest('.memo-tb-btn');
+      if(!btn) return;
+      el.focus();
+      var cmd=btn.dataset.cmd;
+      if(cmd==='bold') document.execCommand('bold');
+      else if(cmd==='red') document.execCommand('foreColor', false, '#B01A1A');
+      else if(cmd==='blue') document.execCommand('foreColor', false, '#1048A0');
+      else if(cmd==='clear') document.execCommand('removeFormat');
+      scheduleSave();
+    });
+  }
 }
 
 // ===== 상태 =====
