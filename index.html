@@ -290,6 +290,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .memo-tb-btn:hover{border-color:var(--dw)}
 .memo-rich{overflow-y:auto;max-height:520px;white-space:pre-wrap;word-break:break-word}
 .memo-rich:empty:before{content:attr(data-placeholder);color:var(--t3);white-space:pre-line;pointer-events:none}
+/* 활성처 확보 전략판 오른쪽 위 "특이사항 메모" 버튼 + 펼침 창(캘린더 메모와 같은 메모) */
+.stMemoBtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#8A6800;background:#FFF7E6;border:1px solid #F0D9A8;border-radius:999px;padding:5px 12px;font-family:inherit;cursor:pointer}
+.stMemoBtn:hover{border-color:var(--dw)}
+.stMemoBtn.active{background:var(--dw);color:#fff;border-color:var(--dw)}
+.stMemoDot{width:7px;height:7px;border-radius:50%;background:#E8590C;display:inline-block}
+.stMemoDot[hidden]{display:none}
+.stMemoPop{position:absolute;top:calc(100% + 8px);right:14px;width:400px;max-width:calc(100vw - 24px);background:var(--white);border:1px solid var(--bd);border-radius:14px;box-shadow:0 14px 34px rgba(60,40,20,.18);padding:14px;z-index:60}
+.stMemoPop:before{content:'';position:absolute;top:-7px;right:58px;width:12px;height:12px;background:var(--white);border-left:1px solid var(--bd);border-top:1px solid var(--bd);transform:rotate(45deg)}
+.stMemoHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.stMemoTitle{font-size:13px;font-weight:800;color:var(--t1)}
+.stMemoX{border:none;background:none;font-size:16px;color:var(--t3);cursor:pointer;line-height:1;padding:2px 4px}
+.stMemoSub{font-size:10.5px;color:var(--t3);font-weight:700;margin-bottom:8px}
+.stMemoFoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10.5px;color:var(--t3);font-weight:700}
+.stMemoFoot a{color:#1048A0;text-decoration:none}
 
 /* ===== 거래처 현황판 뷰 ===== */
 .list-head{background:var(--white);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;flex-wrap:wrap;gap:8px}
@@ -990,8 +1004,21 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 
 <!-- VIEW 4: 활성처 전략판 -->
 <div id="view-strategy" class="view-panel">
-  <div class="list-head">
+  <div class="list-head" style="position:relative">
     <div class="list-head-title" id="strategy-title">경인1 활성처 확보 전략판</div>
+    <button type="button" class="stMemoBtn" id="st-memo-btn" onclick="toggleStMemo(event)"><span class="stMemoDot" id="st-memo-dot" hidden></span>📝 특이사항 메모 <span id="st-memo-caret" hidden>▲</span></button>
+    <div class="stMemoPop" id="st-memo-pop" hidden>
+      <div class="stMemoHead"><span class="stMemoTitle">📝 거래처 방문 후 특이사항</span><button type="button" class="stMemoX" onclick="closeStMemo()" title="닫기">✕</button></div>
+      <div class="stMemoSub">캘린더 메모와 같은 메모예요 · 자동 저장</div>
+      <div class="memo-toolbar" id="st-memo-toolbar">
+        <button type="button" class="memo-tb-btn" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b> 굵게</button>
+        <button type="button" class="memo-tb-btn" data-cmd="red" title="빨간 글씨" style="color:#B01A1A">● 빨강</button>
+        <button type="button" class="memo-tb-btn" data-cmd="blue" title="파란 글씨" style="color:#1048A0">● 파랑</button>
+        <button type="button" class="memo-tb-btn" data-cmd="clear" title="고른 부분의 굵게·색 없애기">서식 지우기</button>
+      </div>
+      <div class="memo-area memo-rich" id="st-memo-area" contenteditable="true" spellcheck="false" style="min-height:180px;max-height:360px" data-placeholder="방문 후 특이사항을 기록하세요."></div>
+      <div class="stMemoFoot"><span id="st-memo-saved"></span><a href="#" onclick="closeStMemo();switchView('cal');return false;">캘린더에서 크게 보기 →</a></div>
+    </div>
   </div>
   <div class="list-content" style="padding:16px">
     <div id="st-info" class="infoBar2"></div>
@@ -4113,33 +4140,60 @@ function sanitizeMemoHtml(html){
   }
   return root?walk(root):'';
 }
+// 같은 메모를 캘린더 옆 메모판(visit-notes)과 활성처 확보 전략판의 펼침 창(st-memo-area) 두 곳에서
+// 쓰므로, 한쪽에서 고치면 다른 쪽 화면도 바로 같은 내용으로 맞추고 저장은 한 곳(site_notes)으로만 함
+var VISIT_NOTE_EDITORS=['visit-notes','st-memo-area'];
+var _notesPending=false, _notesSavedAt=null;
+function setAllVisitNoteEditors(html, exceptEl){
+  VISIT_NOTE_EDITORS.forEach(function(id){
+    var el=document.getElementById(id);
+    if(el && el!==exceptEl) el.innerHTML=html;
+  });
+  refreshStMemoIndicators();
+}
 function loadVisitNotes(){
-  var el=document.getElementById('visit-notes');
-  if(!el) return Promise.resolve();
-  el.innerHTML='';
-  return db.from('site_notes').select('content').eq('key',visitNotesKey()).maybeSingle().then(function(res){
-    if(res.error||!res.data) return;
+  if(!document.getElementById('visit-notes') && !document.getElementById('st-memo-area')) return Promise.resolve();
+  setAllVisitNoteEditors('');
+  _notesSavedAt=null;
+  return db.from('site_notes').select('content,updated_at').eq('key',visitNotesKey()).maybeSingle().then(function(res){
+    if(res.error||!res.data){ refreshStMemoIndicators(); return; }
     var c=res.data.content||'';
-    el.innerHTML=c.indexOf(VISIT_NOTES_RICH_MARK)===0
+    _notesSavedAt=res.data.updated_at?new Date(res.data.updated_at):null;
+    setAllVisitNoteEditors(c.indexOf(VISIT_NOTES_RICH_MARK)===0
       ? sanitizeMemoHtml(c.slice(VISIT_NOTES_RICH_MARK.length))
-      : escapeMemoText(c).replace(/\r?\n/g,'<br>');
+      : escapeMemoText(c).replace(/\r?\n/g,'<br>'));
   });
 }
-function initVisitNotes(){
-  var el=document.getElementById('visit-notes');
-  if(!el) return;
-  try{ document.execCommand('styleWithCSS', false, true); document.execCommand('defaultParagraphSeparator', false, 'div'); }catch(e){}
-  function scheduleSave(){
+// 전략판 버튼 앞 주황 점(메모 내용이 있을 때만) + 펼침 창 아래 "마지막 저장" 시각
+function refreshStMemoIndicators(){
+  var src=document.getElementById('visit-notes')||document.getElementById('st-memo-area');
+  var dot=document.getElementById('st-memo-dot');
+  if(dot) dot.hidden=!(src && src.textContent.trim());
+  var saved=document.getElementById('st-memo-saved');
+  if(saved){
+    if(_notesPending) saved.textContent='저장 중...';
+    else if(_notesSavedAt){
+      var d=_notesSavedAt, p=function(n){ return (n<10?'0':'')+n; };
+      saved.textContent='마지막 저장 '+p(d.getMonth()+1)+'.'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+    } else saved.textContent='';
+  }
+}
+function wireVisitNoteEditor(el, tb){
+  function changed(){
     if(!el.textContent.trim()) el.innerHTML=''; // 글자를 다 지우면 안내 문구(placeholder)가 다시 보이게
+    setAllVisitNoteEditors(el.innerHTML, el);
     var val=VISIT_NOTES_RICH_MARK+sanitizeMemoHtml(el.innerHTML);
+    _notesPending=true; refreshStMemoIndicators();
     clearTimeout(_notesTimer);
     _notesTimer=setTimeout(function(){
       db.from('site_notes').upsert({key:visitNotesKey(), content:val, updated_at:new Date().toISOString()}).then(function(res){
-        if(res.error) console.error(res.error);
+        _notesPending=false;
+        if(res.error) console.error(res.error); else _notesSavedAt=new Date();
+        refreshStMemoIndicators();
       });
     }, 800);
   }
-  el.addEventListener('input', scheduleSave);
+  el.addEventListener('input', changed);
   // 다른 곳(엑셀·웹)에서 복사해 붙여넣을 때 글꼴·배경색 등이 딸려오지 않게 글자만 붙임
   el.addEventListener('paste', function(e){
     e.preventDefault();
@@ -4147,7 +4201,6 @@ function initVisitNotes(){
     document.execCommand('insertText', false, text);
   });
   el.addEventListener('drop', function(e){ e.preventDefault(); });
-  var tb=document.getElementById('visit-notes-toolbar');
   if(tb){
     // mousedown을 막아야 버튼을 눌러도 메모에서 고른 글자(선택 영역)가 풀리지 않음
     tb.addEventListener('mousedown', function(e){ if(e.target.closest('.memo-tb-btn')) e.preventDefault(); });
@@ -4160,9 +4213,42 @@ function initVisitNotes(){
       else if(cmd==='red') document.execCommand('foreColor', false, '#B01A1A');
       else if(cmd==='blue') document.execCommand('foreColor', false, '#1048A0');
       else if(cmd==='clear') document.execCommand('removeFormat');
-      scheduleSave();
+      changed();
     });
   }
+}
+function initVisitNotes(){
+  try{ document.execCommand('styleWithCSS', false, true); document.execCommand('defaultParagraphSeparator', false, 'div'); }catch(e){}
+  var cal=document.getElementById('visit-notes'), st=document.getElementById('st-memo-area');
+  if(cal) wireVisitNoteEditor(cal, document.getElementById('visit-notes-toolbar'));
+  if(st) wireVisitNoteEditor(st, document.getElementById('st-memo-toolbar'));
+  // 펼침 창 바깥을 누르거나 Esc를 누르면 닫힘
+  document.addEventListener('click', function(e){
+    var pop=document.getElementById('st-memo-pop');
+    if(!pop||pop.hidden) return;
+    if(pop.contains(e.target)||e.target.closest('#st-memo-btn')) return;
+    closeStMemo();
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeStMemo(); });
+}
+function toggleStMemo(e){
+  if(e) e.stopPropagation();
+  var pop=document.getElementById('st-memo-pop');
+  if(!pop) return;
+  if(!pop.hidden){ closeStMemo(); return; }
+  pop.hidden=false;
+  document.getElementById('st-memo-btn').classList.add('active');
+  document.getElementById('st-memo-caret').hidden=false;
+  // 다른 사람이 그사이 고쳤을 수 있으니 열 때마다 최신으로 다시 불러옴 - 단, 방금 친 내용이 아직
+  // 저장 대기 중이면(0.8초) 다시 불러오면 그 내용이 화면에서 사라지므로 그때는 건너뜀
+  if(!_notesPending) loadVisitNotes(); else refreshStMemoIndicators();
+}
+function closeStMemo(){
+  var pop=document.getElementById('st-memo-pop');
+  if(!pop||pop.hidden) return;
+  pop.hidden=true;
+  document.getElementById('st-memo-btn').classList.remove('active');
+  document.getElementById('st-memo-caret').hidden=true;
 }
 
 // ===== 상태 =====
