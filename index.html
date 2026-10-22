@@ -2108,6 +2108,23 @@ function officeAmtToWon(v){
   v=Number(v)||0;
   return Math.round(Math.abs(v)>0&&Math.abs(v)<1000?v*1000000:v);
 }
+// "최종연동일시" 칸 → 'YYYY-MM-DD'. 원래는 "2026-10-07 12:31" 같은 글자로 내려왔는데, 10/22 파일부터
+// 엑셀 날짜(숫자, 예: 46302.5215)로 바뀌어서 그 숫자를 그대로 date 컬럼에 넣다가 전국 업로드 전체가 실패함
+// ("invalid input syntax for type date"). 숫자면 엑셀 날짜로 환산하고, 날짜로 못 읽는 값은 null로 보내서
+// 칸 하나 때문에 배치 전체가 실패하는 일이 다시 없게 함.
+function toSyncDateStr(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date) return isNaN(v)?null:v.toISOString().slice(0,10);
+  if(typeof v==='number'){
+    if(!(v>20000&&v<80000)) return null; // 1954~2119년 범위 밖이면 날짜가 아닌 값
+    return new Date(Date.UTC(1899,11,30)+Math.floor(v)*86400000).toISOString().slice(0,10);
+  }
+  var s=String(v).trim();
+  if(/^\d{5}(\.\d+)?$/.test(s)) return toSyncDateStr(Number(s));
+  var m=s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(!m) return null;
+  return m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2);
+}
 function parseCurrentRaw(wb){
   var rows=sheetRows(wb, '거래처별 RAW');
   if(!rows) return {error:'시트 "거래처별 RAW"를 찾을 수 없습니다.'};
@@ -2191,7 +2208,7 @@ function parseCurrentRaw(wb){
     var claimVal=Number(row[COL.amount])||0;
     var careCnt=Number(row[COL.care])||0, eduCnt=Number(row[COL.edu])||0, mgmtCnt=Number(row[COL.mgmt])||0, checkCnt=Number(row[COL.check])||0; // 케어플랜/교육상담/환자관리/점검평가 청구건수(이번달 누적)
     var mrSabun=row[COL.sabun]!=null?String(row[COL.sabun]).replace(/\.0$/,''):null; // 담당자 사번 - 이름은 동명이인/오타 위험이 있어 사번을 우선 신뢰
-    var lastSyncVal=row[COL.lastSync]?String(row[COL.lastSync]).slice(0,10):null; // 심평원 최종연동일(YYYY-MM-DD) - "당월이력확인" 게이트 계산용
+    var lastSyncVal=COL.lastSync>=0?toSyncDateStr(row[COL.lastSync]):null; // 심평원 최종연동일(YYYY-MM-DD) - "당월이력확인" 게이트 계산용
     // participate: 컬럼이 있으면 '참여'/'미참여' 판정, 없으면 null(모름 - suspiciousLockCheck에서
     // 안전하게 "참여로 간주"해서 기존 검사 동작을 유지함)
     var participateVal=participateCol>=0?(row[participateCol]==='참여'):null;
@@ -2883,7 +2900,7 @@ function parseDailyMAU(wb, allClinics){
     // 이 파일 양식에 "심평원 최종연동일" 컬럼 자체가 없으면(예전 양식 등) last_sync_date를 아예 안 보내서
     // 기존에 RAW파일 등으로 저장돼있던 값을 잘못 null로 덮어쓰지 않게 함 - 컬럼이 있는데 이 거래처 칸만
     // 빈 경우(한 번도 연동 안 됨)는 null이 맞는 값이라 그대로 보냄
-    if(colLastSync>=0) upd.last_sync_date=row[colLastSync]?String(row[colLastSync]).slice(0,10):null;
+    if(colLastSync>=0) upd.last_sync_date=toSyncDateStr(row[colLastSync]);
     updates.push(upd);
     officeCounts[match.office]=(officeCounts[match.office]||0)+1;
   }
