@@ -3006,6 +3006,29 @@ function commitCurrentRaw(parsed, status, lockMonth){
       // 파일이 같은 사업자번호를 기존 사무소와 다른 사무소에 "둘 다" 적어 보낸 경우엔 기존 사무소 쪽 행을 그대로
       // 쓰고 다른 쪽은 버림 - 둘 다 기존 사무소로 옮겨 담으면 한 upsert 안에 같은 (사무소,사업자번호)가 두 번
       // 들어가서 배치 전체가 실패함
+      // [2026-10-28, 데이터 보호 - 사용자 지시: "사번이랑 사업자등록번호 기준으로 간다. 절대 기존 데이터 섞이거나
+      // 메모·의협회비·교육이수가 담당자가 변경됐다 하더라도 삭제되거나 없어지지 않도록"]
+      // - 거래처 매칭은 사업자번호(숫자만)로만. 하이픈/공백이 섞여 들어오면 기존 행과 안 맞아 같은 거래처가 새로
+      //   하나 더 생기고(메모·원장 정보 없는 빈 거래처) 화면이 둘로 갈라지므로 숫자만 남겨서 맞춤. 사업자번호가
+      //   비어 있는 행은 아예 버림(사업자번호 없이 직접 등록한 거래처를 덮어쓰지 않게).
+      // - 이 경로가 clinics에 쓰는 칸은 아래 목록뿐 - 특이사항(note)·교육이수(edu, edu_completed_date)·
+      //   의협회비(dues, dues_paid_date)·디지털헬스(dh_*)·방문기록·지역 등은 목록에 없어서 upsert가 절대 안
+      //   건드림(목록의 edu_cnt는 "교육상담 청구건수"라 교육이수와 무관). 원장별 교육이수·의협회비(clinic_doctors)는
+      //   거래처 id로 묶여 있는데, upsert는 같은 행을 갱신할 뿐 id를 안 바꾸고 이 경로엔 삭제가 없음.
+      // - 이미 등록된 거래처의 병원명은 안 바꿈: 캘린더 방문 메모(clinic_memos)가 병원명으로 연결돼 있어서,
+      //   파일/나침반이 이름을 조금만 다르게 적어도 메모가 화면에서 사라짐(실사례: "건강플러스내과" 메모가 이름이
+      //   "건강플러스내과의원"으로 바뀌면서 안 보이게 됨). 병원명은 새 거래처를 처음 등록할 때만 씀.
+      // - 담당자(mr)는 사번 기준으로 매번 갱신(담당자 교체 반영) - 담당자가 바뀌어도 위 칸들은 그대로임.
+      var CLINIC_SYNC_COLS=['office','biz_no','name','mr','patients','non_patients','is_active','inactive_transition','prev_active','prev_patients',
+        'raw_claim','care_plan_cnt','edu_cnt','patient_mgmt_cnt','check_eval_cnt','last_sync_date'];
+      allRows=allRows.map(function(r){
+        var o={};
+        CLINIC_SYNC_COLS.forEach(function(k){ if(r[k]!==undefined) o[k]=r[k]; });
+        o.biz_no=String(o.biz_no==null?'':o.biz_no).replace(/[^0-9]/g,'');
+        var ex=existingInfo[o.biz_no];
+        if(ex&&ex.name) o.name=ex.name;
+        return o;
+      }).filter(function(r){ return !!r.biz_no; });
       var matchedBiz={};
       allRows.forEach(function(r){ if(r.biz_no && existingOffice[r.biz_no]===r.office) matchedBiz[r.biz_no]=true; });
       var conflictBiz={}, conflictRows=[], conflictNumRows=[];
@@ -8082,7 +8105,9 @@ function saveAddClinic(){
 function deleteClinic(){
   if(!editingClinicId) return;
   var c=CLINICS.find(function(x){return x.id===editingClinicId;});
-  if(!confirm((c?c.name:'이 거래처')+'를 삭제할까요?\n(캘린더의 기존 일정은 삭제되지 않습니다)')) return;
+  // 원장별 교육이수·의협회비(clinic_doctors)는 DB에서 거래처를 지우면 같이 지워지게(ON DELETE CASCADE) 묶여
+  // 있어서, 지우기 전에 그 사실을 분명히 알려줌 - 자동 반영(나침반/파일)은 거래처를 지우는 일이 없고 이 버튼뿐임
+  if(!confirm((c?c.name:'이 거래처')+'를 삭제할까요?\n(캘린더의 기존 일정은 삭제되지 않습니다)\n\n⚠️ 이 거래처의 원장별 교육이수·의협회비 기록도 함께 삭제되고 되돌릴 수 없어요.')) return;
   db.from('clinics').delete().eq('id',editingClinicId).then(function(res){
     if(res.error){alert('삭제 실패: '+res.error.message);return;}
     closeAddClinic();
