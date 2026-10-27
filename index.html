@@ -1662,6 +1662,8 @@ function renderImportLog(){
     // 굵게 표기. "활성처 기준"(활성처 현황 RAW)은 주 2회 갱신되는, 가장 자주 바뀌는 값이라
     // 주황색으로 강조해서 나머지(월 단위로만 바뀌는 베이스라인들)와 시각적으로 구분되게 함.
     var lines=[];
+    var nbD=fmtDate(byType.nachimban);
+    if(nbD) lines.push('<div class="data-base-line"><b>🧭 나침반 자동</b> : <span class="db-date db-date-live">'+nbD+'</span> 기준 (매일 아침 갱신)</div>');
     var curD=fmtDate(byType.current);
     lines.push('<div class="data-base-line"><b>활성처 기준</b> : '+(curD?('<span class="db-date db-date-live">'+curD+'</span> 파일'):'<span style="color:var(--t3)">아직 없음</span>')+'</div>');
     var lockedMonth=RAW_BASELINE_BY_OFFICE[currentOffice];
@@ -1688,8 +1690,11 @@ function logImport(type, asOfDate, offices){
 // clinics.patients(당월 현재값)를 실제로 덮어쓰는 두 파일 종류("활성처 현황 RAW"·"일일 MAU") 중
 // 현재 사무소 기준 가장 최근(source_date 기준) 반영 로그를 하나로 합쳐서 반환 - 둘 중 하나만 보고
 // 최신 여부를 판단하면 다른 한쪽이 새로 반영된 걸 놓쳐서 오래된 파일에 덮어써지는 사고가 남
-function latestDataSourceLog(){
-  var rows=IMPORT_LOG.filter(function(r){ return r.office===currentOffice && (r.import_type==='current'||r.import_type==='daily') && r.source_date; });
+// filesOnly: 파일 업로드 검증(오래된 파일 경고)용 - 나침반 자동 반영은 매일 아침 들어오므로 그것까지 비교하면
+// "이상한 부분을 파일로 고치려고" 올리는 같은 달 파일마다 과거 파일 경고가 떠서 헷갈림
+function latestDataSourceLog(filesOnly){
+  var types=filesOnly?['current','daily']:['current','daily','nachimban'];
+  var rows=IMPORT_LOG.filter(function(r){ return r.office===currentOffice && types.indexOf(r.import_type)>=0 && r.source_date; });
   if(!rows.length) return null;
   return rows.reduce(function(a,b){ return b.source_date>a.source_date?b:a; });
 }
@@ -1704,14 +1709,14 @@ function importStatusBadgeHtml(types, showUploader){
   var updatedAt=(r.imported_at||'').slice(0,10)||'?';
   var srcDate=r.source_date||'?';
   var parts=[];
-  if(showUploader) parts.push(r.import_mode==='full'?'관리자 업데이트':'사무소 업데이트');
+  if(showUploader) parts.push(r.import_type==='nachimban'?'🧭 나침반 자동 업데이트':r.import_mode==='full'?'관리자 업데이트':'사무소 업데이트');
   parts.push('업데이트일 '+updatedAt);
   parts.push((showUploader?'데이터':'정산') + ' 기준일 ' + srcDate);
   return '<span style="font-size:11px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:4px 10px">📌 '+parts.join(' · ')+'</span>';
 }
 function renderOfficeBoardBadge(){
   var el=document.getElementById('office-board-badge');
-  if(el) el.innerHTML=importStatusBadgeHtml(['current','daily'], true);
+  if(el) el.innerHTML=importStatusBadgeHtml(['current','daily','nachimban'], true);
 }
 function renderClaimBoardBadge(){
   var el=document.getElementById('claim-board-badge');
@@ -1773,11 +1778,21 @@ function saveUnmatchedClinics(list, sourceFile){
 // "미매칭 거래처" 목록에 계속 중복으로 쌓이는 사고가 있었음(실사고: 속편한정내과/조이비뇨기과의원/
 // 패밀리소아청소년과가 각각 3번씩 중복). saveUnmatchedClinics와 동일하게 이미 대기 중인 biz_no는 걸러냄.
 // 이미 "유지"한 거래처라도 다음 파일이 또 다른 사무소를 적어 보내면 다시 띄워서 매번 확인하게 함(사용자 확인).
-function saveOfficeConflicts(list){
+// opts.skipResolved: 나침반 자동 반영은 매일 돌기 때문에, 이미 관리자가 "유지"/"재배정"으로 결정한 같은 충돌
+// (같은 사업자번호가 같은 사무소로 또 표기됨)을 매일 아침 다시 띄우면 검토함이 매일 차오름 - 자동 반영일 때만
+// 이미 결정한 건 다시 안 띄움(파일 업로드는 예전처럼 매번 다시 띄움 - 사용자 확인)
+function saveOfficeConflicts(list, opts){
   if(!list.length) return Promise.resolve();
-  return db.from('unmatched_clinics').select('biz_no').eq('source_office',currentOffice).eq('status','pending').then(function(res){
-    var already={}; (res.data||[]).forEach(function(r){ already[r.biz_no]=true; });
-    var fresh=list.filter(function(r){ return r.biz_no&&!already[r.biz_no]; });
+  var skipResolved=!!(opts&&opts.skipResolved);
+  var q=db.from('unmatched_clinics').select('biz_no,status,raw_data').eq('source_office',currentOffice);
+  q=skipResolved?q.in('status',['pending','ignored','confirmed_new']):q.eq('status','pending');
+  return q.then(function(res){
+    var already={};
+    (res.data||[]).forEach(function(r){
+      if(r.status==='pending') already[r.biz_no]=true;
+      else if(r.raw_data&&r.raw_data.new_office) already[r.biz_no+'|'+r.raw_data.new_office]=true;
+    });
+    var fresh=list.filter(function(r){ return r.biz_no&&!already[r.biz_no]&&!already[r.biz_no+'|'+r.office]; });
     if(!fresh.length) return;
     var records=fresh.map(function(r){
       return {biz_no:r.biz_no, clinic_name:r.name||'', source_file:'current', source_office:currentOffice,
@@ -2060,7 +2075,7 @@ function buildValidationCurrent(parsed){
   // 둘 중 더 최근에 반영된 쪽(source_date가 더 나중인 쪽) 기준으로 비교해야 함 - 안 그러면 "MAU로 최신화한 뒤
   // 오래된 RAW 파일을 실수로 다시 올려서 되돌리는" 사고를 못 잡는다(실제로 한 번 발생함: 8/9 MAU 반영 후
   // 7/28자 RAW 파일이 재반영되면서 당월 증감이 전부 0으로 보이는 사고)
-  var lastLog=latestDataSourceLog();
+  var lastLog=latestDataSourceLog(true);
   var isStale=!!(lastLog&&lastLog.source_date&&parsed.asOf&&parsed.asOf<lastLog.source_date);
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   var natCount=parsed.natToday?Object.keys(parsed.natToday).length:0;
@@ -2421,6 +2436,210 @@ function parseCurrentRaw(wb){
   }
   return {updates:updates, natToday:natToday, natBusiness:natBusiness, natEval:natEval, natMrEval:natMrEval, natUpdates:natUpdates, asOf: asOf};
 }
+// ===== 나침반(웰체크 활성화 통합 플랫폼) 자동 반영 =====
+// [2026-10-27] 주2회 RAW 파일을 기다리지 않고, 신사업전략팀 "나침반" 웹앱이 매일 06:30에 갱신하는 "웰체크
+// 공유 시트" 데이터를 매일 아침 자동으로 반영함(사용자 요청: "나침반 기준으로 매일 업데이트하고, 이상한 부분은
+// 파일을 업로드해서 변경"). 나침반은 자기 페이지 안에서만 데이터를 불러오는 구조(google.script.run)라 이 앱이
+// 직접 부를 수 없어서, GitHub Actions(.github/workflows/nachimban-sync.yml)가 매일 아침 나침반을 열어 데이터를
+// 꺼낸 뒤 이 앱을 띄워 runNachimbanSync()를 실행한다. RAW 파일 업로드와 똑같이 commitCurrentRaw()를 타므로
+// 사무소 배정 보호·월마감 잠금·청구현황 반영 규칙이 그대로 적용됨.
+// 필드 대응은 같은 날짜(10/25) 회사 RAW 파일을 올린 DB 값과 나침반 10/25 스냅샷을 거래처 4,709곳 전부 대조해서
+// 확인함: 환자수(활성환자목표지표)=wcIlPat, 비일만사 WAU=wau, 활성처='active', 비활성처 전환='churn',
+// 금액=amt, 케어플랜/교육상담/환자관리/점검평가=careCnt/eduCnt/mgmtCnt/evalCnt, 최종연동일=lastSync (전부 100% 일치).
+function nbGoodGrade(g){ return g==='S'||g==='A'||g==='B'; }
+// 나침반 거래처의 담당자 사번은 7자리(예: 2600597)인데 managers.emp_no·RAW 파일 사번은 "120"+7자리(10자리) -
+// 같은 스냅샷의 담당자 목록(id -> id10)으로 바꾸고, 목록에 없으면 7자리일 때만 "120"을 붙임
+function nbSabun10(id, idMap){
+  if(id==null||id==='') return null;
+  var s=String(id).replace(/\.0$/,'');
+  if(idMap[s]) return idMap[s];
+  return /^\d{7}$/.test(s)?('120'+s):s;
+}
+function parseNachimbanData(D){
+  var cur=D&&D.meta?D.meta.current:null;
+  var snap=(D&&D.snapshots||[]).find(function(s){ return s.key===cur; });
+  if(!snap) return {error:'나침반 데이터에서 오늘자 현황을 찾지 못했어요(meta.current='+cur+').'};
+  var asOf=String(snap.asOf||'').slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return {error:'나침반 기준일을 읽지 못했어요: '+snap.asOf};
+  var idMap={};
+  (snap.mr||[]).forEach(function(m){ if(m.id&&m.id10) idMap[String(m.id)]=String(m.id10); });
+  // 나침반 오늘자 시트(웰체크 공유 시트)엔 새로 등록된 거래처가 며칠씩 늦게 들어옴(실사례: 경인1 솔터가정의학과 -
+  // 회사 10/25 파일엔 이번 달 신규 활성처인데 10/27 시트엔 아예 없어서 경인1 마감예측이 회사 61처 vs 나침반 60처,
+  // "B등급까지 4처/5처"로 어긋남). 나침반 안에 같이 들어있는 이번 달 최신 회사 파일 스냅샷에서 시트에 없는
+  // 거래처만 가져와 채우고, 사무소·담당자 집계(활성처/마감예측/청구)에도 그만큼 더해서 등급을 다시 매김 -
+  // 이렇게 하면 37개 사무소 중 34곳의 마감예측이 회사 파일과 정확히 같아짐(나머지 3곳은 날짜 차이로 생긴 실제 변화).
+  var fileSnap=(D.snapshots||[]).filter(function(s){
+    return s!==snap&&!s.final&&String(s.key||'').indexOf('wc')!==0&&s.month===snap.month&&(s.accounts||[]).length;
+  }).sort(function(a,b){ return String(a.asOf)<String(b.asOf)?-1:1; }).pop();
+  var inDaily={};
+  (snap.accounts||[]).forEach(function(a){ inDaily[String(a.biz)]=true; });
+  var extraAccounts=fileSnap?fileSnap.accounts.filter(function(a){ return a.biz&&!inDaily[String(a.biz)]&&NATIONAL_OFFICES.indexOf(a.off)>=0; }):[];
+  var adjOff={}, adjMr={};
+  extraAccounts.forEach(function(a){
+    var act=a.status==='active', amt=Number(a.amt)||0;
+    var inc={fcst:(a.prevActive?1:0)+(act&&!a.prevActive?1:0), act:act?1:0, act1:act&&a.a1?1:0, act2:act&&!a.a1&&a.a2?1:0,
+      pat1:Number(a.wcIlPat)||0, billN:amt>0?1:0, billAmt:amt};
+    [[adjOff,a.off],[adjMr,String(a.mrId||'')]].forEach(function(p){
+      if(!p[1]) return;
+      var t=p[0][p[1]]||(p[0][p[1]]={fcst:0,act:0,act1:0,act2:0,pat1:0,billN:0,billAmt:0});
+      Object.keys(inc).forEach(function(k){ t[k]+=inc[k]; });
+    });
+  });
+  function nbGradeOf(rate){ return rate>=1?'S':rate>=0.8?'A':rate>=0.6?'B':'C'; }
+  function nbAdjust(row, adj){
+    if(!adj) return row;
+    var r=Object.assign({}, row);
+    ['fcst','act','act1','act2','pat1','billN','billAmt'].forEach(function(k){ r[k]=(Number(row[k])||0)+adj[k]; });
+    if(Number(r.target)>0){ r.rate=r.fcst/Number(r.target); r.grade=nbGradeOf(r.rate); }
+    return r;
+  }
+  var offRows=(snap.off||[]).map(function(o){ return nbAdjust(o, adjOff[o.off]); });
+  var mrRows=(snap.mr||[]).map(function(m){ return nbAdjust(m, adjMr[String(m.id||'')]); });
+  var updates=[], natUpdates=[], natToday={};
+  (snap.accounts||[]).concat(extraAccounts).forEach(function(a){
+    var off=a.off;
+    if(NATIONAL_OFFICES.indexOf(off)<0) return;
+    var biz=String(a.biz==null?'':a.biz).replace(/\.0$/,'');
+    if(!biz) return;
+    var row={
+      biz_no:biz, name:a.name||'', mr:a.mr||'-', mr_sabun:nbSabun10(a.mrId, idMap),
+      patients:Number(a.wcIlPat)||0, non_patients:Number(a.wau)||0,
+      is_active:a.status==='active', inactive_transition:a.status==='churn', prev_active:!!a.prevActive,
+      prev_patients:Number(a.prevPat1)||0, claim:Number(a.amt)||0,
+      care_plan_cnt:Number(a.careCnt)||0, edu_cnt:Number(a.eduCnt)||0, patient_mgmt_cnt:Number(a.mgmtCnt)||0, check_eval_cnt:Number(a.evalCnt)||0,
+      last_sync_date:toSyncDateStr(a.lastSync), participate:null
+    };
+    if(off===currentOffice){ updates.push(row); return; }
+    var t=natToday[off]||(natToday[off]={claim:0,patient:0,active:0,care:0,edu:0,mgmt:0,check:0});
+    t.claim+=row.claim; t.patient+=row.patients; if(row.is_active) t.active++;
+    t.care+=row.care_plan_cnt; t.edu+=row.edu_cnt; t.mgmt+=row.patient_mgmt_cnt; t.check+=row.check_eval_cnt;
+    row.office=off;
+    natUpdates.push(row);
+  });
+  if(!updates.length) return {error:'나침반 데이터에서 "'+currentOffice+'" 사무소 거래처를 찾지 못했어요.'};
+  var natBusiness={}, natEval={}, natMrEval={}, offGrade={};
+  offRows.forEach(function(o){
+    if(NATIONAL_OFFICES.indexOf(o.off)<0) return;
+    natBusiness[o.off]=o.div||NATIONAL_BUSINESS[o.off]||'';
+    offGrade[o.off]=o.grade;
+  });
+  // 등급 반영 평가는 26년 10월(4Q)부터. 나침반 오늘자 담당자 행의 sim100/simFinal은 마지막 회사 파일 값이
+  // 그대로 복사돼 있어(청구금액은 매일 바뀌는데 이 둘은 안 바뀜) 쓰지 않고, 회사 파일과 같은 공식으로 직접
+  // 계산함: 평가 100% = 일만사 청구금액 + 비일만사 환자 1명당 1만원, 최종평가 = 평가 100% x 인정률(개인 또는
+  // 사무소가 B등급 이상이면 100%, 아니면 50%). 10/25 회사 파일 값으로 검산해서 경인1 평가 100% 34,537,010원·
+  // 최종평가 30,012,855원이 원 단위까지 똑같이 나오는 걸 확인함.
+  if(asOf>='2026-10-01'){
+    mrRows.forEach(function(m){
+      if(NATIONAL_OFFICES.indexOf(m.off)<0||!m.id10) return;
+      var claimAmt=Math.round(Number(m.billAmt)||0), non=Number(m.pat2)||0;
+      var rate=(nbGoodGrade(m.grade)||nbGoodGrade(offGrade[m.off]))?1:0.5;
+      var full=claimAmt+non*10000, fin=Math.round(full*rate);
+      (natMrEval[m.off]||(natMrEval[m.off]=[])).push({
+        sabun:String(m.id10), name:m.name||'', business:m.div||'', grade:m.grade||null,
+        active:Number(m.billN)||0, claimAmt:claimAmt, applyRate:rate, weightedAmt:Math.round(claimAmt*rate),
+        nonIlmansaPatient:non, evalFull:full, evalFinal:fin, evalGap:fin-full
+      });
+    });
+  }
+  offRows.forEach(function(o){
+    if(NATIONAL_OFFICES.indexOf(o.off)<0) return;
+    var ev={
+      ilmansaActive:Number(o.act1)||0, ilmansaPatient:Number(o.pat1)||0,
+      claimCnt:Number(o.billN)||0, claimAmt:Math.round(Number(o.billAmt)||0),
+      nonIlmansaPatient:Number(o.pat2)||0, evalFull:null, evalFinal:null, evalGap:null,
+      officeRate:o.rate!=null?Number(o.rate):null, officeGrade:o.grade||null,
+      officeTarget:Number(o.target)||null, officeForecast:o.fcst!=null?(Number(o.fcst)||0):null
+    };
+    var mrs=natMrEval[o.off];
+    if(mrs&&mrs.length){
+      ev.evalFull=mrs.reduce(function(s,m){ return s+m.evalFull; },0);
+      ev.evalFinal=mrs.reduce(function(s,m){ return s+m.evalFinal; },0);
+      ev.evalGap=ev.evalFinal-ev.evalFull;
+    }
+    natEval[o.off]=ev;
+  });
+  return {updates:updates, natToday:natToday, natBusiness:natBusiness, natEval:natEval, natMrEval:natMrEval, natUpdates:natUpdates,
+    asOf:asOf, importType:'nachimban', label:snap.label||'', updated:(D.wc&&D.wc.updated)||snap.asOf,
+    filledFromFile:extraAccounts.length, fileSnapKey:fileSnap?fileSnap.key:null};
+}
+// 나침반에 들어있는 회사 월마감 파일(예: "9월_청구금액 평가 시뮬레이션(최종)")로 지난달들의 청구현황을 확정치로
+// 맞춤 - 청구금액은 달이 지나도 원장님들이 늦게 청구하면 계속 늘어나서 마감 파일이 나중에 다시 오므로(사용자
+// 확인) 매일 확인해서 달라진 게 있으면 갱신. 이미 공식 베이스라인(월마감 파일 업로드, eval_clinic_cnt)으로
+// 확정된 달과, office_claims에 아예 없는 달은 건드리지 않음. 사무소별로 거래처 건수 x 단가 합계가 그 파일의
+// 청구금액과 정확히 맞을 때만 반영(안 맞으면 그 사무소는 파일을 못 믿으니 건너뜀).
+function applyNachimbanFinals(D){
+  var cur=(D&&D.snapshots||[]).find(function(s){ return s.key===(D.meta&&D.meta.current); });
+  var curMonth=cur?String(cur.month||cur.asOf||'').slice(0,7):'';
+  var finals=(D&&D.snapshots||[]).filter(function(s){ return s.final&&s.month&&s.month<curMonth&&(s.off||[]).length&&(s.accounts||[]).length; });
+  if(!finals.length) return Promise.resolve({rows:0, months:[]});
+  var P=CLAIM_UNIT_PRICE;
+  return loadOfficeClaims().then(function(){
+    var rows=[], mrRows=[], months={};
+    finals.forEach(function(s){
+      var month=s.month+'-01';
+      var agg={};
+      s.accounts.forEach(function(a){
+        var g=agg[a.off]||(agg[a.off]={care:0,edu:0,mgmt:0,check:0});
+        g.care+=Number(a.careCnt)||0; g.edu+=Number(a.eduCnt)||0; g.mgmt+=Number(a.mgmtCnt)||0; g.check+=Number(a.evalCnt)||0;
+      });
+      var mrBy={};
+      (s.mr||[]).forEach(function(m){ if(m.sim100!=null&&m.id10) (mrBy[m.off]||(mrBy[m.off]=[])).push(m); });
+      s.off.forEach(function(o){
+        if(NATIONAL_OFFICES.indexOf(o.off)<0) return;
+        var ex=OFFICE_CLAIMS.find(function(r){ return r.office===o.off&&r.month===month; });
+        if(!ex||ex.eval_clinic_cnt) return;
+        var g=agg[o.off]||{care:0,edu:0,mgmt:0,check:0};
+        var amt=Math.round(Number(o.billAmt)||0);
+        var care_amt=g.care*P.care, edu_amt=g.edu*P.edu, mgmt_amt=g.mgmt*P.mgmt, check_amt=g.check*P.check;
+        if(care_amt+edu_amt+mgmt_amt+check_amt!==amt) return;
+        var patch={est_claim_amt:amt, est_claim_cnt:Number(o.billN)||0, est_ilmansa_active:Number(o.act1)||0, est_ilmansa_patient:Number(o.pat1)||0,
+          active_count:Number(o.act)||0, patient:Number(o.pat1)||0, cum_patient:Number(o.pat1)||0,
+          care_cnt:g.care, edu_cnt:g.edu, mgmt_cnt:g.mgmt, check_cnt:g.check,
+          care_amt:care_amt, edu_amt:edu_amt, mgmt_amt:mgmt_amt, check_amt:check_amt, claim:amt, cum_claim:amt};
+        var mrs=month>='2026-10-01'?mrBy[o.off]:null;
+        if(mrs&&mrs.length){
+          var full=0, fin=0, weighted=0;
+          mrs.forEach(function(m){
+            var mFull=Math.round(Number(m.sim100)*1000), mFin=Math.round(Number(m.simFinal)*1000);
+            var rate=m.evalRate!=null?Number(m.evalRate):(mFull?mFin/mFull:1);
+            var mAmt=Math.round(Number(m.billAmt)||0);
+            full+=mFull; fin+=mFin; weighted+=Math.round(mAmt*rate);
+            mrRows.push(buildMrClaimRow(o.off, {sabun:String(m.id10), name:m.name||'', business:m.div||'', grade:m.grade||null,
+              active:Number(m.billN)||0, claimAmt:mAmt, applyRate:rate, weightedAmt:Math.round(mAmt*rate),
+              nonIlmansaPatient:Number(m.pat2)||0, evalFull:mFull, evalFinal:mFin, evalGap:mFin-mFull}, s.asOf));
+          });
+          patch.est_eval_full=full; patch.est_eval_final=fin; patch.est_eval_gap=fin-full;
+          patch.est_nonilmansa_patient=Number(o.pat2)||0; patch.est_claim_amt_weighted=weighted;
+        }
+        var changed=Object.keys(patch).some(function(k){ return Number(ex[k])!==Number(patch[k]); });
+        if(!changed) return;
+        var row=Object.assign({}, ex, patch);
+        delete row.id;
+        rows.push(row);
+        months[s.month]=true;
+      });
+    });
+    if(!rows.length&&!mrRows.length) return {rows:0, months:[]};
+    return Promise.all([saveCurrentMonthClaimsBatch(rows), saveMrClaimsBatch(mrRows)]).then(function(r){
+      var err=(r[0]&&r[0].error)||(r[1]&&r[1].error);
+      return {rows:rows.length, months:Object.keys(months), error:err?err.message:null};
+    });
+  });
+}
+// 나침반 자동 반영 진입점 - GitHub Actions 러너가 이 앱 페이지를 띄운 뒤 관리자 권한으로 호출함.
+// 반환값(요약)은 러너 로그에 그대로 찍혀서, 실패하면 Actions 실행 결과(빨간 X)로 바로 보임.
+function runNachimbanSync(D){
+  var parsed=parseNachimbanData(D);
+  if(parsed.error) return Promise.resolve({ok:false, error:parsed.error});
+  var status={textContent:''};
+  return Promise.resolve(commitCurrentRaw(parsed, status, false)).then(function(res){
+    if(!res||res.error) return {ok:false, error:(res&&res.error&&res.error.message)||status.textContent||'거래처 반영 실패', asOf:parsed.asOf};
+    return applyNachimbanFinals(D).then(function(f){
+      return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
+        filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey};
+    });
+  });
+}
 // 'YYYY-MM-01' 문자열을 delta개월만큼 이동 (Date 객체 대신 순수 문자열 연산 - 타임존 영향 없음)
 function shiftMonthStr(monthStr, delta){
   var y=parseInt(monthStr.slice(0,4),10), m=parseInt(monthStr.slice(5,7),10)+delta;
@@ -2629,6 +2848,7 @@ function suspiciousLockCheck(rows){
 }
 function commitCurrentRaw(parsed, status, lockMonth){
   var updates=parsed.updates, asOf=parsed.asOf;
+  var importType=parsed.importType||'current'; // 'current'(RAW 파일 업로드) 또는 'nachimban'(나침반 자동 반영)
   var isFullAdmin=IMPORT_MODE==='full'&&currentUser&&currentUser.role==='관리자';
   status.textContent=updates.length+'개 거래처 반영 중...';
   // "월마감 확정" 체크된 채로 올라온 파일은, 잠그기 전에 환자수 분포부터 확인 - 0/1(=데이터 없음과
@@ -2679,7 +2899,7 @@ function commitCurrentRaw(parsed, status, lockMonth){
     // db.from('clinics').select() 그대로 쓰면 PostgREST 기본 한도(1000건)에 걸려 전사 4,600여 건 중
     // 뒤쪽 사무소 거래처는 existingOffice에 안 잡혀서 사무소 배정 보호 검사를 조용히 건너뛰게 됨 -
     // fetchAllRows로 전체를 다 받아야 함
-    Promise.all([fetchAllRows('clinics','biz_no,office,name,mr'), db.from('managers').select('office,code,name,emp_no'), db.from('import_log').select('office,source_date').eq('import_type','current'), lockedSnapshotKeys([prevMonthForLock])]).then(function(resArr){
+    return Promise.all([fetchAllRows('clinics','biz_no,office,name,mr'), db.from('managers').select('office,code,name,emp_no'), db.from('import_log').select('office,import_type,source_date').in('import_type',['current','nachimban']), lockedSnapshotKeys([prevMonthForLock])]).then(function(resArr){
       var exRes=resArr[0], mgrRes=resArr[1], logRes=resArr[2], prevLocked=resArr[3];
       // 이 파일이 이미 반영된 최신 데이터보다 과거 시점(예: 8월 데이터가 이미 반영된 상태에서 7/31자
       // 마감 파일을 뒤늦게 올리는 경우)이면, 그 사무소의 "현재"(clinics) 상태는 절대 안 건드리고 이
@@ -2687,8 +2907,18 @@ function commitCurrentRaw(parsed, status, lockMonth){
       // 실시간 활성처/활성환자수가 과거 파일 값으로 롤백돼버리는 사고가 남(실제 요청 계기: 청구금액
       // 마감 파일이 2주 넘게 안 나와서, 이미 반영된 최신 RAW보다 오래된 "7/31 기준" 파일로 7월
       // 마감치만 뒤늦게 확정하고 싶다는 요구).
+      // [2026-10-27] 나침반 자동 반영(import_type 'nachimban')이 매일 아침 들어오므로 기준이 둘이 됨:
+      // - 파일 업로드: 같은 달이면 나침반보다 날짜가 앞서도 "현재"를 덮어씀(이상한 부분을 파일로 고치는 용도 -
+      //   사용자 요청). 단 나침반이 이미 다음 달로 넘어갔으면 지난달 파일은 그 달 마감·청구만 채우고 "현재"는 안 건드림.
+      // - 나침반 자동 반영: 자기보다 더 최신 날짜의 파일이 올라와 있을 때만 "현재"를 안 건드림.
       var staleOffices={};
-      if(!logRes.error) logRes.data.forEach(function(r){ if(r.source_date && asOf && r.source_date>asOf) staleOffices[r.office]=r.source_date; });
+      if(!logRes.error) logRes.data.forEach(function(r){
+        if(!r.source_date||!asOf) return;
+        var newer=r.import_type==='nachimban'
+          ? (importType!=='nachimban' && r.source_date.slice(0,7)>asOf.slice(0,7))
+          : r.source_date>asOf;
+        if(newer) staleOffices[r.office]=r.source_date;
+      });
       var existingOffice={}, existingInfo={};
       if(!exRes.error) exRes.data.forEach(function(r){ if(r.biz_no){ existingOffice[r.biz_no]=r.office; existingInfo[r.biz_no]=r; } });
       // RAW 파일의 담당자 칸은 실명(예: "강태경")인데 managers.code는 짧은 코드(예: "gang")라, 그대로 저장하면
@@ -2738,7 +2968,7 @@ function commitCurrentRaw(parsed, status, lockMonth){
       var conflictCount=conflictRows.length;
       var safeRows=allRows.filter(function(r){ return !(conflictBiz[r.biz_no] && r.office!==conflictBiz[r.biz_no]); }).concat(conflictNumRows);
       var safeUpdates=updates.filter(function(u){ return !(conflictBiz[u.biz_no] && conflictBiz[u.biz_no]!==currentOffice); });
-      if(conflictRows.length) saveOfficeConflicts(conflictRows);
+      if(conflictRows.length) saveOfficeConflicts(conflictRows, {skipResolved: importType==='nachimban'});
       // safeRows/safeUpdates는 "현재"에 반영해도 되는(liveRows) 것과, 이미 더 최신 데이터가 있어 "현재"는
       // 그대로 두고 그 달 마감 스냅샷·청구현황만 채워야 하는(staleRows) 것으로 나눈다.
       var liveRows=safeRows.filter(function(r){ return !staleOffices[r.office]; });
@@ -2759,15 +2989,15 @@ function commitCurrentRaw(parsed, status, lockMonth){
         unlockedLiveRows.length?db.from('clinics').upsert(unlockedLiveRows, {onConflict:'office,biz_no'}):Promise.resolve({error:null}),
         lockedLiveRows.length?db.from('clinics').upsert(lockedLiveRows, {onConflict:'office,biz_no'}):Promise.resolve({error:null})
       ]).then(function(resArr2){ return resArr2.find(function(r){return r.error;})||resArr2[0]; });
-      clinicsUpsertP.then(function(res){
-        if(res.error){ status.textContent='전국 거래처 반영 실패: '+res.error.message; return; }
+      return clinicsUpsertP.then(function(res){
+        if(res.error){ status.textContent='전국 거래처 반영 실패: '+res.error.message; return {error:res.error}; }
         // liveRows에 실제로 반영된 사무소 전부에 로그를 남김 - currentOffice만 남기면(예전 버그)
         // 다른 사무소는 clinics는 최신인데 import_log만 영영 안 남아서 "데이터 기준일" 표시·오래된
         // 파일 재업로드 경고가 그 사무소들에서 계속 공백/미작동 상태가 됨. staleOffices는 "현재"를
         // 안 건드렸으니 import_log의 최신 기준일도 그대로 둬야 함(여기서 갱신하면 더 최신 날짜가
         // 과거 날짜로 덮어써져서 다음 파일 업로드 때 신선도 비교가 망가짐).
         var touchedOffices=Object.keys(liveRows.reduce(function(m,r){ m[r.office]=true; return m; },{}));
-        if(touchedOffices.length) logImport('current', asOf, touchedOffices);
+        if(touchedOffices.length) logImport(importType, asOf, touchedOffices);
         // raw_monthly_snapshot·office_claims는 staleRows도 포함한 safeRows 전체로 채운다 - 이 두 테이블은
         // 항상 "그 파일이 말하는 달(asOf)" 기준으로 채우는 거라, 과거 파일이어도 정확히 그 과거 달의
         // 마감 스냅샷·청구현황을 확정하는 게 목적 그 자체다("현재"만 안 건드리면 됨).
@@ -2796,7 +3026,7 @@ function commitCurrentRaw(parsed, status, lockMonth){
           curAgg.claim+=u.claim||0; curAgg.patient+=u.patients||0; if(u.is_active) curAgg.active++;
           curAgg.care+=u.care_plan_cnt||0; curAgg.edu+=u.edu_cnt||0; curAgg.mgmt+=u.patient_mgmt_cnt||0; curAgg.check+=u.check_eval_cnt||0;
         });
-        loadOfficeClaims().then(function(){
+        var claimsP=loadOfficeClaims().then(function(){
           var claimRows=[buildCurrentMonthClaimRow(currentOffice, natBusiness[currentOffice]||NATIONAL_BUSINESS[currentOffice], curAgg, asOf, natEval[currentOffice], natMrEval[currentOffice])];
           var mrClaimRows=(natMrEval[currentOffice]||[]).map(function(mr){ return buildMrClaimRow(currentOffice, mr, asOf); });
           Object.keys(natToday).forEach(function(o){
@@ -2821,16 +3051,23 @@ function commitCurrentRaw(parsed, status, lockMonth){
           // 적이 있었음(2026-10-06 사고) - 다른 비동기 체인(loadClinics)이 같은 status.textContent를
           // 건드려서 메시지가 덮어써질 수 있으므로, 상태 텍스트 대신 확실히 눈에 띄는 alert로 띄움
           if(claimRes&&claimRes.error) alert('⚠️ 청구현황지표(진행중 추정) 저장 실패: '+claimRes.error.message+'\n\n거래처현황판은 정상 반영됐지만, "일만사 평가·청구" 카드는 이번엔 안 바뀌었을 수 있어요. 다시 업로드해서 재시도해주세요.');
+          return claimRes;
         });
-        loadClinics().then(function(){
+        var clinicsP=loadClinics().then(function(){
           if(document.getElementById('view-list').classList.contains('v-active')) renderList();
           if(document.getElementById('view-strategy').classList.contains('v-active')) renderStrategyView();
           var staleMsg=staleOfficeNames.length?(' · '+staleOfficeNames.length+'개 사무소('+staleOfficeNames.slice(0,3).join(',')+(staleOfficeNames.length>3?' 외':'')+')는 이미 더 최신 데이터가 있어 "현재" 상태는 그대로 두고 '+asOf.slice(0,7)+' 마감 스냅샷·청구현황만 반영함'):'';
           status.textContent=safeUpdates.length+'건 반영 완료(전국 거래처현황판 갱신). (파일 기준일: '+asOf+')'+(natUpdates.length?(' · 다른 사무소 거래처 '+natUpdates.length+'곳도 반영됨'):'')+(conflictCount?(' · 파일과 사무소 표기가 다른 거래처 '+conflictCount+'건은 사무소는 기존 그대로 두고 숫자만 갱신'):'')+staleMsg+' 청구현황지표도 그 달 공식 베이스라인이 아직 없으면 진행중(추정)으로 같이 갱신됩니다.'+(lockMonth?(' 🔒 '+asOf.slice(0,7)+' 환자수는 월마감 확정되어 이후 다른 RAW 파일이 덮어쓸 수 없습니다.'):'');
         });
+        // 화면 업로드 쪽은 이 반환값을 안 쓰지만, 나침반 자동 반영(runNachimbanSync)은 저장이 다 끝난 뒤
+        // 결과를 확인해야 해서 끝까지 기다릴 수 있게 Promise로 돌려줌
+        return Promise.all([claimsP, clinicsP]).then(function(r){
+          var claimRes=r[0];
+          return {ok:!(claimRes&&claimRes.error), claimError:claimRes&&claimRes.error?claimRes.error.message:null,
+            clinics:liveRows.length, offices:allTouchedOffices.length, conflicts:conflictCount, staleOffices:staleOfficeNames};
+        });
       });
     });
-    return;
   }
   lockedSnapshotKeys([prevMonthForLock]).then(function(prevLocked){
   Promise.all(updates.map(function(u){
@@ -5307,7 +5544,7 @@ function showClaimEstPopup(idx, event){
   ];
   var total=items.reduce(function(s,it){return s+it[1]*it[2];},0);
   var src=latestDataSourceLog();
-  var srcLabel=src?((src.import_type==='daily'?'MAU':'활성처 현황(RAW)')+' '+(src.source_date?src.source_date.slice(5).replace('-','.'):'?')+' 기준 파일'):'파일 기준일 정보 없음';
+  var srcLabel=src?((src.import_type==='nachimban'?'나침반 자동':src.import_type==='daily'?'MAU':'활성처 현황(RAW)')+' '+(src.source_date?src.source_date.slice(5).replace('-','.'):'?')+' 기준'+(src.import_type==='nachimban'?'':' 파일')):'파일 기준일 정보 없음';
   var hasReal=c.raw_claim!=null;
   var div=document.createElement('div');
   div.id='claim-est-popup';

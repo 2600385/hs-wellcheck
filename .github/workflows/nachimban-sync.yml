@@ -1,0 +1,35 @@
+name: 나침반 자동 반영
+
+# 나침반(웰체크 활성화 통합 플랫폼)이 매일 06:30(한국시간)에 갱신되므로, 그 뒤 06:52에 가져와서
+# hs-wellcheck DB(거래처현황판·청구현황·담당자 등급)에 반영한다. 자세한 동작은 .github/scripts/nachimban-sync.js 참고.
+# 나침반 주소는 저장소가 공개라 코드에 넣지 않고 Secrets(NACHIMBAN_URL)로만 받는다.
+on:
+  schedule:
+    - cron: '52 21 * * *' # UTC 21:52 = 한국시간 06:52
+  workflow_dispatch: {}
+
+concurrency:
+  group: nachimban-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 브라우저(Playwright) 설치
+        run: |
+          npm i --no-save --no-package-lock playwright@1.47.2
+          npx playwright install --with-deps chromium
+      - name: 나침반 → 웰체크 반영
+        env:
+          NACHIMBAN_URL: ${{ secrets.NACHIMBAN_URL }}
+          APP_OFFICE: 경인1
+        run: node .github/scripts/nachimban-sync.js
