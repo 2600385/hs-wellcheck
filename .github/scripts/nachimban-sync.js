@@ -88,7 +88,8 @@ async function applyToApp(browser, data) {
     const f = res.finals || {};
     console.log(`반영 결과: ${res.ok ? '성공' : '실패'} · 기준일 ${res.asOf || '-'} · 거래처 ${c.clinics || 0}곳 · 사무소 ${c.offices || 0}곳 · 사무소 표기 다른 거래처 ${c.conflicts || 0}곳`
       + ` · 오늘자 시트에 없어 회사 파일(${res.fileSnap || '-'})로 채운 거래처 ${res.filled || 0}곳`
-      + ` · 지난달 마감 갱신 ${f.rows || 0}건${(f.months || []).length ? '(' + f.months.join(',') + ')' : ''}`);
+      + ` · 지난달 마감 갱신 ${f.rows || 0}건${(f.months || []).length ? '(' + f.months.join(',') + ')' : ''}`
+      + ` · 새로 등록한 담당자 ${((res.managersAdded || {}).added || []).length}명`);
     if (!res.ok) {
       console.error('실패 원인:', res.error || c.claimError || f.error || '알 수 없음');
       process.exitCode = 1;

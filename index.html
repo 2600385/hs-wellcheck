@@ -1662,8 +1662,21 @@ function renderImportLog(){
     // 굵게 표기. "활성처 기준"(활성처 현황 RAW)은 주 2회 갱신되는, 가장 자주 바뀌는 값이라
     // 주황색으로 강조해서 나머지(월 단위로만 바뀌는 베이스라인들)와 시각적으로 구분되게 함.
     var lines=[];
-    var nbD=fmtDate(byType.nachimban);
-    if(nbD) lines.push('<div class="data-base-line"><b>🧭 나침반 자동</b> : <span class="db-date db-date-live">'+nbD+'</span> 기준 (매일 아침 갱신)</div>');
+    // [2026-10-28] 나침반 자동 반영이 들어온 뒤로는 파일별 기준일(활성처/베이스라인/MAU) 대신 두 줄만 보여줌
+    // (사용자 요청: "나침반기준 매일 6:30 갱신 / 갱신일자 : 2026-10-27"). 같은 달 파일을 올려서 나침반 값을
+    // 덮어쓴 경우엔(이상한 부분 수정용) 화면 숫자가 파일 기준이라는 걸 알 수 있게 그때만 한 줄 더 붙임.
+    var nb=byType.nachimban;
+    if(nb&&nb.source_date){
+      lines.push('<div class="data-base-line"><b>나침반기준 매일 6:30 갱신</b></div>');
+      lines.push('<div class="data-base-line"><b>갱신일자</b> : <span class="db-date db-date-live">'+nb.source_date+'</span></div>');
+      var cur=byType.current;
+      if(cur&&cur.source_date&&cur.imported_at&&nb.imported_at&&new Date(cur.imported_at)>new Date(nb.imported_at))
+        lines.push('<div class="data-base-line"><b>파일로 수정</b> : <span class="db-date">'+cur.source_date+'</span> 파일 반영 (다음 날 아침 나침반 값으로 갱신)</div>');
+      el.innerHTML=lines.join('');
+      renderOfficeBoardBadge();
+      renderClaimBoardBadge();
+      return;
+    }
     var curD=fmtDate(byType.current);
     lines.push('<div class="data-base-line"><b>활성처 기준</b> : '+(curD?('<span class="db-date db-date-live">'+curD+'</span> 파일'):'<span style="color:var(--t3)">아직 없음</span>')+'</div>');
     var lockedMonth=RAW_BASELINE_BY_OFFICE[currentOffice];
@@ -2537,7 +2550,7 @@ function parseNachimbanData(D){
       (natMrEval[m.off]||(natMrEval[m.off]=[])).push({
         sabun:String(m.id10), name:m.name||'', business:m.div||'', grade:m.grade||null,
         active:Number(m.billN)||0, claimAmt:claimAmt, applyRate:rate, weightedAmt:Math.round(claimAmt*rate),
-        nonIlmansaPatient:non, evalFull:full, evalFinal:fin, evalGap:fin-full
+        nonIlmansaPatient:non, evalFull:full, evalFinal:fin, evalGap:fin-full, target:Number(m.target)||null
       });
     });
   }
@@ -2606,7 +2619,7 @@ function applyNachimbanFinals(D){
             full+=mFull; fin+=mFin; weighted+=Math.round(mAmt*rate);
             mrRows.push(buildMrClaimRow(o.off, {sabun:String(m.id10), name:m.name||'', business:m.div||'', grade:m.grade||null,
               active:Number(m.billN)||0, claimAmt:mAmt, applyRate:rate, weightedAmt:Math.round(mAmt*rate),
-              nonIlmansaPatient:Number(m.pat2)||0, evalFull:mFull, evalFinal:mFin, evalGap:mFin-mFull}, s.asOf));
+              nonIlmansaPatient:Number(m.pat2)||0, evalFull:mFull, evalFinal:mFin, evalGap:mFin-mFull, target:Number(m.target)||null}, s.asOf));
           });
           patch.est_eval_full=full; patch.est_eval_final=fin; patch.est_eval_gap=fin-full;
           patch.est_nonilmansa_patient=Number(o.pat2)||0; patch.est_claim_amt_weighted=weighted;
@@ -2626,17 +2639,55 @@ function applyNachimbanFinals(D){
     });
   });
 }
+// 나침반에 있는데 이 앱 담당자 목록(managers)에 없는 담당자를 자동 등록 - 퇴사자 후임(예: 경인1 최주호 -> 류한재)
+// 처럼 담당자가 바뀌면, 등록 전엔 그 거래처들의 담당자 칸에 이름 글자만 들어가서 담당자별 카드·필터에 안 잡힘.
+// 실제로 거래처를 맡은 사람만(소장 제외), 사번(앞 "120" 유무 무시)이나 이름이 이미 있으면 건너뜀.
+// 담당자를 지우는 건 하지 않음(지난 일정·기록이 담당자 코드에 묶여 있어서) - 퇴사자 카드는 화면에서만 숨김.
+function ensureNachimbanManagers(D){
+  var snap=(D&&D.snapshots||[]).find(function(s){ return s.key===(D.meta&&D.meta.current); });
+  if(!snap) return Promise.resolve({added:[]});
+  function n7(v){ var t=String(v==null?'':v); return /^120\d{7}$/.test(t)?t.slice(3):t; }
+  return db.from('managers').select('office,name,emp_no,sort').then(function(res){
+    if(res.error) return {added:[], error:res.error.message};
+    var have={}, maxSort={};
+    res.data.forEach(function(r){
+      if(r.emp_no) have[r.office+'|'+n7(r.emp_no)]=true;
+      have[r.office+'|name|'+r.name]=true;
+      maxSort[r.office]=Math.max(maxSort[r.office]||0, Number(r.sort)||0);
+    });
+    var owns={};
+    (snap.accounts||[]).forEach(function(a){ if(a.mrId) owns[a.off+'|'+n7(a.mrId)]=true; });
+    var rows=[], stamp=Date.now().toString(36);
+    (snap.mr||[]).forEach(function(m){
+      if(NATIONAL_OFFICES.indexOf(m.off)<0||!m.id10||m.isHead||!m.name) return;
+      var k=m.off+'|'+n7(m.id10);
+      if(have[k]||have[m.off+'|name|'+m.name]||!owns[k]) return;
+      have[k]=true;
+      maxSort[m.off]=(maxSort[m.off]||0)+1;
+      rows.push({code:'m'+stamp+rows.length.toString(36), name:m.name, office:m.off, emp_no:String(m.id10), sort:maxSort[m.off]});
+    });
+    if(!rows.length) return {added:[]};
+    return db.from('managers').insert(rows).then(function(r){
+      if(r.error) return {added:[], error:r.error.message};
+      return {added:rows.map(function(x){ return x.office; })};
+    });
+  });
+}
 // 나침반 자동 반영 진입점 - GitHub Actions 러너가 이 앱 페이지를 띄운 뒤 관리자 권한으로 호출함.
 // 반환값(요약)은 러너 로그에 그대로 찍혀서, 실패하면 Actions 실행 결과(빨간 X)로 바로 보임.
 function runNachimbanSync(D){
   var parsed=parseNachimbanData(D);
   if(parsed.error) return Promise.resolve({ok:false, error:parsed.error});
   var status={textContent:''};
-  return Promise.resolve(commitCurrentRaw(parsed, status, false)).then(function(res){
+  var mgrAdded=null;
+  return ensureNachimbanManagers(D).then(function(m){
+    mgrAdded=m;
+    return commitCurrentRaw(parsed, status, false);
+  }).then(function(res){
     if(!res||res.error) return {ok:false, error:(res&&res.error&&res.error.message)||status.textContent||'거래처 반영 실패', asOf:parsed.asOf};
     return applyNachimbanFinals(D).then(function(f){
       return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
-        filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey};
+        filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded};
     });
   });
 }
@@ -2812,12 +2863,16 @@ function saveCurrentMonthClaims(office, business, agg, asOf, evalData, mrRows){
 function buildMrClaimRow(office, mrRow, asOf){
   if(!mrRow||!mrRow.sabun) return null;
   var month=String(asOf||'').slice(0,7)+'-01';
-  return {
+  var row={
     mr_sabun: mrRow.sabun, mr_name: mrRow.name||'', office: office, business: mrRow.business||'', month: month,
     grade: mrRow.grade||null, active_count: mrRow.active||0,
     claim_amt_raw: mrRow.claimAmt||0, apply_rate: mrRow.applyRate||1, claim_amt_weighted: mrRow.weightedAmt||0,
     nonilmansa_patient: mrRow.nonIlmansaPatient, eval_full: mrRow.evalFull, eval_final: mrRow.evalFinal, eval_gap: mrRow.evalGap
   };
+  // 나침반 자동 반영에만 있는 그 달 회사 개인 목표 - 하반기 목표 파일에 없는 담당자(중간에 새로 온 담당자 등)의
+  // 목표로 씀(h2MrTarget 폴백). 파일 업로드엔 이 값이 없어서 키 자체를 안 보냄(기존 값을 null로 덮지 않게)
+  if(mrRow.target!=null) row.target=mrRow.target;
+  return row;
 }
 function saveMrClaimsBatch(rows){
   rows=(rows||[]).filter(function(r){ return r; });
@@ -6297,7 +6352,14 @@ function mrNextGradeNeed(target, active){
 function renderStMrCards(){
   var el=document.getElementById('st-mr-cards');
   if(!el) return;
-  var mgrs=officeManagers();
+  // 퇴사·전출한 담당자(거래처가 전부 후임에게 넘어가서 맡은 곳이 0곳이고, 이번 달 나침반 실적에도 없음)는
+  // 카드만 숨김 - 담당자 목록·지난 기록은 그대로 두고, 지우는 건 관리자가 담당자 관리에서 직접 함
+  var mon=todayMonthStr().slice(0,7);
+  var rowsNow=officeRows();
+  var mgrs=officeManagers().filter(function(m){
+    if(rowsNow.some(function(c){ return c.mr===m.code; })) return true;
+    return !!(m.emp_no&&MR_CLAIMS.some(function(r){ return r.mr_sabun===m.emp_no&&String(r.month).slice(0,7)===mon; }));
+  });
   if(!mgrs.length){ el.innerHTML='<div class="sub" style="padding:8px 0">등록된 담당자가 없어요.</div>'; return; }
   el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:10px">'
     +mgrs.map(function(m){
@@ -6855,7 +6917,11 @@ function rawSnapshotPrevMap(){
 function h2MrTarget(sabun, monthStr){
   var mon=(monthStr||todayMonthStr()).slice(0,7);
   var row=H2_TARGETS.find(function(r){ return r.scope==='mr'&&r.mr_sabun===sabun&&r.month.slice(0,7)===mon; });
-  return row?Math.round(row.target):null;
+  if(row) return Math.round(row.target);
+  // 하반기 목표 파일에 없는 담당자(예: 퇴사자 후임으로 중간에 온 담당자)는 나침반 자동 반영 때 저장한 그 달
+  // 회사 개인 목표로 대신함 - 안 그러면 새 담당자 카드에 목표·등급이 안 나옴
+  var mc=MR_CLAIMS.find(function(r){ return r.mr_sabun===sabun&&String(r.month).slice(0,7)===mon&&r.target; });
+  return mc?Math.round(mc.target):null;
 }
 function renderClaimView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims()]).then(function(){
