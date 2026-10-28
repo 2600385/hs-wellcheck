@@ -8,32 +8,59 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require(process.env.PW_MODULE || 'playwright');
 
-const NB_URL = process.env.NACHIMBAN_URL;
+let NB_URL = process.env.NACHIMBAN_URL;
 const APP_OFFICE = process.env.APP_OFFICE || '경인1';
 const INDEX = path.resolve(__dirname, '..', '..', 'index.html');
 // 저장소의 index.html을 실제 배포 주소인 것처럼 띄움(요청을 가로채 로컬 파일로 응답) - 별도 서버 없이
 // 지금 저장소에 있는 코드 그대로 실행되고, Supabase 등 외부 요청은 평소처럼 나감
 const APP_URL = 'https://hs-wellcheck.vercel.app/__nachimban_sync';
 
+// 실패했을 때 무엇을 봤는지 로그로 남김(공개 로그라 거래처 데이터 없이 페이지 제목·프레임 주소의 호스트·
+// 나침반 로딩 문구만) - 2026-10-28 GitHub 첫 예약 실행이 "데이터를 불러오지 못했어요"로만 끝나서 원인을 못 봤음
+async function describePage(page) {
+  const out = { title: await page.title().catch(() => ''), frames: [] };
+  for (const f of page.frames()) {
+    let host = '';
+    try { host = new URL(f.url()).hostname; } catch (e) { /* about:blank 등 */ }
+    const st = await f.evaluate(() => {
+      const inp = document.querySelector('input');
+      const box = document.getElementById('errBox');
+      return {
+        wc: typeof window.WC_DATA,
+        placeholder: inp ? inp.placeholder : null,
+        err: box ? box.textContent.slice(0, 200) : null,
+        text: ((document.body && document.body.innerText) || '').replace(/\s+/g, ' ').slice(0, 160),
+      };
+    }).catch((e) => ({ evalError: String(e && e.message).slice(0, 80) }));
+    out.frames.push(Object.assign({ host }, st));
+  }
+  return out;
+}
+
 async function readNachimban(browser) {
   const page = await browser.newPage();
-  await page.goto(NB_URL, { waitUntil: 'load', timeout: 120000 });
-  // 나침반은 데이터를 4번에 나눠 받은 뒤(현황 → 처방 → 간호사 → 웰체크 시트) 앱을 시작하면서 "웰체크 공유
-  // 시트" 기반 오늘자 스냅샷(key가 wc로 시작)을 만든다 - 그게 생길 때까지 기다림
   let frame = null, ready = false;
-  for (let i = 0; i < 120 && !ready; i++) {
-    for (const f of page.frames()) {
-      try {
-        const st = await f.evaluate(() => {
-          const D = window.WC_DATA;
-          if (!D || !D.meta) return 0;
-          return String(D.meta.current || '').startsWith('wc') ? 2 : 1;
-        });
-        if (st) frame = f;
-        if (st === 2) { ready = true; break; }
-      } catch (e) { /* 아직 로드 중인 프레임 */ }
+  // 나침반은 데이터를 4번에 나눠 받은 뒤(현황 → 처방 → 간호사 → 웰체크 시트) 앱을 시작하면서 "웰체크 공유
+  // 시트" 기반 오늘자 스냅샷(key가 wc로 시작)을 만든다 - 그게 생길 때까지 기다림. Google 쪽이 가끔 느리거나
+  // 일시 오류를 내므로 한 번 실패하면 페이지를 새로 열어 한 번 더 시도.
+  for (let attempt = 1; attempt <= 2 && !ready; attempt++) {
+    frame = null;
+    await page.goto(NB_URL, { waitUntil: 'load', timeout: 120000 });
+    for (let i = 0; i < 150 && !ready; i++) {
+      for (const f of page.frames()) {
+        try {
+          const st = await f.evaluate(() => {
+            const D = window.WC_DATA;
+            if (!D || !D.meta) return 0;
+            return String(D.meta.current || '').startsWith('wc') ? 2 : 1;
+          });
+          if (st) frame = f;
+          if (st === 2) { ready = true; break; }
+        } catch (e) { /* 아직 로드 중인 프레임 */ }
+      }
+      if (!ready) await page.waitForTimeout(2000);
     }
-    if (!ready) await page.waitForTimeout(2000);
+    if (!ready) console.log(`⚠ ${attempt}번째 시도에서 나침반 오늘자 데이터를 못 찾음:`, JSON.stringify(await describePage(page)));
   }
   if (!frame) throw new Error('나침반 데이터를 불러오지 못했어요(페이지 구조가 바뀌었거나 접속 실패).');
   if (!ready) console.log('⚠ 웰체크 공유 시트(오늘자)가 아직 안 만들어져서 나침반의 최신 회사 파일 스냅샷으로 반영합니다.');
@@ -73,6 +100,15 @@ async function applyToApp(browser, data) {
 (async () => {
   if (!NB_URL) {
     console.error('NACHIMBAN_URL 시크릿이 없어요. 저장소 Settings → Secrets and variables → Actions에 나침반 주소를 등록해 주세요.');
+    process.exit(1);
+  }
+  // 시크릿을 붙여넣을 때 앞뒤 공백·줄바꿈이 같이 들어가는 경우가 많아서 정리하고, 주소 형식만 확인(주소 자체는 안 찍음)
+  NB_URL = NB_URL.trim();
+  try {
+    const u = new URL(NB_URL);
+    console.log(`나침반 주소 확인: ${u.hostname}, ${u.pathname.endsWith('/exec') ? '/exec로 끝남(정상)' : '⚠ /exec로 끝나지 않음 - 주소를 다시 확인해 주세요'}`);
+  } catch (e) {
+    console.error('NACHIMBAN_URL 값이 올바른 주소 형식이 아니에요. 나침반 주소 전체(https://...)를 다시 등록해 주세요.');
     process.exit(1);
   }
   const launchOpts = {};
