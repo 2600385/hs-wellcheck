@@ -62,7 +62,13 @@ async function readNachimban(browser) {
     }
     if (!ready) console.log(`⚠ ${attempt}번째 시도에서 나침반 오늘자 데이터를 못 찾음:`, JSON.stringify(await describePage(page)));
   }
-  if (!frame) throw new Error('나침반 데이터를 불러오지 못했어요(페이지 구조가 바뀌었거나 접속 실패).');
+  if (!frame) {
+    const last = await describePage(page);
+    if (/does not exist|Page Not Found/i.test(last.title + ' ' + ((last.frames[0] || {}).text || ''))) {
+      throw new Error('Google이 "그런 파일이 없다(Page Not Found)"고 해요 - 등록한 NACHIMBAN_URL 주소가 나침반 주소와 다를 가능성이 커요. 나침반 주소를 그대로 다시 복사해서 시크릿을 수정해 주세요.');
+    }
+    throw new Error('나침반 데이터를 불러오지 못했어요(페이지 구조가 바뀌었거나 접속 실패).');
+  }
   if (!ready) console.log('⚠ 웰체크 공유 시트(오늘자)가 아직 안 만들어져서 나침반의 최신 회사 파일 스냅샷으로 반영합니다.');
   const data = await frame.evaluate(() => {
     const D = window.WC_DATA;
@@ -106,7 +112,9 @@ async function applyToApp(browser, data) {
   NB_URL = NB_URL.trim();
   try {
     const u = new URL(NB_URL);
-    console.log(`나침반 주소 확인: ${u.hostname}, ${u.pathname.endsWith('/exec') ? '/exec로 끝남(정상)' : '⚠ /exec로 끝나지 않음 - 주소를 다시 확인해 주세요'}`);
+    // 주소 자체 대신 지문(sha256 앞 8자리)과 길이만 찍어서, 등록한 주소가 맞는지 공개 로그로도 대조할 수 있게 함
+    const fp = require('crypto').createHash('sha256').update(NB_URL).digest('hex').slice(0, 8);
+    console.log(`나침반 주소 확인: ${u.hostname}, ${u.pathname.endsWith('/exec') ? '/exec로 끝남(정상)' : '⚠ /exec로 끝나지 않음 - 주소를 다시 확인해 주세요'}, 길이 ${NB_URL.length}자, 지문 ${fp}`);
   } catch (e) {
     console.error('NACHIMBAN_URL 값이 올바른 주소 형식이 아니에요. 나침반 주소 전체(https://...)를 다시 등록해 주세요.');
     process.exit(1);
