@@ -1667,7 +1667,7 @@ function renderImportLog(){
     // 덮어쓴 경우엔(이상한 부분 수정용) 화면 숫자가 파일 기준이라는 걸 알 수 있게 그때만 한 줄 더 붙임.
     var nb=byType.nachimban;
     if(nb&&nb.source_date){
-      lines.push('<div class="data-base-line"><b>나침반기준 매일 6:30 갱신</b></div>');
+      lines.push('<div class="data-base-line"><b>나침반 기준 매일 <span class="db-date db-date-live">오전 6시 30분</span> 갱신</b></div>');
       lines.push('<div class="data-base-line"><b>갱신일자</b> : <span class="db-date db-date-live">'+nb.source_date+'</span></div>');
       var cur=byType.current;
       if(cur&&cur.source_date&&cur.imported_at&&nb.imported_at&&new Date(cur.imported_at)>new Date(nb.imported_at))
