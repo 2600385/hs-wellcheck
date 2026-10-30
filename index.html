@@ -257,6 +257,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   font-size:9px;color:#333;font-weight:700;line-height:1;
 }
 .ev-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-weight:600}
+/* 타사무소 동도 칩의 사무소 짧은 이름(경4·북1 등) - 거래처명과 구분되게 조금 더 진하게 */
+.ev-office{font-weight:800;color:var(--t1)}
 .ev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;border:1px solid rgba(255,255,255,.6)}
 .ev-allday{font-size:11px;padding:4px 6px;font-weight:700;border-radius:5px}
 .ev-more{font-size:9px;padding:1px 5px;color:var(--t3);font-weight:700;cursor:pointer;flex-shrink:0}
@@ -5085,6 +5087,14 @@ var EV_TYPE_STYLE={
   welda: {bg:'repeating-linear-gradient(135deg, #FCEEBB 0px, #FCEEBB 5px, #ffffff 5px, #ffffff 9px)', color:'#8A6800', border:'1.5px solid #E0BE55'},
   etc:   {bg:'repeating-linear-gradient(135deg, #E9F1F7 0px, #E9F1F7 5px, #ffffff 5px, #ffffff 9px)', color:'#3D5266', border:'1.5px solid #8FA6BA'}
 };
+// 사무소 짧은 이름(캘린더 동도 칩용): 경인4 -> 경4, 북부1 -> 북1, 서부2 -> 서2 (사용자 예시 그대로).
+// 첫 글자만 남기면 겹치는 곳(경기/경남은 경인과, 대구/대전은 서로)은 두 글자 그대로 둬서 헷갈리지 않게 함
+var OFFICE_SHORT_PREFIX={'경인':'경','북부':'북','서부':'서','남부':'남','동부':'동','부산':'부','광주':'광','전주':'전','청주':'청','폴라리스':'폴'};
+function officeShortName(office){
+  var m=String(office||'').match(/^(.*?)(\d*)$/);
+  if(!m) return office||'';
+  return (OFFICE_SHORT_PREFIX[m[1]]||m[1])+m[2];
+}
 function buildChip(ev, isAll){
   var m=getMR(ev.mr);
   var isLeave=ev.evType&&ev.evType!=='visit';
@@ -5130,15 +5140,17 @@ function buildChip(ev, isAll){
   // 캘린더 칸에서는 종료시간까지 표시하면(예: "9a~1p") 거래처명이 잘려서 시작 시간만 표시 -
   // 종료시간은 일정 추가 폼/상세보기(dm-time)에는 그대로 남아있음, 여기 칩 표시만 축약
   var timeStr=ev.exactTime?compactTime(ev.exactTime):'';
-  // 타사무소 동도 방문은 빗금 디자인만으로 이미 "다른 사무소"라는 게 구분되니, 문구/아이콘까지
-  // 붙이면(예: "🤝 [타사무소 동도] ...") 길어져서 정작 거래처명이나 시간이 잘림 - 그냥 우리 사무소
-  // 일정과 똑같이(아이콘 없이, 거래처명 그대로) 표시. 어느 사무소인지는 상세보기에서 확인 가능
+  // 타사무소 동도 방문은 빗금 디자인으로 "다른 사무소"라는 게 구분되고, 긴 문구/아이콘(예: "🤝 [타사무소
+  // 동도] ...")은 거래처명이나 시간이 잘려서 안 붙임 - 대신 아래 crossStr처럼 사무소 짧은 이름만 붙임
   // 웰다는 작은 아이콘만으로는 뭔지 잘 안 와닿는다는 피드백 - 아이콘 대신 "웰다"라는 글자가 바로
   // 보이는 게 더 직관적이라 아이콘을 빼고, 대신 좁은 칩 폭에서 장소명도 같이 보이도록 "웰다 - "
   // (공백 포함 3글자)보다 짧은 가운뎃점(웰다·)으로 접두어를 압축(저장값/수정폼은 "웰다 - 장소" 유지)
   var iconStr=(isLeave&&ev.evType!=='welda')?(EV_TYPE_ICON[ev.evType]||'📌')+' ':'';
   var chipLabel=ev.evType==='welda'?ev.label.replace(/^웰다\s*-\s*/,'웰다·'):ev.label;
-  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+escapeHtml(chipLabel);
+  // [2026-10-30] 타사무소 동도는 빗금만으로는 "어느" 사무소인지 칸에서 바로 안 보인다는 피드백 - 거래처명
+  // 앞에 사무소를 "경4", "북1"처럼 2글자로만 붙임(긴 "[타사무소 동도]" 문구는 거래처명이 잘려서 예전에 뺐음)
+  var crossStr=isCross?'<b class="ev-office">'+escapeHtml(officeShortName(ev.mrOffice))+'</b> ':'';
+  txt.innerHTML=(timeStr?'<span class="ev-time">'+timeStr+' </span>':'')+iconStr+crossStr+escapeHtml(chipLabel);
   var dot=document.createElement('span');dot.className='ev-dot';dot.style.background=gc(ev.patients);
   chip.appendChild(cb);chip.appendChild(txt);chip.appendChild(dot);
   chip.onclick=function(e){if(e.target!==cb){e.stopPropagation();openDetail(ev.id);}};
