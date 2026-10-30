@@ -582,6 +582,8 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 .hist-item{display:flex;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--bd);font-size:11px}
 .hist-item:last-child{border-bottom:none}
 .hist-date{color:var(--t3);font-size:10px;min-width:40px;flex-shrink:0}
+/* 다른 사무소 간호사가 동도로 방문한 이력 - 누가 갔는지 구분되게 이름을 붙임(내 방문은 표시 없음) */
+.hist-nurse{margin-left:auto;font-size:10px;font-weight:700;color:#8A4A00;background:#FFF1DB;border-radius:999px;padding:1px 7px;white-space:nowrap}
 
 /* ===== 모바일 반응형 ===== */
 .sb-backdrop{display:none;position:fixed;inset:0;background:rgba(45,41,38,.45);z-index:290}
@@ -5316,6 +5318,23 @@ function deleteEv(){
 function closeAdd(){document.getElementById('add-ov').classList.remove('ov-open');}
 
 // ===== 거래처 상세 모달 =====
+// 다른 사무소 간호사가 우리 사무소 거래처를 동도로 방문 완료한 기록 - 그 간호사 캘린더(office=그 사무소)에
+// "우리 사무소 MR 일정"(mr_office=우리 사무소)으로 남아 있음. 병원명만으로 찾으면 다른 사무소의 같은 이름 병원
+// (예: 연세내과의원)까지 섞이므로 mr_office가 우리 사무소인 일정만 가져옴. 내 캘린더(우리 사무소) 방문은
+// 기존처럼 EVENTS에서 바로 씀
+function fetchOtherNurseVisits(label){
+  if(!label) return Promise.resolve([]);
+  return db.from('schedules').select('*').eq('label',label).eq('mr_office',currentOffice).neq('office',currentOffice).eq('checked',true).then(function(res){
+    if(res.error||!res.data) return [];
+    return res.data.filter(function(r){ return r.status!=='rejected'&&(!r.ev_type||r.ev_type==='visit'); })
+      .map(function(r){ var e=rowToEv(r); e.nurseOffice=r.office; return e; });
+  });
+}
+function nurseTagText(office){
+  var cm=officeCM(office);
+  return (cm?cm.name+'CM ':'')+'('+officeShortName(office)+')';
+}
+var _detailHistToken=0;
 function openDetail(id){
   var key=getKey();
   var ev=(EVENTS[key]||[]).find(function(e){return e.id===id;});
@@ -5353,25 +5372,37 @@ function openDetail(id){
     // 실제 날짜 기준으로 정렬해서 진짜 방문 이력만 보여줌
     var allEvs2=[];
     Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(function(e){ if(e.label===ev.label) allEvs2.push(e); }); });
-    var visited=allEvs2.filter(function(e){return e.checked;}).sort(function(a,b){
-      return new Date(a.year,a.month-1,a.day) - new Date(b.year,b.month-1,b.day);
-    });
-    var lastV=visited.length>0?visited[visited.length-1]:null;
-    document.getElementById('dm-lastvisit').textContent=lastV?ev.label+'('+lastV.year+'.'+lastV.month+'.'+lastV.day+')':'방문 이력 없음';
+    var mine=allEvs2.filter(function(e){return e.checked;});
     var p=ev.patients||0;
     document.getElementById('dm-patients').textContent=p+'명';
     document.getElementById('dm-gauge').style.width=gw(p);
     document.getElementById('dm-gauge').style.background=gc(p);
     document.getElementById('dm-gauge-lbl').textContent=p>=40?'✅ 활성처 달성':p>=20?'⚠ MR 기준 달성':'❌ 기준 미달';
-    var hist=document.getElementById('dm-hist');
-    var pastVisits=visited.slice().reverse().slice(0,8); // 최신순으로 최대 8건
-    hist.innerHTML=pastVisits.length
-      ? pastVisits.map(function(e){
-          var dstr=e.year+'.'+e.month+'.'+e.day;
-          var tstr=timeLabel(e.time)+(e.exactTime?' · '+timeRangeLabel(e):'');
-          return '<div class="hist-item"><span class="hist-date">'+dstr+'</span><span>'+tstr+' 방문 완료</span></div>';
-        }).join('')
-      : '<div style="font-size:11px;color:var(--t3)">방문 완료 이력이 없습니다</div>';
+    // 방문 이력/마지막 방문일: 내 방문 + 다른 간호사 동도 방문을 실제 날짜순으로 합쳐서 표시. 다른 간호사가 간
+    // 건만 이름 뱃지를 붙임(사용자 요청: "내 캘린더에는 표기없고 다른 간호사가 간 거는 표기해야 구분될듯")
+    var renderHist=function(others){
+      var visited=mine.concat(others||[]).sort(function(a,b){
+        return new Date(a.year,a.month-1,a.day) - new Date(b.year,b.month-1,b.day);
+      });
+      var lastV=visited.length>0?visited[visited.length-1]:null;
+      document.getElementById('dm-lastvisit').textContent=lastV?ev.label+'('+lastV.year+'.'+lastV.month+'.'+lastV.day+')'+(lastV.nurseOffice?' · '+nurseTagText(lastV.nurseOffice):''):'방문 이력 없음';
+      var hist=document.getElementById('dm-hist');
+      var pastVisits=visited.slice().reverse().slice(0,8); // 최신순으로 최대 8건
+      hist.innerHTML=pastVisits.length
+        ? pastVisits.map(function(e){
+            var dstr=e.year+'.'+e.month+'.'+e.day;
+            var tstr=timeLabel(e.time)+(e.exactTime?' · '+timeRangeLabel(e):'');
+            return '<div class="hist-item"><span class="hist-date">'+dstr+'</span><span>'+tstr+' 방문 완료</span>'
+              +(e.nurseOffice?'<span class="hist-nurse">'+escapeHtml(nurseTagText(e.nurseOffice))+'</span>':'')+'</div>';
+          }).join('')
+        : '<div style="font-size:11px;color:var(--t3)">방문 완료 이력이 없습니다</div>';
+    };
+    renderHist([]);
+    var token=++_detailHistToken;
+    fetchOtherNurseVisits(ev.label).then(function(others){
+      // 그 사이 다른 일정을 열었으면 늦게 온 결과로 덮어쓰지 않음
+      if(token===_detailHistToken&&others.length) renderHist(others);
+    });
   }
   document.getElementById('dm-memo').value=MEMO_STORE[ev.label]||ev.memo||'';
   document.getElementById('detail-ov').classList.add('ov-open');
@@ -7400,15 +7431,26 @@ function onClinicSelect() {
         if(e.label === name) visits.push({key:k, day:e.day, checked:e.checked, time:e.time});
       });
     });
-    if (visits.length > 0) {
-      histSection.style.display = 'block';
-      histList.innerHTML = visits.map(function(v){
-        var dateStr = v.key + '.' + v.day + ' (' + (v.time==='all'?'종일':v.time==='am'?'오전':'오후') + ')';
-        return '<div style="padding:2px 0;color:'+(v.checked?'#145C38':'var(--t2)')+'">'+dateStr+' '+(v.checked?'✅ 방문완료':'⬜ 예정')+'</div>';
-      }).join('');
-    } else {
-      histSection.style.display = 'none';
-    }
+    // 다른 사무소 간호사가 동도로 다녀간 방문도 같이 보여주고 그 건만 간호사 이름을 붙임(openDetail과 같은 기준)
+    var renderAddHist=function(list){
+      if (list.length > 0) {
+        histSection.style.display = 'block';
+        histList.innerHTML = list.map(function(v){
+          var dateStr = v.key + '.' + v.day + ' (' + (v.time==='all'?'종일':v.time==='am'?'오전':'오후') + ')';
+          return '<div style="padding:2px 0;color:'+(v.checked?'#145C38':'var(--t2)')+'">'+dateStr+' '+(v.checked?'✅ 방문완료':'⬜ 예정')
+            +(v.nurseOffice?' <span class="hist-nurse" style="margin-left:4px">'+escapeHtml(nurseTagText(v.nurseOffice))+'</span>':'')+'</div>';
+        }).join('');
+      } else {
+        histSection.style.display = 'none';
+      }
+    };
+    renderAddHist(visits);
+    fetchOtherNurseVisits(name).then(function(others){
+      if(!others.length||document.getElementById('inp-clinic').value.trim()!==name) return;
+      var merged=visits.concat(others.map(function(e){ return {key:e.year+'-'+e.month, day:e.day, checked:true, time:e.time, nurseOffice:e.nurseOffice}; }));
+      merged.sort(function(a,b){ var pa=a.key.split('-'), pb=b.key.split('-'); return new Date(pa[0],pa[1]-1,a.day)-new Date(pb[0],pb[1]-1,b.day); });
+      renderAddHist(merged);
+    });
   }
 }
 
