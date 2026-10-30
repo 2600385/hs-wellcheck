@@ -1,11 +1,16 @@
 name: 나침반 자동 반영
 
-# 나침반(웰체크 활성화 통합 플랫폼)이 매일 06:30(한국시간)에 갱신되므로, 그 뒤 06:52에 가져와서
+# 나침반(웰체크 활성화 통합 플랫폼)이 매일 06:30(한국시간)에 갱신되므로, 그 뒤 아침에 가져와서
 # hs-wellcheck DB(거래처현황판·청구현황·담당자 등급)에 반영한다. 자세한 동작은 .github/scripts/nachimban-sync.js 참고.
 # 나침반 주소는 저장소가 공개라 코드에 넣지 않고 Secrets(NACHIMBAN_URL)로만 받는다.
+# GitHub 예약 실행은 몇 시간씩 늦게 시작되는 날이 많아서(10/28~30: 06:52 예약 -> 실제 09:46~10:22 시작)
+# 아침에 네 번 예약해 두고, 먼저 성공한 게 있으면 나머지는 바로 끝냄(SKIP_IF_DONE)
 on:
   schedule:
-    - cron: '52 21 * * *' # UTC 21:52 = 한국시간 06:52
+    - cron: '47 21 * * *' # 한국시간 06:47
+    - cron: '17 22 * * *' # 한국시간 07:17
+    - cron: '47 22 * * *' # 한국시간 07:47
+    - cron: '17 23 * * *' # 한국시간 08:17
   workflow_dispatch: {}
 
 concurrency:
@@ -32,4 +37,5 @@ jobs:
         env:
           NACHIMBAN_URL: ${{ secrets.NACHIMBAN_URL }}
           APP_OFFICE: 경인1
+          SKIP_IF_DONE: ${{ github.event_name == 'schedule' && '1' || '' }}
         run: node .github/scripts/nachimban-sync.js

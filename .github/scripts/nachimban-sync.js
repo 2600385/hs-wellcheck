@@ -103,11 +103,47 @@ async function applyToApp(browser, data) {
   }, { data, office: APP_OFFICE });
 }
 
+// Supabase 주소·공개키는 앱(index.html)에 이미 들어있는 값을 그대로 읽어서 씀(중복 관리 방지)
+const INDEX_SRC = fs.readFileSync(INDEX, 'utf8');
+const SUPA_URL = (INDEX_SRC.match(/var SUPA_URL='([^']+)'/) || [])[1];
+const SUPA_KEY = (INDEX_SRC.match(/var SUPA_KEY='([^']+)'/) || [])[1];
+const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+
+async function supa(pathAndQuery, opts) {
+  const res = await fetch(`${SUPA_URL}/rest/v1/${pathAndQuery}`, Object.assign({
+    headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+  }, opts || {}));
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
+  return res.status === 204 ? null : res.json().catch(() => null);
+}
+// 앱 사이드바가 읽는 자동 갱신 상태(sync_status) - 실패하면 화면에 "오늘 자동 갱신 실패: 이유"가 바로 뜨게 함
+// (2026-10-28~30 사흘 동안 실패해도 앱엔 아무 표시가 없어서 사용자가 직접 발견해야 했음)
+async function reportStatus(ok, message, sourceDate) {
+  try {
+    const row = { key: 'nachimban', ok, message: message || '', ran_at: new Date().toISOString() };
+    if (sourceDate) row.source_date = sourceDate;
+    await supa('sync_status?on_conflict=key', { method: 'POST', body: JSON.stringify(row) });
+  } catch (e) { console.error('상태 기록 실패:', e.message); }
+}
+async function fail(userMessage, logMessage) {
+  console.error(logMessage || userMessage);
+  await reportStatus(false, userMessage);
+  process.exit(1);
+}
+
 (async () => {
-  if (!NB_URL) {
-    console.error('NACHIMBAN_URL 시크릿이 없어요. 저장소 Settings → Secrets and variables → Actions에 나침반 주소를 등록해 주세요.');
-    process.exit(1);
+  // 예약 실행은 GitHub 사정으로 몇 시간씩 늦게 시작되는 날이 많아서(10/28~30 06:52 예약이 실제로는 09:46~10:22
+  // 시작) 아침에 여러 번 예약해 둠 - 그중 먼저 성공한 게 있으면 나머지는 나침반을 열기 전에 바로 끝냄
+  if (process.env.SKIP_IF_DONE === '1' && SUPA_URL) {
+    try {
+      const rows = await supa(`import_log?select=source_date&import_type=eq.nachimban&office=eq.${encodeURIComponent(APP_OFFICE)}`);
+      if (rows && rows[0] && rows[0].source_date >= kstToday()) {
+        console.log(`오늘(${kstToday()}) 자동 반영은 이미 끝나 있어서 건너뜀`);
+        return;
+      }
+    } catch (e) { console.log('반영 여부 확인 실패 - 그냥 진행:', e.message); }
   }
+  if (!NB_URL) return fail('나침반 주소가 GitHub에 등록되지 않음', 'NACHIMBAN_URL 시크릿이 없어요. 저장소 Settings → Secrets and variables → Actions에 나침반 주소를 등록해 주세요.');
   // 시크릿을 붙여넣을 때 앞뒤 공백·줄바꿈이 같이 들어가는 경우가 많아서 정리하고, 주소 형식만 확인(주소 자체는 안 찍음)
   NB_URL = NB_URL.trim();
   try {
@@ -115,16 +151,24 @@ async function applyToApp(browser, data) {
     // 주소 자체 대신 지문(sha256 앞 8자리)과 길이만 찍어서, 등록한 주소가 맞는지 공개 로그로도 대조할 수 있게 함
     const fp = require('crypto').createHash('sha256').update(NB_URL).digest('hex').slice(0, 8);
     console.log(`나침반 주소 확인: ${u.hostname}, ${u.pathname.endsWith('/exec') ? '/exec로 끝남(정상)' : '⚠ /exec로 끝나지 않음 - 주소를 다시 확인해 주세요'}, 길이 ${NB_URL.length}자, 지문 ${fp}`);
+    if (NB_URL.includes('…') || NB_URL.includes('...')) {
+      return fail('GitHub에 등록된 나침반 주소가 "…"로 줄여진 주소예요 - 전체 주소로 다시 등록해 주세요');
+    }
   } catch (e) {
-    console.error('NACHIMBAN_URL 값이 올바른 주소 형식이 아니에요. 나침반 주소 전체(https://...)를 다시 등록해 주세요.');
-    process.exit(1);
+    return fail('GitHub에 등록된 나침반 주소 형식이 틀림 - 전체 주소로 다시 등록해 주세요');
   }
   const launchOpts = {};
   if (process.env.CHROME_PATH) launchOpts.executablePath = process.env.CHROME_PATH;
   if (process.env.PW_PROXY) launchOpts.proxy = { server: process.env.PW_PROXY };
   const browser = await chromium.launch(launchOpts);
   try {
-    const data = await readNachimban(browser);
+    let data;
+    try {
+      data = await readNachimban(browser);
+    } catch (e) {
+      const notFound = /Page Not Found|그런 파일이 없다/.test(String(e && e.message));
+      return await fail(notFound ? 'GitHub에 등록된 나침반 주소가 틀림(Google: 페이지 없음) - 전체 주소로 다시 등록해 주세요' : '나침반 사이트 접속 실패 - 다음 예약 때 다시 시도해요', '실행 오류: ' + (e && e.message));
+    }
     const cur = data.snapshots[0] || {};
     console.log(`나침반 데이터: ${cur.key} (${cur.asOf}), 거래처 ${(cur.accounts || []).length}곳, 회사 파일 스냅샷 ${data.snapshots.length - 1}개`);
     const res = await applyToApp(browser, data);
@@ -135,13 +179,15 @@ async function applyToApp(browser, data) {
       + ` · 지난달 마감 갱신 ${f.rows || 0}건${(f.months || []).length ? '(' + f.months.join(',') + ')' : ''}`
       + ` · 새로 등록한 담당자 ${((res.managersAdded || {}).added || []).length}명`);
     if (!res.ok) {
-      console.error('실패 원인:', res.error || c.claimError || f.error || '알 수 없음');
-      process.exitCode = 1;
+      const why = res.error || c.claimError || f.error || '알 수 없음';
+      return await fail('나침반 데이터 저장 실패: ' + String(why).slice(0, 80), '실패 원인: ' + why);
     }
+    await reportStatus(true, '', res.asOf);
   } finally {
     await browser.close();
   }
-})().catch((e) => {
+})().catch(async (e) => {
+  await reportStatus(false, '자동 갱신 중 오류: ' + String(e && e.message ? e.message : e).slice(0, 80));
   console.error('실행 오류:', e && e.message ? e.message : e);
   process.exit(1);
 });

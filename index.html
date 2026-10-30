@@ -1619,13 +1619,23 @@ function findAsOfDate(wb, sheetNames){
   return null;
 }
 var IMPORT_LOG=[];
+// 나침반 자동 반영(GitHub Actions)의 마지막 실행 결과 - 실패하면 사이드바에 "오늘 자동 갱신 실패: 이유"를 띄우는 데 씀
+// (2026-10-28~30 사흘 동안 자동 반영이 실패했는데 화면엔 아무 표시가 없어 사용자가 직접 발견해야 했음)
+var SYNC_STATUS={};
 function loadImportLog(){
-  return db.from('import_log').select('*').then(function(res){
+  return Promise.all([
+    db.from('import_log').select('*'),
+    db.from('sync_status').select('*')
+  ]).then(function(r){
+    var res=r[0];
     if(res.error){ console.error(res.error); return; }
     IMPORT_LOG=res.data;
+    SYNC_STATUS={};
+    if(!r[1].error) (r[1].data||[]).forEach(function(x){ SYNC_STATUS[x.key]=x; });
     renderImportLog();
   });
 }
+function kstDateStr(d){ return new Date((d?new Date(d).getTime():Date.now())+9*3600e3).toISOString().slice(0,10); }
 // 전 사무소의 "활성처 베이스라인"(raw_monthly_snapshot 월마감 확정, is_baseline=true) 최신 월을
 // 사이드바 "데이터 기준일" 줄에 표시하기 위해 한 번만 로드. is_baseline=true 행은 사무소당 거래처
 // 수만큼 쌓여서(현재 4천건대) 기본 페이지 한도(1000건)를 넘길 수 있어 range()로 끝까지 이어받는다.
@@ -1669,6 +1679,17 @@ function renderImportLog(){
     if(nb&&nb.source_date){
       lines.push('<div class="data-base-line"><b>나침반 기준 매일 <span class="db-date db-date-live">오전 6시 30분</span> 갱신</b></div>');
       lines.push('<div class="data-base-line"><b>갱신일자</b> : <span class="db-date db-date-live">'+nb.source_date+'</span></div>');
+      // 오늘 자동 갱신이 아직이면 이유를 바로 보이게: 오늘 실패 기록이 있으면 빨강으로 그 이유, 실패 기록은
+      // 없는데 오전 9시가 지났으면(예약 4번이 다 지난 뒤) 주황으로 "아직 안 됨"
+      var today=kstDateStr();
+      if(nb.source_date<today){
+        var st=SYNC_STATUS.nachimban;
+        var hourKst=new Date(Date.now()+9*3600e3).getUTCHours();
+        if(st&&st.ok===false&&st.ran_at&&kstDateStr(st.ran_at)===today)
+          lines.push('<div class="data-base-line" style="color:#B01A1A;font-weight:700">⚠ 오늘 자동 갱신 실패 : '+escapeHtml(st.message||'원인 확인 중')+'</div>');
+        else if(hourKst>=9)
+          lines.push('<div class="data-base-line" style="color:#B26A00;font-weight:700">⚠ 오늘 자동 갱신이 아직 안 됐어요 ('+nb.source_date+' 기준 화면)</div>');
+      }
       var cur=byType.current;
       if(cur&&cur.source_date&&cur.imported_at&&nb.imported_at&&new Date(cur.imported_at)>new Date(nb.imported_at))
         lines.push('<div class="data-base-line"><b>파일로 수정</b> : <span class="db-date">'+cur.source_date+'</span> 파일 반영 (다음 날 아침 나침반 값으로 갱신)</div>');
