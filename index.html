@@ -1746,6 +1746,13 @@ function importStatusBadgeHtml(types, showUploader){
   if(!r) return '<span style="font-size:11px;color:var(--t3)">아직 업데이트 이력이 없습니다</span>';
   var updatedAt=(r.imported_at||'').slice(0,10)||'?';
   var srcDate=r.source_date||'?';
+  // 나침반 자동 반영이 최신이면 날짜들 대신 "🧭 매일 6시 30분 자동업데이트" 한 줄만(사용자 요청 - 모바일에서
+  // 긴 문구가 두 줄로 넘쳐서 지저분했음). 오늘 반영이 아직이면 그때만 빨간 경고로 바꿔서 표시
+  if(r.import_type==='nachimban'){
+    if(r.source_date&&r.source_date<kstDateStr())
+      return '<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FDECEC;border-radius:999px;padding:4px 10px;white-space:nowrap">⚠ 오늘 자동업데이트 전 ('+r.source_date.slice(5).replace('-','/')+' 기준)</span>';
+    return '<span style="font-size:11px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:4px 10px;white-space:nowrap">🧭 매일 6시 30분 자동업데이트</span>';
+  }
   var parts=[];
   if(showUploader) parts.push(r.import_type==='nachimban'?'🧭 나침반 자동 업데이트':r.import_mode==='full'?'관리자 업데이트':'사무소 업데이트');
   parts.push('업데이트일 '+updatedAt);
