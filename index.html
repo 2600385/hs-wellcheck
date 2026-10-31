@@ -830,7 +830,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
           <div class="sb-nat-title">전국 사업부 현황</div>
           <div class="sb-nat-lock" id="sb-nat-lock">
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            신사업팀장·사업부장 권한
+            신사업팀장·사업부장·간호사 권한
           </div>
         </div>
       </div>
@@ -4026,6 +4026,51 @@ function guestLogin(){
   switchView(homeViewForRole());
   applyRoleGating();
 }
+// ===== 새 버전 알림 =====
+// [2026-10-31] 새 버전을 배포해도 홈 화면에 추가한 앱이나 열어둔 탭은 예전 화면을 그대로 보여줘서(실사례: 간호사
+// 사무소 전환을 풀었는데 배아람 간호사 화면은 계속 잠겨 있음) 사용자가 "왜 안 바뀌지?"를 겪음 - 앱으로 돌아올
+// 때마다(그리고 10분마다) 서버의 index.html 버전 표식(ETag)만 가볍게 확인해서, 바뀌었으면 상단에 안내를 띄우고
+// 누르면 새로고침. 입력 중인 내용이 날아갈 수 있어 자동 새로고침은 하지 않음.
+var _appVersionTag=null;
+function checkAppUpdate(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  fetch(location.pathname, {method:'HEAD', cache:'no-store'}).then(function(r){
+    var tag=r.headers.get('etag')||r.headers.get('last-modified');
+    if(!r.ok||!tag) return;
+    if(_appVersionTag===null){ _appVersionTag=tag; return; }
+    if(tag!==_appVersionTag) showAppUpdateBanner();
+  }).catch(function(){});
+}
+function showAppUpdateBanner(){
+  if(document.getElementById('app-update-banner')) return;
+  var d=document.createElement('div');
+  d.id='app-update-banner';
+  d.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:3000;background:#F47920;color:#fff;font-weight:800;font-size:13px;padding:10px 16px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer;white-space:nowrap';
+  d.textContent='🔄 새 버전이 나왔어요 · 눌러서 적용';
+  d.onclick=function(){ location.reload(); };
+  document.body.appendChild(d);
+}
+// 데이터도 같은 문제: 아침 자동 반영(나침반) 전에 열어둔 화면은 다시 열어도 어제 숫자 그대로였음(실사례: 10/31
+// 09:11에 반영됐는데 오후에도 "반영 안 됨"으로 보임). 앱으로 돌아올 때(그리고 10분마다) 반영 기록만 다시
+// 확인해서, 나침반 갱신일자가 바뀌었으면 지금 사무소 데이터를 통째로 다시 불러와 화면을 갱신함.
+function nachimbanDateFor(office){
+  var r=IMPORT_LOG.find(function(x){ return x.office===office&&x.import_type==='nachimban'; });
+  return r?r.source_date:null;
+}
+function refreshDataIfStale(){
+  if(!currentUser||!currentOffice) return;
+  var before=nachimbanDateFor(currentOffice);
+  loadImportLog().then(function(){
+    var after=nachimbanDateFor(currentOffice);
+    if(after&&after!==before){
+      Promise.all([loadOfficeClaims(), loadMrClaims()]).then(function(){ setCurrentOffice(currentOffice); });
+    }
+  });
+}
+function onAppResume(){ checkAppUpdate(); refreshDataIfStale(); }
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') onAppResume(); });
+setInterval(function(){ if(document.visibilityState==='visible') onAppResume(); }, 10*60*1000);
+checkAppUpdate();
 function tryAutoLogin(){
   var saved=localStorage.getItem('wc_emp_no');
   if(!saved) return;
