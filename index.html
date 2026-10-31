@@ -1681,7 +1681,7 @@ function renderImportLog(){
     // 덮어쓴 경우엔(이상한 부분 수정용) 화면 숫자가 파일 기준이라는 걸 알 수 있게 그때만 한 줄 더 붙임.
     var nb=byType.nachimban;
     if(nb&&nb.source_date){
-      lines.push('<div class="data-base-line"><b>나침반 기준 매일 <span class="db-date db-date-live">오전 6시 30분</span> 갱신</b></div>');
+      lines.push('<div class="data-base-line" title="나침반 기준"><b>🧭 매일 <span class="db-date db-date-live">오전 6시 30분</span> 갱신</b></div>');
       lines.push('<div class="data-base-line"><b>갱신일자</b> : <span class="db-date db-date-live">'+nb.source_date+'</span></div>');
       // 오늘 자동 갱신이 아직이면 이유를 바로 보이게: 오늘 실패 기록이 있으면 빨강으로 그 이유, 실패 기록은
       // 없는데 오전 9시가 지났으면(예약 4번이 다 지난 뒤) 주황으로 "아직 안 됨"
