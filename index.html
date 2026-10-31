@@ -1010,7 +1010,10 @@ td.drillable:hover .drill-ic{color:var(--dw)}
 <div id="view-strategy" class="view-panel">
   <div class="list-head" style="position:relative">
     <div class="list-head-title" id="strategy-title">경인1 활성처 확보 전략판</div>
-    <button type="button" class="stMemoBtn" id="st-memo-btn" onclick="toggleStMemo(event)"><span class="stMemoDot" id="st-memo-dot" hidden></span>📝 특이사항 메모 <span id="st-memo-caret" hidden>▲</span></button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
+      <div id="strategy-board-badge"></div>
+      <button type="button" class="stMemoBtn" id="st-memo-btn" onclick="toggleStMemo(event)"><span class="stMemoDot" id="st-memo-dot" hidden></span>📝 특이사항 메모 <span id="st-memo-caret" hidden>▲</span></button>
+    </div>
     <div class="stMemoPop" id="st-memo-pop" hidden>
       <div class="stMemoHead"><span class="stMemoTitle">📝 거래처 방문 후 특이사항</span><button type="button" class="stMemoX" onclick="closeStMemo()" title="닫기">✕</button></div>
       <div class="stMemoSub">캘린더 메모와 같은 메모예요 · 자동 저장</div>
@@ -1762,10 +1765,14 @@ function importStatusBadgeHtml(types, showUploader){
 function renderOfficeBoardBadge(){
   var el=document.getElementById('office-board-badge');
   if(el) el.innerHTML=importStatusBadgeHtml(['current','daily','nachimban'], true);
+  // 활성처 확보 전략판(모바일 하단 "청구처" 탭)에도 같은 자동업데이트 뱃지 - 이 화면엔 그동안 문구 자리 자체가 없었음
+  var st=document.getElementById('strategy-board-badge');
+  if(st) st.innerHTML=importStatusBadgeHtml(['current','daily','nachimban'], true);
 }
 function renderClaimBoardBadge(){
   var el=document.getElementById('claim-board-badge');
-  if(el) el.innerHTML=importStatusBadgeHtml(['current','baseline'], false);
+  // 청구현황도 매일 아침 나침반 자동 반영으로 갱신되므로 나침반이 최신이면 같은 "🧭 매일 6시 30분 자동업데이트"
+  if(el) el.innerHTML=importStatusBadgeHtml(['current','baseline','nachimban'], false);
 }
 // 업로드할 때마다(활성처 현황/베이스라인) office_claims 최신 상태를 별도 이력 테이블에도 남겨서,
 // 매 업로드 시점의 스냅샷을 나중에 돌아볼 수 있게 함 (숫자 몇 개짜리 행이라 저장 비용은 무시할 수준)
