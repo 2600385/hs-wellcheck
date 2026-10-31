@@ -3920,7 +3920,10 @@ function selectNatOffice(office){
 // ===== 로그인 / 사번-역할 기반 접근 제어 =====
 var EMPLOYEES = [];
 var currentUser = null; // {id,emp_no,name,role,office}
-var MULTI_OFFICE_ROLES = ['신사업팀장','사업부장','관리자']; // 전체 사무소 전환 + 전국 사업부 현황 접근 가능 (관리자는 사업부장과 별개의 시스템 관리 역할)
+// [2026-10-31] 간호사도 관리자 모드 없이 모든 사무소를 볼 수 있게 추가(사용자 요청) - 업로드·직원/거래처 관리 같은
+// 관리자 기능은 applyRoleGating에서 isAdmin으로 따로 막혀 있어 그대로 관리자 전용이고, 다른 사무소 캘린더는
+// 그 사무소 간호사의 일정이라 보기만 가능(isNurseViewingOtherOffice)
+var MULTI_OFFICE_ROLES = ['신사업팀장','사업부장','관리자','간호사']; // 전체 사무소 전환 + 전국 사업부 현황 접근 가능 (관리자는 사업부장과 별개의 시스템 관리 역할)
 // 예전엔 소장·간호사도 RAW/MAU 파일을 올릴 수 있었는데, 사람마다 업로드 시점이 달라 기준이 계속
 // 흔들리는 문제가 있어서 모든 파일 업로드(RAW/MAU/베이스라인)를 관리자 전용으로 통일함
 
@@ -3940,7 +3943,17 @@ function isMultiOfficeRole(role){ return MULTI_OFFICE_ROLES.indexOf(role)>=0; }
 function homeViewForRole(){ return (currentUser && currentUser.role==='간호사') ? 'cal' : 'strategy'; }
 // 일정 요청 승낙/거절: 원래 담당 CM(간호사)만 되던 걸, 관리자도 필요할 때(간호사 대신/자리 비웠을
 // 때 등) 처리할 수 있어야 한다는 요청으로 관리자도 허용. 그 외 역할(사무소명 로그인 등)은 계속 불가.
-function canApproveRequests(){ return !!(currentUser && (currentUser.role==='간호사'||currentUser.role==='관리자')); }
+function canApproveRequests(){ return !!(currentUser && (currentUser.role==='간호사'||currentUser.role==='관리자')) && !isNurseViewingOtherOffice(); }
+// 간호사가 다른 사무소를 보고 있는지 - 그 사무소 캘린더는 그 사무소 간호사 일정이라 추가·수정·삭제·방문체크·
+// 메모·요청 승낙을 막고 보기만 하게 함(내 사무소로 돌아오면 원래대로)
+function isNurseViewingOtherOffice(){
+  return !!(currentUser&&currentUser.role==='간호사'&&currentUser.office&&currentOffice!==currentUser.office);
+}
+function blockIfOtherOfficeCalendar(){
+  if(!isNurseViewingOtherOffice()) return false;
+  alert('다른 사무소 캘린더는 보기만 가능해요.\n일정은 '+currentUser.office+' 캘린더에서 관리해 주세요.');
+  return true;
+}
 function doLogin(){
   var input=document.getElementById('login-empno').value.trim();
   var errEl=document.getElementById('login-error');
@@ -4778,7 +4791,7 @@ function renderCalHeadTitle(){
   var el=document.getElementById('cal-head-title');
   if(!el) return;
   var cm=officeCM(currentOffice);
-  el.textContent=currentOffice+'사무소 캘린더'+(cm?('('+cm.name+'CM)'):'');
+  el.textContent=currentOffice+'사무소 캘린더'+(cm?('('+cm.name+'CM)'):'')+(isNurseViewingOtherOffice()?' · 👀 보기 전용':'');
 }
 // ===== 유틸 =====
 function escapeHtml(s){
@@ -5125,6 +5138,7 @@ function buildChip(ev, isAll){
   }
 
   var cb=document.createElement('input');cb.type='checkbox';cb.checked=ev.checked;
+  if(isNurseViewingOtherOffice()) cb.disabled=true; // 다른 사무소 캘린더는 방문 체크도 못 바꿈(보기 전용)
   cb.onclick=function(e){
     e.stopPropagation();ev.checked=cb.checked;
     // 사용자가 직접 체크박스를 조작하면 checked_manual을 true로 남겨서, 이후 autoCheckPastEvents가
@@ -5167,6 +5181,7 @@ function changeYear(d){curYear+=d;renderCalendar();}
 // 일정 추가/수정 모달의 <input type="date"> 값(YYYY-MM-DD)을 만들거나 반대로 읽어들일 때 씀
 function isoDateStr(y,m,d){ return y+'-'+(m<10?'0'+m:m)+'-'+(d<10?'0'+d:d); }
 function openAdd(day, zone){
+  if(blockIfOtherOfficeCalendar()) return;
   editingId=null; addDay=day; addZone=zone;
   clearCrossMr();
   document.getElementById('add-title').textContent=curYear+'년 '+curMonth+'월 '+day+'일 일정 추가';
@@ -5229,6 +5244,7 @@ function openEditModal(ev){
   document.getElementById('add-ov').classList.add('ov-open');
 }
 function saveEv(){
+  if(blockIfOtherOfficeCalendar()) return;
   var isLeave=ADD_MODE==='leave';
   var evType=document.getElementById('inp-type').value||'visit';
   var label;
@@ -5310,6 +5326,7 @@ function saveEv(){
 }
 function deleteEv(){
   if(!editingId)return;
+  if(blockIfOtherOfficeCalendar()) return;
   db.from('schedules').delete().eq('id',editingId).then(function(res){
     if(res.error){alert('삭제 실패: '+res.error.message);return;}
     closeAdd(); loadSchedules();
@@ -5408,6 +5425,7 @@ function openDetail(id){
   document.getElementById('detail-ov').classList.add('ov-open');
 }
 function saveDetailMemo(){
+  if(blockIfOtherOfficeCalendar()) return;
   var key=getKey();
   var ev=(EVENTS[key]||[]).find(function(e){return e.id===detailId;});
   var memoVal=document.getElementById('dm-memo').value;
@@ -5426,6 +5444,7 @@ function saveDetailMemo(){
   }
 }
 function openEditFromDetail(){
+  if(blockIfOtherOfficeCalendar()) return;
   var key=getKey();
   var ev=(EVENTS[key]||[]).find(function(e){return e.id===detailId;});
   if(ev) openEditModal(ev);
