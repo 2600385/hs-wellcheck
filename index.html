@@ -1160,8 +1160,8 @@ td.drillable:hover .drill-ic{color:var(--dw)}
         </div>
       </div>
       <!-- 사무소(MR)가 간호사에게 방문을 요청할 때 어떤 상황인지/뭘 해달라는건지 몰라서 답답하다는
-           피드백 - 사무소 쪽에서 요청할 땐 필수로 적게 하고, 간호사 본인이 직접 일정을 넣을 땐(요청 대상이
-           없으므로) 이 칸 자체를 숨김. updateSituationFieldVisibility()에서 role 보고 표시/필수여부 결정 -->
+           피드백 - 사무소 쪽에서 요청할 땐 필수로 적게 하고, 간호사 본인이 직접 일정을 넣을 땐 "방문 목적"으로
+           선택 입력. updateSituationFieldVisibility()에서 role 보고 표시/필수여부/문구 결정 -->
       <div class="fld" id="situation-fld" style="display:none">
         <label id="situation-fld-lbl">거래처 상황 및 요청사항</label>
         <textarea id="inp-situation" class="memo-area" style="min-height:64px" placeholder="ex) 일만사 도입 예정처, DR 및 간호사 교육 요청, 청구 오류 확인 등"></textarea>
@@ -1239,6 +1239,10 @@ td.drillable:hover .drill-ic{color:var(--dw)}
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:2px">
         <span id="dm-patients">0명</span><span id="dm-gauge-lbl">기준 미달</span>
       </div>
+    </div>
+    <div id="dm-situation-block" style="display:none;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:5px" id="dm-situation-lbl">방문 목적 · 거래처 상황</div>
+      <div id="dm-situation" style="background:#FFF8ED;border-left:3px solid #E0A339;border-radius:4px;padding:6px 8px;font-size:11.5px;color:#7A5A15;white-space:pre-wrap"></div>
     </div>
     <div id="dm-memo-block">
       <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:5px">메모 / 인수인계 기록</div>
@@ -3685,7 +3689,7 @@ var MANUAL_CHECK_IDS = new Set();
 function rowToEv(r){
   return {id:r.id, year:r.year, month:r.month, day:r.day, mr:r.mr, mrOffice:r.mr_office||'', label:r.label,
     time:r.time_slot, exactTime:r.exact_time||'', exactTimeEnd:r.exact_time_end||'', evType:r.ev_type, region:r.region, patients:r.patients,
-    memo:r.memo||'', situation:r.situation||'', checked:r.checked, checkedManual:(!!r.checked_manual)||MANUAL_CHECK_IDS.has(r.id), status:r.status};
+    memo:r.memo||'', situation:r.situation||'', decidedAt:r.decided_at||null, checked:r.checked, checkedManual:(!!r.checked_manual)||MANUAL_CHECK_IDS.has(r.id), status:r.status};
 }
 // "14:30" -> "2p30", "09:00" -> "9a", "14:00" -> "2p"
 function compactTime(t){
@@ -5322,7 +5326,7 @@ function saveEv(){
     label=document.getElementById('inp-clinic').value.trim();
     if(!label){alert('거래처명을 입력해주세요.');return;}
     // 사무소(MR)가 간호사에게 방문을 요청할 때는 어떤 상황인지/뭘 해달라는건지 반드시 적게 함.
-    // 간호사 본인이 자기 일정을 넣을 땐 요청 대상이 없으므로 면제(situation-fld 자체가 숨겨져 있음)
+    // 간호사 본인이 자기 일정을 넣을 땐 요청 대상이 없으므로 필수는 면제("방문 목적"으로 선택 입력)
     var situationVal=document.getElementById('inp-situation').value.trim();
     if(!(currentUser&&currentUser.role==='간호사') && !situationVal){
       alert('거래처 상황 및 요청사항을 입력해주세요.'); return;
@@ -5479,6 +5483,16 @@ function openDetail(id){
       // 그 사이 다른 일정을 열었으면 늦게 온 결과로 덮어쓰지 않음
       if(token===_detailHistToken&&others.length) renderHist(others);
     });
+  }
+  // 왜 가는 방문인지(간호사가 적은 방문 목적 또는 MR이 요청하며 적은 내용) - 예전엔 수정 창을 열어야만 보였음
+  var sitBlock=document.getElementById('dm-situation-block');
+  if(sitBlock){
+    var showSit=!isLeave&&!!(ev.situation&&ev.situation.trim());
+    sitBlock.style.display=showSit?'':'none';
+    if(showSit){
+      document.getElementById('dm-situation-lbl').textContent=ev.decidedAt?'MR 요청사항 · 거래처 상황':'방문 목적 · 거래처 상황';
+      document.getElementById('dm-situation').textContent=ev.situation;
+    }
   }
   document.getElementById('dm-memo').value=MEMO_STORE[ev.label]||ev.memo||'';
   document.getElementById('detail-ov').classList.add('ov-open');
@@ -8116,24 +8130,32 @@ function setAddMode(mode){
   updateLeaveTimeVisibility();
   updateSituationFieldVisibility();
 }
-// 사무소(MR)가 간호사에게 방문 요청을 넣을 때만 "거래처 상황 및 요청사항"을 필수로 적게 함 -
-// 간호사 본인이 자기 일정을 직접 새로 넣을 땐 요청 대상이 없으므로 칸 자체를 숨김.
-// 다만 이미 등록된 일정을 열 때(수정 모달) 그 일정에 사무소가 남겨둔 요청 사유가 있으면, 간호사
-// 화면이어도 "방문 후 특이사항"(메모) 위에 그대로 보여줌 - 예전엔 간호사에게 항상 숨겨져서, 이미
-// 적힌 요청 사유를 방문 당사자가 다시는 못 보는 문제가 있었음(작성 권한은 요청자에게만 있으므로
-// 간호사에게 보일 땐 읽기전용으로)
+// 사무소(MR)가 간호사에게 방문 요청을 넣을 땐 "거래처 상황 및 요청사항"을 필수로 적게 함.
+// [2026-10-31] 간호사가 직접 일정을 넣을 때도 "왜 가는지" 남길 수 있게 같은 칸을 "방문 목적 · 거래처 상황
+// (선택)"으로 보여줌(사용자 요청 - 예전엔 요청 대상이 없다고 칸 자체를 숨겼음). MR 요청으로 들어와 승낙된
+// 일정(decidedAt 있음)의 내용은 요청자가 쓴 글이라 간호사가 고치지 못하게 지금처럼 읽기 전용으로 둠.
 function updateSituationFieldVisibility(){
   var isLeave=ADD_MODE==='leave';
   var isNurse=!!(currentUser&&currentUser.role==='간호사');
   var hasExisting=!!document.getElementById('inp-situation').value.trim();
-  var show=!isLeave && (!isNurse || hasExisting);
+  var editingEv=null;
+  if(editingId!=null) Object.keys(EVENTS).some(function(k){ editingEv=(EVENTS[k]||[]).find(function(e){ return e.id===editingId; })||null; return !!editingEv; });
+  var fromRequest=!!(editingEv&&editingEv.decidedAt);
+  var show=!isLeave;
   var required=!isLeave && !isNurse;
   var fld=document.getElementById('situation-fld');
   if(fld) fld.style.display=show?'block':'none';
   var lbl=document.getElementById('situation-fld-lbl');
-  if(lbl) lbl.innerHTML='거래처 상황 및 요청사항'+(required?' <span style="color:#B01A1A;font-weight:800">*필수</span>':'');
+  if(lbl) lbl.innerHTML=isNurse&&!fromRequest
+    ? '방문 목적 · 거래처 상황 <span style="color:var(--t3);font-weight:500">(선택)</span>'
+    : '거래처 상황 및 요청사항'+(required?' <span style="color:#B01A1A;font-weight:800">*필수</span>':'');
   var ta=document.getElementById('inp-situation');
-  if(ta) ta.readOnly = isNurse && hasExisting;
+  if(ta){
+    ta.readOnly = isNurse && hasExisting && fromRequest;
+    ta.placeholder = isNurse
+      ? 'ex) 교육이수 진행, 웰체크&일만사 세팅, 재이수 안내, 청구 오류 확인 등'
+      : 'ex) 일만사 도입 예정처, DR 및 간호사 교육 요청, 청구 오류 확인 등';
+  }
 }
 
 function updateAddBadge(){var mr=document.getElementById('inp-mr').value;var b=document.getElementById('add-mr-badge');if(b&&MR[mr]){b.textContent=MR[mr].name+' MR';b.style.background=MR[mr].bg;b.style.color=MR[mr].t;b.style.display='inline-flex';}}
