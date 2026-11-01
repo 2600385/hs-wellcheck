@@ -969,11 +969,14 @@ td.drillable:hover .drill-ic{color:var(--dw)}
            생기면 여기서 골라 한 번에 바꿈 - 일정의 요청사항·메모·방문 메모는 그대로 옮기고, 직접 등록해 둔 임시 거래처의
            교육이수·의협회비·특이사항은 공식 거래처로 합침(renderUnknownClinics / relinkUnknownLabel) -->
       <div class="pnl" id="unk-pnl" style="display:none">
-        <div class="pnl-title">🔎 <span style="color:#B26A00">거래처 확인이 필요해요</span>
+        <div class="pnl-title" onclick="toggleUnkPanel()" style="cursor:pointer;user-select:none" title="눌러서 열기/닫기">🔎 <span style="color:#B26A00">거래처 확인이 필요해요</span>
           <span id="unk-badge" style="background:#F5A623;color:white;border-radius:999px;font-size:9px;padding:1px 6px;margin-left:4px;font-weight:700"></span>
+          <span id="unk-caret" style="margin-left:auto;font-size:10px;color:var(--t3);font-weight:600">열기 ▾</span>
         </div>
-        <div style="font-size:10.5px;color:var(--t3);margin-bottom:6px;line-height:1.5">회사 통계에 없어 직접 입력한 거래처예요. 공식 거래처가 생겼으면 골라서 바꿔주세요.</div>
-        <div id="unk-list"></div>
+        <div id="unk-body" style="display:none">
+          <div style="font-size:10.5px;color:var(--t3);margin-bottom:6px;line-height:1.5">회사 통계에 없어 직접 입력한 거래처예요. 공식 거래처가 생겼으면 골라서 바꿔주세요. 추천은 우리 사무소 거래처가 먼저, 그다음 타사무소(동도) 거래처예요.</div>
+          <div id="unk-list"></div>
+        </div>
       </div>
 
                   <div class="pnl">
@@ -8479,15 +8482,47 @@ function renderRequests(){
 }
 
 // ===== 거래처 확인이 필요해요 =====
-// 일정 거래처명이 이 사무소 거래처 목록에 없는 방문 일정(타사무소 동도·거래처 외 일정 제외)을 이름별로 모음
-var UNK_SHOW_ALL=false;
+// 일정 거래처명이 이 사무소 공식 거래처(사업자번호 있음) 목록에 없는 방문 일정(타사무소 동도·거래처 외 일정 제외)을 이름별로
+// 모음 + 사업자번호 없이 직접 등록해 둔 임시 거래처 중 공식 거래처 후보가 생긴 곳. 패널은 접어 두고 제목을 누르면 전부 펼침.
+// 추천은 우리 사무소 거래처 먼저, 그다음 타사무소 거래처(동도로 가는 곳 - 예: 메디의원·용인 으뜸·용인 365는 다른 사무소 거래처)
+var UNK_OPEN=false, UNK_NAT=null, UNK_NAT_P=null;
 function unkNorm(x){
-  return String(x||'').replace(/\[[^\]]*\]/g,'').replace(/\s+/g,'')
+  return String(x||'').replace(/\[[^\]]*\]/g,'').replace(/\([^)]*\)/g,'').replace(/\s+/g,'')
     .replace(/(교육및상주|교육|상주|상담|방문)+$/,'').replace(/의원$/,'');
 }
+// "[폴라리스] 용인 365" -> {hint:'폴라리스', norm:'용인365', toks:['용인','365']} - 대괄호는 어느 사무소 거래처인지 힌트
+function unkParse(label){
+  var s=String(label||''), m=s.match(/\[([^\]]+)\]/);
+  var rest=s.replace(/\[[^\]]*\]/g,' ').replace(/(교육\s*및\s*상주|교육|상주|상담|방문)\s*$/,'').trim();
+  var toks=rest.split(/\s+/).map(function(t){ return t.replace(/의원$/,''); }).filter(function(t){ return t.length>=2||/\d/.test(t); });
+  return {hint:m?m[1].replace(/\s+/g,''):'', norm:unkNorm(label), toks:toks};
+}
+function unkHintOffice(P, office){
+  if(!P.hint||!office) return false;
+  return office===P.hint||office.indexOf(P.hint)===0||officeShortName(office)===P.hint;
+}
+// 3: 이름 같음, 2: 한쪽이 다른 쪽을 포함, 1.5: 띄어 쓴 낱말이 전부 들어 있음, 0~1: 낱말 일부만(사무소 힌트가 맞을 때만 씀)
+function unkMatch(P, name, nn){
+  if(nn==null) nn=unkNorm(name);
+  if(!nn||!P.norm) return 0;
+  if(nn===P.norm) return 3;
+  var shorter=Math.min(nn.length, P.norm.length);
+  // 짧은 쪽이 3글자 이상이고 긴 쪽의 60% 이상일 때만("은내과"가 "연세밝은내과"에 걸리는 식의 엉뚱한 추천 방지)
+  if(shorter>=3&&shorter>=Math.max(nn.length,P.norm.length)*0.6&&(nn.indexOf(P.norm)>=0||P.norm.indexOf(nn)>=0)) return 2;
+  if(P.toks.length>=2){
+    var hit=P.toks.filter(function(t){ return nn.indexOf(t)>=0; }).length;
+    if(hit===P.toks.length) return 1.5;
+    if(hit) return hit/P.toks.length;
+  }
+  return 0;
+}
+function unkOfficialRows(){ return officeRows().filter(function(c){ return !!String(c.biz_no||'').trim(); }); }
 function unkGroups(){
-  var names={};
-  officeRows().forEach(function(c){ names[String(c.name||'').trim()]=true; });
+  var names={}, manual={};
+  officeRows().forEach(function(c){
+    var n=String(c.name||'').trim();
+    if(String(c.biz_no||'').trim()) names[n]=true; else manual[n]=c;
+  });
   var g={};
   var add=function(e){
     if(e.evType&&e.evType!=='visit') return;
@@ -8495,99 +8530,172 @@ function unkGroups(){
     if(e.status==='rejected') return;
     var key=String(e.label||'').trim();
     if(!key||names[key]) return;
-    var x=g[key]||(g[key]={label:key, raws:{}, count:0, last:null});
-    x.raws[e.label]=true; x.count++;
+    var x=g[key]||(g[key]={label:key, raws:{}, ids:[], count:0, last:null, manual:manual[key]||null});
+    x.raws[e.label]=true; x.ids.push(e.id); x.count++;
     var d=new Date(e.year, e.month-1, e.day);
     if(!x.last||d>x.last) x.last=d;
   };
   Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(add); });
   (REQUESTS||[]).forEach(add);
-  return Object.keys(g).map(function(k){ return g[k]; }).sort(function(a,b){ return b.last-a.last; });
+  // 직접 등록한 임시 거래처는 일정이 없어도(의협회비·교육이수 같은 기록만 있어도) 공식 거래처 후보가 생기면 보여줌
+  Object.keys(manual).forEach(function(n){ if(!g[n]) g[n]={label:n, raws:{}, ids:[], count:0, last:null, manual:manual[n]}; });
+  return Object.keys(g).map(function(k){ return g[k]; })
+    .filter(function(x){ return !x.manual||unkSuggest(x.label,true).length; }) // 임시 거래처는 우리 사무소 공식 후보가 있을 때만(없으면 확인할 게 없음)
+    .sort(function(a,b){ return (b.last||0)-(a.last||0); });
 }
-// 이름이 비슷한 공식 거래처 후보(예: "자애내과" -> "자애내과의원", "사랑의내과 교육 및 상주" -> "사랑의내과")
-function unkSuggest(label){
-  var nl=unkNorm(label);
-  if(!nl) return [];
-  return officeRows().map(function(c){
-    var nn=unkNorm(c.name), score=0;
-    if(nn===nl) score=3; else if(nn&&(nn.indexOf(nl)>=0||nl.indexOf(nn)>=0)) score=2;
-    return {c:c, score:score, diff:Math.abs(nn.length-nl.length)};
-  }).filter(function(x){ return x.score>0; })
-    .sort(function(a,b){ return b.score-a.score||a.diff-b.diff; })
-    .slice(0,2).map(function(x){ return x.c; });
+// 전국 거래처(타사무소 추천·검색용) - 패널을 처음 펼칠 때 한 번만 불러옴
+function unkLoadNat(){
+  if(UNK_NAT) return Promise.resolve(UNK_NAT);
+  if(UNK_NAT_P) return UNK_NAT_P;
+  UNK_NAT_P=Promise.all([fetchAllRows('clinics','id,office,name,biz_no,mr'), fetchAllRows('managers','office,code,name')]).then(function(r){
+    if(r[0].error) throw r[0].error;
+    var mg={}; ((r[1]&&r[1].data)||[]).forEach(function(m){ mg[m.office+'|'+m.code]=m.name; });
+    UNK_NAT=r[0].data.filter(function(c){ return String(c.biz_no||'').trim(); }).map(function(c){
+      return {id:c.id, office:c.office||'', name:c.name||'', biz_no:c.biz_no||'', mrName:mg[c.office+'|'+c.mr]||c.mr||'', _n:unkNorm(c.name)};
+    });
+    return UNK_NAT;
+  }).catch(function(e){ UNK_NAT_P=null; throw e; });
+  return UNK_NAT_P;
+}
+function unkOwnCand(c){ return {own:true, id:c.id, office:currentOffice, name:c.name, biz_no:c.biz_no||'', mrName:getMR(c.mr).name}; }
+function unkOtherCand(c){ return {own:false, id:c.id, office:c.office, name:c.name, biz_no:c.biz_no, mrName:c.mrName}; }
+// 추천: 우리 사무소 2곳까지 먼저, 그다음 타사무소 2곳까지(대괄호 사무소 힌트 → 이름 일치도 → 우리가 동도 간 적 있는 사무소 순)
+// ownOnly: 직접 등록한 임시 거래처는 우리 사무소 거래처 기록이라 우리 사무소 공식 거래처로만 합침
+function unkSuggest(label, ownOnly){
+  var P=unkParse(label);
+  if(!P.norm) return [];
+  var own=unkOfficialRows().map(function(c){ var nn=unkNorm(c.name); return {c:c, s:unkMatch(P,c.name,nn), d:Math.abs(nn.length-P.norm.length)}; })
+    .filter(function(x){ return x.s>=1.5; }).sort(function(a,b){ return b.s-a.s||a.d-b.d; }).slice(0,2).map(function(x){ return unkOwnCand(x.c); });
+  if(ownOnly||!UNK_NAT) return own;
+  var visited={}; Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(function(e){ if(e.mrOffice) visited[e.mrOffice]=true; }); });
+  var other=[];
+  UNK_NAT.forEach(function(c){
+    if(!c.office||c.office===currentOffice) return;
+    var s=unkMatch(P,c.name,c._n), h=unkHintOffice(P,c.office);
+    if(s>=1.5||(h&&s>0)) other.push({c:c, s:s, h:h?1:0, v:visited[c.office]?1:0, d:Math.abs(c._n.length-P.norm.length)});
+  });
+  other.sort(function(a,b){ return b.h-a.h||b.s-a.s||b.v-a.v||a.d-b.d; });
+  return own.concat(other.slice(0,2).map(function(x){ return unkOtherCand(x.c); }));
+}
+function toggleUnkPanel(){
+  UNK_OPEN=!UNK_OPEN;
+  renderUnknownClinics();
+  if(UNK_OPEN&&!UNK_NAT) unkLoadNat().then(function(){ if(UNK_OPEN) renderUnknownClinics(); }, function(e){ console.error(e); });
+}
+function unkPickArg(c){ return JSON.stringify({own:c.own, id:c.id}).replace(/"/g,'&quot;'); }
+function unkCandBtn(labelArg, c){
+  if(c.own) return '<button onclick="relinkUnknownLabel('+labelArg+','+unkPickArg(c)+')" title="우리 사무소 · '+escapeHtml(c.mrName)+'" style="padding:3px 8px;font-size:10.5px;font-weight:700;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:999px;cursor:pointer;font-family:inherit">→ '+escapeHtml(c.name)+'</button>';
+  return '<button onclick="relinkUnknownLabel('+labelArg+','+unkPickArg(c)+')" title="'+escapeHtml(c.office)+' 거래처(동도) · '+escapeHtml(c.mrName)+' MR" style="padding:3px 8px;font-size:10.5px;font-weight:700;background:#E8F1FA;color:#1F5A8C;border:1px dashed #2F78B7;border-radius:999px;cursor:pointer;font-family:inherit">→ <span style="opacity:.75">'+escapeHtml(officeShortName(c.office))+'</span> '+escapeHtml(c.name)+'</button>';
 }
 function renderUnknownClinics(){
   var pnl=document.getElementById('unk-pnl'), list=document.getElementById('unk-list'), badge=document.getElementById('unk-badge');
+  var body=document.getElementById('unk-body'), caret=document.getElementById('unk-caret');
   if(!pnl||!list) return;
   var groups=unkGroups();
   pnl.style.display=groups.length?'':'none';
   if(!groups.length) return;
   if(badge) badge.textContent=groups.length+'곳';
+  if(body) body.style.display=UNK_OPEN?'':'none';
+  if(caret) caret.textContent=UNK_OPEN?'닫기 ▴':'열기 ▾';
+  var title=pnl.querySelector('.pnl-title'); if(title) title.style.marginBottom=UNK_OPEN?'':'0';
+  if(!UNK_OPEN) return;
   var ro=typeof isNurseViewingOtherOffice==='function'&&isNurseViewingOtherOffice();
-  var shown=UNK_SHOW_ALL?groups:groups.slice(0,5);
-  list.innerHTML=shown.map(function(gr){
+  list.innerHTML=groups.map(function(gr){
     var lastStr=gr.last?((gr.last.getMonth()+1)+'/'+gr.last.getDate()):'';
-    var sugg=ro?[]:unkSuggest(gr.label);
-    var lbl=escapeHtml(gr.label).replace(/'/g,'&#39;');
+    var sugg=ro?[]:unkSuggest(gr.label, !!gr.manual);
     var labelArg=JSON.stringify(gr.label).replace(/"/g,'&quot;');
+    var sub=gr.manual?('직접 등록한 임시 거래처'+(gr.count?(' · 일정 '+gr.count+'건'):'')+' · 공식 거래처가 생긴 것 같아요')
+      :('일정 '+gr.count+'건 · 최근 '+lastStr);
     return '<div style="background:var(--bg2);border-radius:6px;padding:7px 9px;margin-bottom:6px">'
-      +'<div style="font-weight:700;color:var(--t1);font-size:12px">'+lbl+'</div>'
-      +'<div style="color:var(--t3);font-size:10px;margin:2px 0 5px">일정 '+gr.count+'건 · 최근 '+lastStr+'</div>'
-      +(ro?'':('<div style="display:flex;gap:5px;flex-wrap:wrap">'
-        +sugg.map(function(c){ return '<button onclick="relinkUnknownLabel('+labelArg+','+c.id+')" style="padding:3px 8px;font-size:10.5px;font-weight:700;background:#E4F5EE;color:#145C38;border:1px solid #145C38;border-radius:999px;cursor:pointer;font-family:inherit">→ '+escapeHtml(c.name)+'</button>'; }).join('')
+      +'<div style="font-weight:700;color:var(--t1);font-size:12px">'+escapeHtml(gr.label)+'</div>'
+      +'<div style="color:var(--t3);font-size:10px;margin:2px 0 5px">'+sub+'</div>'
+      +(ro?'':('<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'
+        +sugg.map(function(c){ return unkCandBtn(labelArg,c); }).join('')
+        +(UNK_NAT||gr.manual?'':'<span style="font-size:10px;color:var(--t3)">타사무소 거래처 찾는 중…</span>')
         +'<button onclick="openUnkSearch('+labelArg+')" style="padding:3px 8px;font-size:10.5px;font-weight:600;background:white;color:var(--t2);border:1px solid var(--bd2);border-radius:999px;cursor:pointer;font-family:inherit">🔍 '+(sugg.length?'다른 거래처':'거래처 찾기')+'</button>'
         +'</div>'))
       +'</div>';
-  }).join('')
-  +(groups.length>5?'<div style="text-align:center"><button onclick="UNK_SHOW_ALL=!UNK_SHOW_ALL;renderUnknownClinics()" style="padding:3px 10px;font-size:10.5px;border:none;background:none;color:#2F78B7;cursor:pointer;font-family:inherit">'+(UNK_SHOW_ALL?'접기':('나머지 '+(groups.length-5)+'곳 더 보기'))+'</button></div>':'');
+  }).join('');
 }
 function openUnkSearch(label){
   if(blockIfOtherOfficeCalendar()) return;
   var labelArg=JSON.stringify(label).replace(/"/g,'&quot;');
+  var P=unkParse(label);
   showSimpleModal('"'+escapeHtml(label)+'" 거래처 바꾸기',
-    '<div class="sub" style="margin-bottom:8px">바꿀 공식 거래처를 검색해서 골라주세요.</div>'
-    +'<input id="unk-q" type="text" value="'+escapeHtml(unkNorm(label))+'" placeholder="거래처명 / 사업자번호" style="width:100%;padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:8px" oninput="renderUnkSearch('+labelArg+')">'
-    +'<div id="unk-res" style="max-height:50vh;overflow:auto"></div>');
+    '<div class="sub" style="margin-bottom:8px">바꿀 거래처를 검색해서 골라주세요. 우리 사무소 거래처가 먼저, 그 아래 타사무소(동도) 거래처가 나와요.</div>'
+    +'<input id="unk-q" type="text" value="'+escapeHtml(P.toks.join(' ')||P.norm)+'" placeholder="거래처명 / 사업자번호 (띄어 쓰면 낱말마다 찾아요)" style="width:100%;padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:8px;box-sizing:border-box" oninput="renderUnkSearch('+labelArg+')">'
+    +'<div id="unk-res" style="max-height:55vh;overflow:auto"></div>');
   renderUnkSearch(label);
+  if(!UNK_NAT) unkLoadNat().then(function(){ renderUnkSearch(label); }, function(e){
+    var b=document.getElementById('unk-res'); if(b) b.insertAdjacentHTML('beforeend','<div class="sub" style="color:#B01A1A">타사무소 거래처를 불러오지 못했어요: '+escapeHtml(e&&e.message||e)+'</div>');
+  });
   var q=document.getElementById('unk-q'); if(q) q.focus();
 }
 function renderUnkSearch(label){
   var box=document.getElementById('unk-res'); if(!box) return;
-  var q=String((document.getElementById('unk-q')||{}).value||'').replace(/\s+/g,'');
-  var rows=officeRows().filter(function(c){
-    if(!q) return true;
-    return String(c.name||'').replace(/\s+/g,'').indexOf(q)>=0||String(c.biz_no||'').indexOf(q)>=0;
-  }).slice(0,30);
+  var raw=String((document.getElementById('unk-q')||{}).value||'').trim();
+  var toks=raw.split(/\s+/).filter(Boolean);
+  var match=function(name, biz){
+    if(!toks.length) return true;
+    var n=String(name||'').replace(/\s+/g,''), b=String(biz||'');
+    return toks.every(function(t){ return n.indexOf(t)>=0||b.indexOf(t)>=0; });
+  };
+  var own=unkOfficialRows().filter(function(c){ return match(c.name,c.biz_no); }).slice(0,20).map(unkOwnCand);
+  var P=unkParse(label);
+  var other=(toks.length&&UNK_NAT)?UNK_NAT.filter(function(c){ return c.office&&c.office!==currentOffice&&match(c.name,c.biz_no); })
+    .sort(function(a,b){ return (unkHintOffice(P,b.office)?1:0)-(unkHintOffice(P,a.office)?1:0)||String(a.office).localeCompare(String(b.office),'ko'); })
+    .slice(0,40).map(unkOtherCand):[];
   var labelArg=JSON.stringify(label).replace(/"/g,'&quot;');
-  box.innerHTML=rows.length?rows.map(function(c){
-    var m=getMR(c.mr);
-    return '<div onclick="document.getElementById(\'simple-modal-ov\').remove();relinkUnknownLabel('+labelArg+','+c.id+')" style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:0.5px solid var(--bd);cursor:pointer">'
+  var row=function(c){
+    return '<div onclick="document.getElementById(\'simple-modal-ov\').remove();relinkUnknownLabel('+labelArg+','+unkPickArg(c)+')" style="display:flex;align-items:center;gap:7px;padding:8px 6px;border-bottom:0.5px solid var(--bd);cursor:pointer">'
+      +(c.own?'':'<span style="font-size:10px;font-weight:700;color:#1F5A8C;background:#E8F1FA;border:1px dashed #2F78B7;border-radius:4px;padding:0 4px;flex-shrink:0">'+escapeHtml(officeShortName(c.office))+'</span>')
       +'<b style="font-size:12.5px">'+escapeHtml(c.name)+'</b>'
-      +'<span style="font-size:10.5px;color:var(--t3)">'+escapeHtml(c.biz_no||'사업자번호 없음')+'</span>'
-      +'<span style="margin-left:auto;font-size:10px;background:'+m.bg+';color:'+m.t+';padding:1px 7px;border-radius:999px">'+escapeHtml(m.name)+'</span></div>';
-  }).join(''):'<div class="sub" style="padding:10px 0">찾는 거래처가 없어요. 아직 회사 통계에 안 들어왔으면 며칠 뒤 다시 확인해 주세요.</div>';
+      +'<span style="font-size:10.5px;color:var(--t3)">'+escapeHtml(c.biz_no||'')+'</span>'
+      +'<span style="margin-left:auto;font-size:10px;color:var(--t2);flex-shrink:0">'+escapeHtml(c.mrName||'')+(c.own?'':' MR')+'</span></div>';
+  };
+  var h='<div style="font-size:10.5px;font-weight:700;color:#145C38;margin:2px 0">우리 사무소 ('+escapeHtml(currentOffice)+')</div>';
+  h+=own.length?own.map(row).join(''):'<div class="sub" style="padding:6px 0">일치하는 거래처가 없어요.</div>';
+  h+='<div style="font-size:10.5px;font-weight:700;color:#1F5A8C;margin:12px 0 2px">타사무소 (동도)</div>';
+  if(!UNK_NAT) h+='<div class="sub" style="padding:6px 0">불러오는 중…</div>';
+  else if(!toks.length) h+='<div class="sub" style="padding:6px 0">거래처명이나 사업자번호를 입력하면 나와요.</div>';
+  else h+=other.length?other.map(row).join(''):'<div class="sub" style="padding:6px 0">일치하는 거래처가 없어요. 아직 회사 통계에 없으면 며칠 뒤 다시 확인해 주세요.</div>';
+  box.innerHTML=h;
 }
-// 직접 입력한 거래처명(oldLabel) 일정을 공식 거래처로 바꾸고, 그 이름에 딸린 기록을 공식 거래처로 옮김
+// 직접 입력한 거래처명(oldLabel) 일정을 고른 거래처로 바꾸고, 그 이름에 딸린 기록을 옮김.
+// 우리 사무소 거래처: 거래처명만 바꿈 + 임시 거래처 기록(교육이수·의협회비·특이사항·원장) 합침
+// 타사무소 거래처: 앱에서 동도 일정을 만들 때와 똑같이 저장(mr=그 거래처 담당 MR 이름, mr_office=그 사무소) → 캘린더에 "경4 메디의원"처럼 동도로 표시
 var UNK_CLINIC_DEFAULTS={edu:'해당없음',dues:'해당없음',dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',dh_lb:'미도입',dh_wd:'미도입',
   region:'미확인',device:'미확인',last_visit:'-',ilmansa:'미참여',welcheck:false,visited:false,edu_completed_date:null,dues_paid_date:null,ilmansa_start:null};
-function relinkUnknownLabel(oldLabel, clinicId){
+function relinkUnknownLabel(oldLabel, pick){
   if(blockIfOtherOfficeCalendar()) return;
-  var c=officeRows().find(function(x){ return x.id===clinicId; });
-  if(!c) return;
-  var newName=c.name;
+  var t=null;
+  if(pick&&pick.own){ var oc=unkOfficialRows().find(function(x){ return x.id===pick.id; }); if(oc) t=unkOwnCand(oc); }
+  else if(pick){ var xc=(UNK_NAT||[]).find(function(x){ return x.id===pick.id; }); if(xc) t=unkOtherCand(xc); }
+  if(!t) return;
+  var newName=t.name;
   var gr=unkGroups().find(function(x){ return x.label===oldLabel; });
-  var raws=gr?Object.keys(gr.raws):[oldLabel];
-  var cnt=gr?gr.count:0;
-  if(!confirm('"'+oldLabel+'" 일정 '+cnt+'건을 "'+newName+'"(으)로 바꿀까요?\n\n'
-    +'· 일정의 요청사항·방문 목적·메모는 그대로 옮겨져요\n'
-    +'· "'+oldLabel+'" 이름으로 남긴 방문 메모도 함께 옮겨요\n'
-    +'· 직접 등록해 둔 "'+oldLabel+'" 거래처가 있으면 교육이수·의협회비·특이사항·원장 정보를 공식 거래처로 합쳐요')) return;
-  // 거래처명 뒤에 붙여 쓴 설명(예: "사랑의내과 교육 및 상주"의 "교육 및 상주")은 방문 목적 칸이 비어 있으면 거기로 옮겨서 안 사라지게
+  if(!gr) return;
+  var ids=gr.ids.slice(), cnt=ids.length, raws=Object.keys(gr.raws).concat(gr.manual?[oldLabel]:[]);
+  var msg=t.own
+    ? ('"'+oldLabel+'"'+(cnt?(' 일정 '+cnt+'건을'):'을')+' "'+newName+'"(으)로 바꿀까요?\n\n'
+      +(cnt?'· 일정의 요청사항·방문 목적·메모는 그대로 옮겨져요\n':'')
+      +'· "'+oldLabel+'" 이름으로 남긴 방문 메모도 함께 옮겨요\n'
+      +(gr.manual?'· 직접 등록해 둔 "'+oldLabel+'"의 교육이수·의협회비·특이사항·원장 정보를 "'+newName+'"(으)로 합치고 임시 거래처는 정리해요\n  ("'+newName+'"에 이미 적힌 값은 그대로 둬요)':''))
+    : ('"'+oldLabel+'" 일정 '+cnt+'건을 '+t.office+' "'+newName+'"(담당 '+(t.mrName||'-')+' MR) 동도 일정으로 바꿀까요?\n\n'
+      +'· 캘린더에 "'+officeShortName(t.office)+' '+newName+'" 타사무소 동도로 표시돼요\n'
+      +'· 일정의 요청사항·방문 목적·메모는 그대로 옮겨져요\n'
+      +'· "'+oldLabel+'" 이름으로 남긴 방문 메모도 함께 옮겨요'
+      +(gr.manual?'\n· 직접 등록해 둔 "'+oldLabel+'" 임시 거래처는 다른 사무소 거래처라 합치지 않고 그대로 둬요':''));
+  if(!t.own&&!cnt){ alert('타사무소 거래처로는 일정만 바꿀 수 있어요. "'+oldLabel+'"엔 바꿀 일정이 없어요.'); return; }
+  if(!confirm(msg)) return;
+  // 거래처명 뒤에 붙여 쓴 설명(예: "사랑의내과 교육 및 상주"의 "교육 및 상주")은 방문 목적 칸으로 옮겨서 안 사라지게
   // (칸에 이미 내용이 있으면 그 아래 줄에 덧붙임)
   var extra=oldLabel.indexOf(newName)===0?oldLabel.slice(newName.length).trim():'';
+  var patch={label:newName};
+  if(!t.own){ patch.mr=t.mrName||null; patch.mr_office=t.office; }
   var p=Promise.resolve();
-  if(extra){
-    p=db.from('schedules').select('id,situation').eq('office',currentOffice).in('label',raws).then(function(res){
+  if(extra&&ids.length){
+    p=db.from('schedules').select('id,situation').in('id',ids).then(function(res){
       if(res.error) throw res.error;
       return Promise.all((res.data||[]).filter(function(r){ return String(r.situation||'').indexOf(extra)<0; }).map(function(r){
         var s=String(r.situation||'').trim();
@@ -8595,11 +8703,11 @@ function relinkUnknownLabel(oldLabel, clinicId){
       }));
     });
   }
-  p.then(function(){ return db.from('schedules').update({label:newName}).eq('office',currentOffice).in('label',raws); })
+  p.then(function(){ return ids.length?db.from('schedules').update(patch).in('id',ids).eq('office',currentOffice):{}; })
   .then(function(res){ if(res&&res.error) throw res.error; return unkMergeMemo(raws,newName); })
-  .then(function(){ return unkMergeManualClinic(oldLabel, c); })
-  .then(function(msg){
-    alert('"'+newName+'"(으)로 바꿨어요.'+(msg?('\n'+msg):''));
+  .then(function(){ return t.own?unkMergeManualClinic(oldLabel, t):''; })
+  .then(function(msg2){
+    alert('"'+newName+'"(으)로 바꿨어요.'+(msg2?('\n'+msg2):''));
     // 저장은 끝났으니 화면 새로고침이 혹시 실패해도 '바꾸기 실패'로 보이지 않게 따로 처리
     Promise.all([loadSchedules(), loadMemos(), loadClinics()]).then(function(){
       if(document.getElementById('view-list').classList.contains('v-active')) renderList();
@@ -8607,14 +8715,16 @@ function relinkUnknownLabel(oldLabel, clinicId){
   }, function(e){ alert('바꾸기 실패: '+(e&&e.message?e.message:e)); });
 }
 function unkMergeMemo(raws, newName){
-  var olds=raws.map(function(r){ return MEMO_STORE[r]; }).filter(function(m){ return m&&String(m).trim(); });
+  var seen={};
+  var olds=raws.filter(function(r){ if(seen[r]) return false; seen[r]=true; return true; })
+    .map(function(r){ return MEMO_STORE[r]; }).filter(function(m){ return m&&String(m).trim(); });
   if(!olds.length) return Promise.resolve();
   var merged=String(MEMO_STORE[newName]||'').trim();
   olds.forEach(function(o){ if(merged.indexOf(o)<0) merged=merged?(merged+'\n'+o):o; });
   return db.from('clinic_memos').upsert({clinic_name:newName, memo:merged, updated_at:new Date().toISOString()});
 }
 function unkMergeManualClinic(oldLabel, official){
-  var manual=officeRows().find(function(x){ return x.id!==official.id&&String(x.name||'').trim()===oldLabel.trim()&&!x.biz_no; });
+  var manual=officeRows().find(function(x){ return x.id!==official.id&&String(x.name||'').trim()===oldLabel.trim()&&!String(x.biz_no||'').trim(); });
   if(!manual) return Promise.resolve('');
   return db.from('clinics').select('*').in('id',[manual.id, official.id]).then(function(res){
     if(res.error) throw res.error;
