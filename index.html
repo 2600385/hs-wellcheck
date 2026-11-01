@@ -2840,11 +2840,16 @@ function saveNachimbanMonthly(D){
   });
   var keys=Object.keys(best);
   if(!keys.length) return Promise.resolve({rows:0, months:[]});
-  return fetchAllRows('nb_monthly','id,office,month,scope,mr_sabun,final').then(function(ex){
+  return fetchAllRows('nb_monthly','id,office,month,scope,mr_sabun,final,source').then(function(ex){
     if(ex.error) throw ex.error;
-    var locked={};
-    (ex.data||[]).forEach(function(r){ if(r.final) locked[r.office+'|'+String(r.month).slice(0,10)+'|'+r.scope+'|'+r.mr_sabun]=true; });
-    var rows=keys.filter(function(k){ return best[k].row.final||!locked[k]; }).map(function(k){ return best[k].row; });
+    // locked: 확정 마감으로 저장된 달(확정 아닌 값으로 안 덮음), fileLocked: 사용자가 회사 마감 파일로 고정한 달(나침반이 절대 안 덮음)
+    var locked={}, fileLocked={};
+    (ex.data||[]).forEach(function(r){
+      var k=r.office+'|'+String(r.month).slice(0,10)+'|'+r.scope+'|'+r.mr_sabun;
+      if(r.final) locked[k]=true;
+      if(r.source==='file') fileLocked[k]=true;
+    });
+    var rows=keys.filter(function(k){ return !fileLocked[k]&&(best[k].row.final||!locked[k]); }).map(function(k){ return best[k].row; });
     var months={}; rows.forEach(function(r){ months[r.month.slice(0,7)]=true; });
     return chunkArray(rows, 500).reduce(function(p, chunk){
       return p.then(function(){ return db.from('nb_monthly').upsert(chunk, {onConflict:'office,month,scope,mr_sabun'}).then(function(r){ if(r.error) throw r.error; }); });
@@ -6798,13 +6803,13 @@ function officeMonthGrade(mm){
   // 활성처수(예: 65처)로 채워져서 8월이 A등급처럼 보였음(나침반 실제 8월 38처 C등급)
   // 지난달은 나침반 월별 지표(그 달 활성처·나침반 등급)를 우선 - 담당자별 숫자도 나침반이라 사무소 숫자와 맞춤.
   // 나침반에 없는 달만 회사 베이스라인 파일(eval_clinic_cnt) → office_claims 마감 활성처수 순으로 대신함
-  var closed=false, nbGrade=null;
+  var closed=false, nbGrade=null, fromFile=false;
   if(mStr<String(todayMonthStr()).slice(0,7)){
-    if(nbO&&nbO.act!=null){ cnt=Number(nbO.act)||0; closed=!nbO.final; official=true; nbGrade=nbO.grade||null; }
+    if(nbO&&nbO.act!=null){ cnt=Number(nbO.act)||0; closed=!nbO.final; official=true; nbGrade=nbO.grade||null; fromFile=nbO.source==='file'; }
     else if(!official&&ocRow&&ocRow.active_count!=null){ cnt=Number(ocRow.active_count)||0; closed=true; official=true; }
   }
   var mPct=mTh?Math.round(cnt/mTh*100):null;
-  return {th:mTh, pct:mPct, cnt:cnt, official:official, closed:closed, grade:nbGrade||(mPct!=null?achievementGrade(mPct):null)};
+  return {th:mTh, pct:mPct, cnt:cnt, official:official, closed:closed, fromFile:fromFile, grade:nbGrade||(mPct!=null?achievementGrade(mPct):null)};
 }
 // "7~12월 등급 현황" 카드 클릭 시 - 다른 미니카드처럼 하단 거래처 리스트로 이동하는 게 아니라
 // (사무소 등급은 개별 거래처 리스트로 이어질 정보가 아님), openMrTargetModal과 같은 형태의
@@ -6814,7 +6819,7 @@ function openOfficeGradeModal(){
   var todayM=todayMonthStr();
   // 1~6월은 나침반 월별 지표가 있는 달만, 7~12월(하반기 목표 파일)은 항상
   var monthsList=[1,2,3,4,5,6,7,8,9,10,11,12].filter(function(mm){ return mm>=7||officeMonthGrade(mm).th!=null; });
-  var body='<div class="sub" style="margin-bottom:8px">지난달은 나침반 기준 그 달 마감 활성처수·등급이에요(회사 확정 마감이 있는 달=확정, 나머지=마감). 당월·다음 달은 현재 활성처수 기준(예상)이에요.</div>'
+  var body='<div class="sub" style="margin-bottom:8px">지난달 활성처수·등급: 마감파일=직접 올린 회사 월 마감 파일, 확정=나침반에 올라온 회사 마감 파일(8·9월), 나침반=나침반이 이력으로 다시 계산한 값(회사 마감과 조금 다를 수 있음). 당월·다음 달은 현재 활성처수 기준(예상)이에요.</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
     +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">목표</th><th style="padding:5px 6px">활성처수</th><th style="padding:5px 6px">달성률</th><th style="padding:5px 6px">등급</th></tr></thead><tbody>'
     +monthsList.map(function(mm){
@@ -6827,12 +6832,147 @@ function openOfficeGradeModal(){
       var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(a.grade);
       return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700;white-space:nowrap">'+monthLbl+'</td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.th+'처</td>'
-        +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.official?'#145C38':'#B26A00')+'">('+(a.closed?'마감':a.official?'확정':'예상')+')</span></td>'
+        +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.fromFile?'#1048A0':a.official?'#145C38':'#B26A00')+'">('+(a.fromFile?'마감파일':a.closed?'나침반':a.official?'확정':'예상')+')</span></td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.pct+'%</td>'
         +'<td style="text-align:center;padding:5px 6px"><span class="gradePill gradePill-sm '+pillCls+'">'+a.grade+'등급</span></td></tr>';
     }).join('')
     +'</tbody></table>';
+  if(canFixMonthlyByFile()){
+    body+='<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--bd2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:180px;font-size:11px;color:var(--t3);line-height:1.5">"나침반" 표시 달이 회사 월 마감 파일과 다르면 그 달 마감 파일을 올려 주세요. 전 사무소·담당자 숫자가 파일 값으로 고정돼요.</div>'
+      +'<button onclick="pickClosingFile()" style="background:white;color:#1048A0;border:1px solid #1048A0;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">📄 마감 파일로 바로잡기</button></div>';
+  }
   showSimpleModal(currentOffice+' · 월별 목표·등급', body);
+}
+// ===== 회사 월 마감 파일로 지난달 숫자 바로잡기 =====
+// 나침반의 지난달(1~7월 등) 숫자는 나침반이 "웰체크 공유 시트" 이력으로 다시 계산한 값이라 회사 마감 파일과 다를 수
+// 있음(실사례: 6월 경인1 마감 파일 활성처 40처 vs 나침반 35처 - 비일만사 MAU 4명 이상 4곳과, 그 시트 이력에 6월
+// 기록이 없던 일만사 1곳이 빠짐). 사용자 원칙 "나침반 기준으로 매일 업데이트, 이상한 부분은 파일을 올려서 변경"대로
+// 회사 월 마감 파일(예: 6/30 기준)을 올리면 그 달 사무소·담당자 숫자를 파일 값으로 고정(nb_monthly source='file',
+// 이후 나침반 반영이 덮어쓰지 않음). 거래처 현황판·청구현황 등 다른 데이터는 건드리지 않음.
+function canFixMonthlyByFile(){ return !!(currentUser&&(currentUser.role==='관리자'||currentUser.role==='간호사')); }
+function cfNorm(v){ return String(v==null?'':v).replace(/\s+/g,''); }
+function cfFindCol(row, test, from){
+  for(var c=(from||0);c<(row||[]).length;c++){ if(row[c]!=null&&test(cfNorm(row[c]))) return c; }
+  return -1;
+}
+function parseClosingFileMonthly(wb){
+  var asOf=findAsOfDate(wb, ['사업부사무소현황','거래처별 RAW']);
+  if(!asOf) return {error:'파일 기준일(예: 6/30 기준)을 찾지 못했어요.'};
+  var y=parseInt(asOf.slice(0,4),10), mo=parseInt(asOf.slice(5,7),10), day=parseInt(asOf.slice(8,10),10);
+  var lastDay=new Date(y,mo,0).getDate();
+  var month=asOf.slice(0,7)+'-01';
+  var num=function(v){ return v==null||v===''||isNaN(Number(v))?null:Number(v); };
+  var int=function(v){ var n=num(v); return n==null?null:Math.round(n); };
+  var rows=[];
+  // 사무소: [사무소 현황] 표 - "활성처 수" 블록 = 달성률(+0)/평가(+1)/목표(+2)/…/현황(①+②)/①일만사/②비일만사
+  var off=sheetRows(wb,'사업부사무소현황');
+  if(off){
+    var h=-1, co=-1;
+    for(var i=0;i<off.length;i++){ var r=off[i]; if(!r) continue; var c0=r.indexOf('사무소'); if(c0>0&&r[c0-1]==='사업부'){ h=i; co=c0; break; } }
+    if(h>=0){
+      var top=off[h]||[], sub=off[h+1]||[];
+      var aCol=cfFindCol(top,function(t){ return t.indexOf('활성처수')>=0; });
+      var actCol=cfFindCol(sub,function(t){ return t.indexOf('①+②')>=0; }, aCol>=0?aCol:0);
+      var claimCol=cfFindCol(top,function(t){ return t.indexOf('청구현황')>=0; });
+      var chgCol=cfFindCol(top,function(t){ return t.indexOf('변화지표')>=0; });
+      var churnTop=cfFindCol(top,function(t){ return t.indexOf('비활성처전환')>=0; });
+      var patTop=cfFindCol(top,function(t){ return t.indexOf('환자수')>=0; });
+      var patCol=patTop>=0?cfFindCol(sub,function(t){ return t.indexOf('①+②')>=0; }, patTop):-1;
+      var newCols=[]; for(var c=0;c<sub.length;c++){ if(sub[c]!=null&&/당월신규/.test(cfNorm(sub[c]))) newCols.push(c); }
+      var prevCol=chgCol>=0?cfFindCol(sub,function(t){ return /^\d{1,2}월$/.test(t); }, chgCol):-1;
+      for(var r2=h+2;r2<off.length;r2++){
+        var d=off[r2];
+        if(!d||(d[co-1]==null&&d[co]==null)) break;
+        var o=d[co];
+        if(NATIONAL_OFFICES.indexOf(o)<0||aCol<0||actCol<0) continue;
+        var billN=claimCol>=0?int(d[claimCol]):null, billAmt=claimCol>=0?num(d[claimCol+1]):null;
+        if(billN&&billAmt!=null&&billAmt/billN<1000) billAmt=billAmt*1000000; // 백만원 단위 양식 보정
+        rows.push({office:o, scope:'office', mr_sabun:'', mr_name:null,
+          rate:num(d[aCol]), grade:d[aCol+1]||null, target:num(d[aCol+2]),
+          act:int(d[actCol]), act1:int(d[actCol+1]), act2:int(d[actCol+2]), fcst:null,
+          new_acc:newCols.length?newCols.reduce(function(s,c){ return s+(int(d[c])||0); },0):null,
+          prev_close:prevCol>=0?int(d[prevCol]):null, churn:churnTop>=0?int(d[churnTop]):null,
+          pat:patCol>=0?int(d[patCol]):null, bill_n:billN, bill_amt:billAmt==null?null:Math.round(billAmt)});
+      }
+    }
+  }
+  // 담당자: MR현황 - 사번으로 저장. 등급 열이 없는 양식(10월 이전)은 활성처/목표로 계산
+  var mr=sheetRows(wb,'MR현황');
+  if(mr){
+    var h6=-1, co6=-1;
+    for(var j=0;j<mr.length;j++){ var r6=mr[j]; if(!r6) continue; var c6=r6.indexOf('사무소'); if(c6>0&&r6[c6-1]==='사업부'&&r6[c6+1]==='사번'){ h6=j; co6=c6; break; } }
+    if(h6>=0){
+      var top6=mr[h6]||[], sub6=mr[h6+1]||[];
+      var aCol6=cfFindCol(top6,function(t){ return t.indexOf('활성처수')>=0; });
+      var actCol6=cfFindCol(sub6,function(t){ return t.indexOf('①+②')>=0; }, aCol6>=0?aCol6:0);
+      var tCol6=cfFindCol(top6,function(t){ return t==='목표'||/^\d{1,2}월목표$/.test(t); });
+      if(tCol6<0) tCol6=cfFindCol(sub6,function(t){ return t.indexOf('목표')>=0; });
+      var gCol6=aCol6>=0?cfFindCol(sub6,function(t){ return t==='평가'; }, aCol6):-1;
+      if(gCol6>=0&&actCol6>=0&&gCol6>actCol6) gCol6=-1;
+      var prevCol6=cfFindCol(sub6,function(t){ return t.indexOf('전월마감')>=0; });
+      var newCols6=[]; for(var c7=0;c7<sub6.length;c7++){ if(sub6[c7]!=null&&/당월신규/.test(cfNorm(sub6[c7]))) newCols6.push(c7); }
+      var churnCol6=cfFindCol(sub6,function(t){ return t.indexOf('비활성처전환')>=0; });
+      if(churnCol6<0) churnCol6=cfFindCol(top6,function(t){ return t.indexOf('비활성처전환')>=0; });
+      for(var r7=h6+2;r7<mr.length;r7++){
+        var d6=mr[r7];
+        if(!d6||(d6[co6-1]==null&&d6[co6]==null)) break;
+        var o6=d6[co6], sab=d6[co6+1]!=null?String(d6[co6+1]).replace(/\.0$/,''):'';
+        if(NATIONAL_OFFICES.indexOf(o6)<0||!sab||actCol6<0) continue;
+        var tg=tCol6>=0?num(d6[tCol6]):null, act=int(d6[actCol6]);
+        var g=gCol6>=0?(d6[gCol6]||null):null;
+        if(!g&&tg&&act!=null) g=achievementGrade(Math.round(act/tg*100));
+        rows.push({office:o6, scope:'mr', mr_sabun:sab, mr_name:d6[co6+2]||null,
+          target:tg, act:act, act1:int(d6[actCol6+1]), act2:int(d6[actCol6+2]), fcst:null,
+          grade:g, rate:(tg&&act!=null)?act/tg:null,
+          new_acc:newCols6.length?newCols6.reduce(function(s,c){ return s+(int(d6[c])||0); },0):null,
+          prev_close:prevCol6>=0?int(d6[prevCol6]):null, churn:churnCol6>=0?int(d6[churnCol6]):null,
+          pat:null, bill_n:null, bill_amt:null});
+      }
+    }
+  }
+  if(!rows.some(function(r){ return r.scope==='office'; })) return {error:'"사업부사무소현황" 시트의 [사무소 현황] 표를 찾지 못했어요. 회사 웰체크 일만사 현황(마감) 파일이 맞는지 확인해 주세요.'};
+  var stamp=new Date().toISOString();
+  rows.forEach(function(r){ r.month=month; r.final=true; r.source='file'; r.as_of=asOf; r.updated_at=stamp; });
+  return {rows:rows, asOf:asOf, month:month, isMonthEnd:day>=lastDay-3, lastDay:lastDay};
+}
+function pickClosingFile(){
+  if(!canFixMonthlyByFile()){ alert('마감 파일로 바로잡기는 관리자·교육간호사만 할 수 있어요.'); return; }
+  var inp=document.createElement('input');
+  inp.type='file'; inp.accept='.xlsx,.xls';
+  inp.onchange=function(){
+    var f=inp.files&&inp.files[0]; if(!f) return;
+    var rd=new FileReader();
+    rd.onload=function(e){
+      var wb;
+      try{ wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'}); }catch(err){ alert('파일을 열지 못했어요: '+err.message); return; }
+      var p=parseClosingFileMonthly(wb);
+      if(p.error){ alert(p.error); return; }
+      applyClosingFileMonthly(p);
+    };
+    rd.readAsArrayBuffer(f);
+  };
+  inp.click();
+}
+function applyClosingFileMonthly(p){
+  var mNum=parseInt(p.asOf.slice(5,7),10), dNum=parseInt(p.asOf.slice(8,10),10);
+  var offs=p.rows.filter(function(r){ return r.scope==='office'; }), mrs=p.rows.filter(function(r){ return r.scope==='mr'; });
+  if(p.month.slice(0,7)>=String(todayMonthStr()).slice(0,7)){ alert(mNum+'월은 아직 진행 중인 달이에요. 마감이 끝난 지난달 파일만 올릴 수 있어요(이번 달은 나침반이 매일 갱신해요).'); return; }
+  var mine=offs.find(function(r){ return r.office===currentOffice; });
+  var before=nbOfficeMonth(p.month.slice(0,7));
+  var line=mine?('\n\n'+currentOffice+' '+mNum+'월: 목표 '+fmtTarget(mine.target)+'처 · 활성처 '+(before&&before.act!=null?(before.act+'처 → '):'')+mine.act+'처 (일만사 '+mine.act1+' + 비일만사 '+mine.act2+') · '+(before&&before.grade&&before.grade!==mine.grade?(before.grade+' → '):'')+(mine.grade||'-')+'등급'):'';
+  var msg=mNum+'월 마감 파일('+mNum+'/'+dNum+' 기준)로 '+mNum+'월 숫자를 바로잡을까요?\n\n· 전국 '+offs.length+'개 사무소 · 담당자 '+mrs.length+'명의 '+mNum+'월 목표·활성처·등급을 이 파일 값으로 고정해요\n· 이후 나침반 자동 반영이 이 달 숫자를 덮어쓰지 않아요\n· 거래처 현황판·청구현황 등 다른 데이터는 그대로예요'
+    +(p.isMonthEnd?'':'\n\n⚠ 이 파일은 '+mNum+'/'+dNum+' 기준이라 월말('+mNum+'/'+p.lastDay+') 마감 파일이 아닐 수 있어요. 마감 파일이 맞는지 확인해 주세요.')+line;
+  if(!confirm(msg)) return;
+  chunkArray(p.rows, 500).reduce(function(pr, chunk){
+    return pr.then(function(){ return db.from('nb_monthly').upsert(chunk, {onConflict:'office,month,scope,mr_sabun'}).then(function(r){ if(r.error) throw r.error; }); });
+  }, Promise.resolve()).then(function(){
+    return loadNbMonthly();
+  }).then(function(){
+    alert(mNum+'월 숫자를 마감 파일 기준으로 바로잡았어요.');
+    if(document.getElementById('view-strategy').classList.contains('v-active')){ renderStKPI(); renderStMrCards(); }
+    if(document.getElementById('simple-modal-ov')) openOfficeGradeModal();
+  }).catch(function(e){ alert('저장 실패: '+(e&&e.message?e.message:e)); });
 }
 function renderStTrend(){
   var ctx=document.getElementById('officeTrend');
