@@ -1698,6 +1698,10 @@ function renderImportLog(){
         var hourKst=new Date(Date.now()+9*3600e3).getUTCHours();
         if(st&&st.ok===false&&st.ran_at&&kstDateStr(st.ran_at)===today)
           lines.push('<div class="data-base-line" style="color:#B01A1A;font-weight:700">⚠ 오늘 자동 갱신 실패 : '+escapeHtml(st.message||'원인 확인 중')+'</div>');
+        // 오늘 반영은 정상으로 돌았는데 나침반 자체가 아직 새 날짜를 안 올린 경우(실사례: 11/1 일요일 - 나침반이
+        // 하루 종일 10/31 데이터) - 실패처럼 보이지 않게 회색으로 "나침반에 아직 오늘 데이터 없음"
+        else if(st&&st.ok===true&&st.ran_at&&kstDateStr(st.ran_at)===today)
+          lines.push('<div class="data-base-line" style="color:var(--t3);font-weight:600">🧭 나침반에 아직 오늘 데이터가 없어요 ('+nb.source_date.slice(5).replace('-','/')+' 기준)</div>');
         else if(hourKst>=9)
           lines.push('<div class="data-base-line" style="color:#B26A00;font-weight:700">⚠ 오늘 자동 갱신이 아직 안 됐어요 ('+nb.source_date+' 기준 화면)</div>');
       }
@@ -1756,8 +1760,12 @@ function importStatusBadgeHtml(types, showUploader){
   // 나침반 자동 반영이 최신이면 날짜들 대신 "🧭 매일 6시 30분 자동업데이트" 한 줄만(사용자 요청 - 모바일에서
   // 긴 문구가 두 줄로 넘쳐서 지저분했음). 오늘 반영이 아직이면 그때만 빨간 경고로 바꿔서 표시
   if(r.import_type==='nachimban'){
-    if(r.source_date&&r.source_date<kstDateStr())
+    if(r.source_date&&r.source_date<kstDateStr()){
+      var st=SYNC_STATUS.nachimban;
+      if(st&&st.ok===true&&st.ran_at&&kstDateStr(st.ran_at)===kstDateStr())
+        return '<span style="font-size:11px;font-weight:700;color:var(--t2);background:#F1EFEA;border-radius:999px;padding:4px 10px;white-space:nowrap">🧭 나침반 오늘 데이터 대기 ('+r.source_date.slice(5).replace('-','/')+' 기준)</span>';
       return '<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FDECEC;border-radius:999px;padding:4px 10px;white-space:nowrap">⚠ 오늘 자동업데이트 전 ('+r.source_date.slice(5).replace('-','/')+' 기준)</span>';
+    }
     return '<span style="font-size:11px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:4px 10px;white-space:nowrap">🧭 매일 6시 30분 자동업데이트</span>';
   }
   var parts=[];
@@ -3952,6 +3960,8 @@ function loadEmployees(){
   });
 }
 function isMultiOfficeRole(role){ return MULTI_OFFICE_ROLES.indexOf(role)>=0; }
+// 화면에 보이는 역할 이름 - DB/권한 판단에 쓰는 값은 '간호사' 그대로 두고 표기만 '교육간호사'(사용자 요청)
+function roleLabel(role){ return role==='간호사'?'교육간호사':(role||''); }
 
 // 로그인 후 처음 보여줄 화면 - 역할별로 필요한 정보가 다름. 간호사는 사번으로 개별 로그인하고
 // 실제로 매일 거래처를 방문하는 역할이라 캘린더(오늘 어디 가야 하는지)가 맞고, 그 외(소장·MR·
@@ -4139,7 +4149,7 @@ function applyRoleGating(){
   if(importBtnFull) importBtnFull.style.display = isAdmin?'block':'none'; // 베이스라인 포함 전체 파일 종류 - 관리자 전용
   var uiLine=document.getElementById('userInfoLine');
   // 로그아웃 링크는 이제 사이드바 맨 아래 고정 버튼(sb-footer)으로 옮겨서 여기선 이름(역할)만 표기
-  if(uiLine) uiLine.textContent=currentUser.name+'('+currentUser.role+')';
+  if(uiLine) uiLine.textContent=currentUser.name+'('+roleLabel(currentUser.role)+')';
 }
 
 // ===== 직원(사번) 관리 모달 =====
@@ -4165,7 +4175,7 @@ function renderEmpList(){
     var biz=NATIONAL_BUSINESS[e.office]||'';
     return '<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:0.5px solid var(--bd);font-size:12px">'
       +'<span style="font-weight:700">'+e.emp_no+'</span><span>'+e.name+'</span>'
-      +'<span style="color:var(--t3)">'+e.role+' · '+(biz?biz+' · ':'')+e.office+'</span>'
+      +'<span style="color:var(--t3)">'+roleLabel(e.role)+' · '+(biz?biz+' · ':'')+e.office+'</span>'
       +'<span style="flex:1"></span>'
       +'<button onclick="showEmpForm('+e.id+')" style="padding:3px 9px;font-size:11px;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">✏️ 수정</button>'
       +'<button onclick="deleteEmp('+e.id+')" style="padding:3px 9px;font-size:11px;border:0.5px solid #F7C1C1;border-radius:6px;background:white;color:#B01A1A;cursor:pointer;font-family:inherit">삭제</button>'
@@ -4177,7 +4187,7 @@ function showEmpForm(id){
   document.getElementById('emp-form').style.display='block';
   document.getElementById('emp-add-row').style.display='none';
   var roleSel=document.getElementById('emp-role');
-  roleSel.innerHTML=EMP_ROLES.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('');
+  roleSel.innerHTML=EMP_ROLES.map(function(r){return '<option value="'+r+'">'+roleLabel(r)+'</option>';}).join('');
   if(id){
     var e=EMPLOYEES.find(function(x){return x.id===id;});
     if(!e) return;
