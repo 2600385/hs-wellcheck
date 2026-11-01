@@ -1647,6 +1647,8 @@ function loadImportLog(){
   });
 }
 function kstDateStr(d){ return new Date((d?new Date(d).getTime():Date.now())+9*3600e3).toISOString().slice(0,10); }
+// 'YYYY-MM-DD' -> 'M/D' (예: 2026-11-01 -> 11/1)
+function shortMD(dateStr){ var p=String(dateStr||'').split('-'); return p.length===3?(parseInt(p[1],10)+'/'+parseInt(p[2],10)):String(dateStr||''); }
 // 전 사무소의 "활성처 베이스라인"(raw_monthly_snapshot 월마감 확정, is_baseline=true) 최신 월을
 // 사이드바 "데이터 기준일" 줄에 표시하기 위해 한 번만 로드. is_baseline=true 행은 사무소당 거래처
 // 수만큼 쌓여서(현재 4천건대) 기본 페이지 한도(1000건)를 넘길 수 있어 range()로 끝까지 이어받는다.
@@ -1701,7 +1703,7 @@ function renderImportLog(){
         // 오늘 반영은 정상으로 돌았는데 나침반 자체가 아직 새 날짜를 안 올린 경우(실사례: 11/1 일요일 - 나침반이
         // 하루 종일 10/31 데이터) - 실패처럼 보이지 않게 회색으로 "나침반에 아직 오늘 데이터 없음"
         else if(st&&st.ok===true&&st.ran_at&&kstDateStr(st.ran_at)===today)
-          lines.push('<div class="data-base-line" style="color:var(--t3);font-weight:600">🧭 나침반에 아직 오늘 데이터가 없어요 ('+nb.source_date.slice(5).replace('-','/')+' 기준)</div>');
+          lines.push('<div class="data-base-line" style="color:var(--t3);font-weight:600">'+shortMD(today)+' 오늘은 끌어올 데이터가 없어요.</div>');
         else if(hourKst>=9)
           lines.push('<div class="data-base-line" style="color:#B26A00;font-weight:700">⚠ 오늘 자동 갱신이 아직 안 됐어요 ('+nb.source_date+' 기준 화면)</div>');
       }
@@ -1763,7 +1765,7 @@ function importStatusBadgeHtml(types, showUploader){
     if(r.source_date&&r.source_date<kstDateStr()){
       var st=SYNC_STATUS.nachimban;
       if(st&&st.ok===true&&st.ran_at&&kstDateStr(st.ran_at)===kstDateStr())
-        return '<span style="font-size:11px;font-weight:700;color:var(--t2);background:#F1EFEA;border-radius:999px;padding:4px 10px;white-space:nowrap">🧭 나침반 오늘 데이터 대기 ('+r.source_date.slice(5).replace('-','/')+' 기준)</span>';
+        return '<span style="font-size:11px;font-weight:700;color:var(--t2);background:#F1EFEA;border-radius:999px;padding:4px 10px;white-space:nowrap">'+shortMD(kstDateStr())+' 오늘은 끌어올 데이터가 없어요.</span>';
       return '<span style="font-size:11px;font-weight:700;color:#B01A1A;background:#FDECEC;border-radius:999px;padding:4px 10px;white-space:nowrap">⚠ 오늘 자동업데이트 전 ('+r.source_date.slice(5).replace('-','/')+' 기준)</span>';
     }
     return '<span style="font-size:11px;font-weight:700;color:#2F78B7;background:#EAF3FB;border-radius:999px;padding:4px 10px;white-space:nowrap">🧭 매일 6시 30분 자동업데이트</span>';
