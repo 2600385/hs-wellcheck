@@ -2740,30 +2740,43 @@ function ensureNachimbanManagers(D){
   var snap=(D&&D.snapshots||[]).find(function(s){ return s.key===(D.meta&&D.meta.current); });
   if(!snap) return Promise.resolve({added:[]});
   function n7(v){ var t=String(v==null?'':v); return /^120\d{7}$/.test(t)?t.slice(3):t; }
-  return db.from('managers').select('office,name,emp_no,sort').then(function(res){
+  return db.from('managers').select('id,office,name,emp_no,sort').then(function(res){
     if(res.error) return {added:[], error:res.error.message};
-    var have={}, maxSort={};
+    var have={}, maxSort={}, noSabun={};
     res.data.forEach(function(r){
       if(r.emp_no) have[r.office+'|'+n7(r.emp_no)]=true;
       have[r.office+'|name|'+r.name]=true;
+      var nk=r.office+'|'+r.name;
+      if(!r.emp_no) (noSabun[nk]=noSabun[nk]||[]).push(r.id); else noSabun[nk+'|hasSabun']=true;
       maxSort[r.office]=Math.max(maxSort[r.office]||0, Number(r.sort)||0);
     });
     var owns={};
     (snap.accounts||[]).forEach(function(a){ if(a.mrId) owns[a.off+'|'+n7(a.mrId)]=true; });
-    var rows=[], stamp=Date.now().toString(36);
+    var rows=[], fills=[], stamp=Date.now().toString(36);
     (snap.mr||[]).forEach(function(m){
       // 소장도 거래처를 직접 맡고 있으면 등록(실사례: 북부2 김주현 퇴사 후 거래처 21곳을 박세웅 소장이 맡음)
       if(NATIONAL_OFFICES.indexOf(m.off)<0||!m.id10||!m.name) return;
       var k=m.off+'|'+n7(m.id10);
-      if(have[k]||have[m.off+'|name|'+m.name]||!owns[k]) return;
+      if(have[k]) return;
+      // 후임자를 나침반보다 먼저 담당자 관리에서 손으로 추가해 둔 경우(사번 없음): 새로 만들지 않고 그 사람에게 사번만 채움
+      // (같은 사무소·같은 이름이 딱 한 명이고, 그 이름으로 사번 있는 담당자가 따로 없을 때만 - 동명이인이면 손대지 않음)
+      var ids=noSabun[m.off+'|'+m.name];
+      if(ids&&ids.length===1&&!noSabun[m.off+'|'+m.name+'|hasSabun']){ have[k]=true; fills.push({id:ids[0], emp_no:String(m.id10), office:m.off}); return; }
+      if(have[m.off+'|name|'+m.name]||!owns[k]) return;
       have[k]=true;
       maxSort[m.off]=(maxSort[m.off]||0)+1;
       rows.push({code:'m'+stamp+rows.length.toString(36), name:m.name, office:m.off, emp_no:String(m.id10), sort:maxSort[m.off]});
     });
-    if(!rows.length) return {added:[]};
-    return db.from('managers').insert(rows).then(function(r){
-      if(r.error) return {added:[], error:r.error.message};
-      return {added:rows.map(function(x){ return x.office; })};
+    var filled=[];
+    var pFill=fills.reduce(function(p,f){
+      return p.then(function(){ return db.from('managers').update({emp_no:f.emp_no}).eq('id',f.id).is('emp_no',null).then(function(r){ if(!r.error) filled.push(f.office); }); });
+    }, Promise.resolve());
+    return pFill.then(function(){
+      if(!rows.length) return {added:[], sabunFilled:filled};
+      return db.from('managers').insert(rows).then(function(r){
+        if(r.error) return {added:[], sabunFilled:filled, error:r.error.message};
+        return {added:rows.map(function(x){ return x.office; }), sabunFilled:filled};
+      });
     });
   });
 }
