@@ -8666,6 +8666,49 @@ function renderUnkSearch(label){
 // 타사무소 거래처: 앱에서 동도 일정을 만들 때와 똑같이 저장(mr=그 거래처 담당 MR 이름, mr_office=그 사무소) → 캘린더에 "경4 메디의원"처럼 동도로 표시
 var UNK_CLINIC_DEFAULTS={edu:'해당없음',dues:'해당없음',dh:'미도입',dh_op:'미도입',dh_cp:'미도입',dh_sp:'미도입',dh_mb:'미도입',dh_lb:'미도입',dh_wd:'미도입',
   region:'미확인',device:'미확인',last_visit:'-',ilmansa:'미참여',welcheck:false,visited:false,edu_completed_date:null,dues_paid_date:null,ilmansa_start:null};
+var UNK_FIELD_LABELS={edu:'교육이수',edu_completed_date:'교육이수일',dues:'의협회비',dues_paid_date:'의협회비 납부일',dh:'디지털헬스',dh_op:'옵티나&위스키',dh_cp:'카트비피',
+  dh_sp:'더스피로킷',dh_mb:'모비케어',dh_lb:'리브레',dh_wd:'웰다',region:'지역',device:'기기',last_visit:'최근 방문',ilmansa:'일만사',welcheck:'웰체크',visited:'CM 방문',ilmansa_start:'일만사 시작일'};
+function unkFmt(v){ return v===true?'예':v===false?'아니오':(v==null||v===''?'(비어 있음)':String(v)); }
+// 바꿀 일정을 날짜순으로 "7/10(목) 오전 · 강태경" 처럼(10건 넘으면 나머지는 건수만)
+function unkEvLines(ids){
+  var set={}; ids.forEach(function(id){ set[id]=true; });
+  var evs=[];
+  Object.keys(EVENTS).forEach(function(k){ (EVENTS[k]||[]).forEach(function(e){ if(set[e.id]) evs.push(e); }); });
+  (REQUESTS||[]).forEach(function(e){ if(set[e.id]) evs.push(e); });
+  evs.sort(function(a,b){ return (a.year-b.year)||(a.month-b.month)||(a.day-b.day); });
+  var W='일월화수목금토';
+  var lines=evs.map(function(e){
+    var d=new Date(e.year,e.month-1,e.day);
+    return '   '+(e.year!==TODAY.y?(String(e.year).slice(2)+'년 '):'')+e.month+'/'+e.day+'('+W[d.getDay()]+') '
+      +(e.time==='am'?'오전':e.time==='pm'?'오후':'종일')+(e.exactTime?(' '+e.exactTime):'')
+      +' · '+getMR(e.mr).name+(e.status==='pending'?' (요청 대기)':'');
+  });
+  if(lines.length>10) lines=lines.slice(0,10).concat(['   … 외 '+(lines.length-10)+'건']);
+  return lines.join('\n');
+}
+// 임시 거래처(mRow) → 공식 거래처(oRow) 합치기 계획. 아무것도 버리지 않음:
+// · 공식 거래처 칸이 비어 있으면 임시 거래처 값을 채움
+// · 둘 다 값이 있는데 서로 다르면 공식 거래처 값은 그대로 두고, 임시 거래처 값은 메모에 "(임시명 기록) 의협회비 납부"처럼 한 줄 남김
+// · 메모는 공식 거래처 메모 아래 줄에 임시 거래처 메모를 덧붙임
+function unkPlanMerge(mRow, oRow, oldLabel){
+  var patch={}, lines=[], conflicts=[];
+  Object.keys(UNK_CLINIC_DEFAULTS).forEach(function(k){
+    var def=UNK_CLINIC_DEFAULTS[k], o=oRow[k], m=mRow[k];
+    var oEmpty=(o==null||o===def||o===''), mHas=!(m==null||m===def||m==='');
+    if(!mHas) return;
+    if(oEmpty){ patch[k]=m; lines.push('   '+UNK_FIELD_LABELS[k]+': '+unkFmt(o)+' → '+unkFmt(m)); }
+    else if(String(o)!==String(m)) conflicts.push(UNK_FIELD_LABELS[k]+' '+unkFmt(m));
+  });
+  var mNote=String(mRow.note||'').trim(), oNote=String(oRow.note||'').trim(), add=[];
+  if(mNote&&oNote.indexOf(mNote)<0) add.push(mNote);
+  if(conflicts.length) add.push('('+oldLabel+' 기록) '+conflicts.join(' · '));
+  if(add.length){
+    patch.note=oNote?(oNote+'\n'+add.join('\n')):add.join('\n');
+    lines.push('   메모'+(oNote?'(기존 메모 아래 줄에 추가)':'')+': '+add.join(' / '));
+  }
+  if(conflicts.length) lines.push('   ※ 값이 서로 다른 칸은 "'+oRow.name+'" 값을 그대로 두고, "'+oldLabel+'" 값은 메모에 남겨요');
+  return {patch:patch, lines:lines};
+}
 function relinkUnknownLabel(oldLabel, pick){
   if(blockIfOtherOfficeCalendar()) return;
   var t=null;
@@ -8676,43 +8719,62 @@ function relinkUnknownLabel(oldLabel, pick){
   var gr=unkGroups().find(function(x){ return x.label===oldLabel; });
   if(!gr) return;
   var ids=gr.ids.slice(), cnt=ids.length, raws=Object.keys(gr.raws).concat(gr.manual?[oldLabel]:[]);
-  var msg=t.own
-    ? ('"'+oldLabel+'"'+(cnt?(' 일정 '+cnt+'건을'):'을')+' "'+newName+'"(으)로 바꿀까요?\n\n'
-      +(cnt?'· 일정의 요청사항·방문 목적·메모는 그대로 옮겨져요\n':'')
-      +'· "'+oldLabel+'" 이름으로 남긴 방문 메모도 함께 옮겨요\n'
-      +(gr.manual?'· 직접 등록해 둔 "'+oldLabel+'"의 교육이수·의협회비·특이사항·원장 정보를 "'+newName+'"(으)로 합치고 임시 거래처는 정리해요\n  ("'+newName+'"에 이미 적힌 값은 그대로 둬요)':''))
-    : ('"'+oldLabel+'" 일정 '+cnt+'건을 '+t.office+' "'+newName+'"(담당 '+(t.mrName||'-')+' MR) 동도 일정으로 바꿀까요?\n\n'
-      +'· 캘린더에 "'+officeShortName(t.office)+' '+newName+'" 타사무소 동도로 표시돼요\n'
-      +'· 일정의 요청사항·방문 목적·메모는 그대로 옮겨져요\n'
-      +'· "'+oldLabel+'" 이름으로 남긴 방문 메모도 함께 옮겨요'
-      +(gr.manual?'\n· 직접 등록해 둔 "'+oldLabel+'" 임시 거래처는 다른 사무소 거래처라 합치지 않고 그대로 둬요':''));
   if(!t.own&&!cnt){ alert('타사무소 거래처로는 일정만 바꿀 수 있어요. "'+oldLabel+'"엔 바꿀 일정이 없어요.'); return; }
-  if(!confirm(msg)) return;
-  // 거래처명 뒤에 붙여 쓴 설명(예: "사랑의내과 교육 및 상주"의 "교육 및 상주")은 방문 목적 칸으로 옮겨서 안 사라지게
-  // (칸에 이미 내용이 있으면 그 아래 줄에 덧붙임)
-  var extra=oldLabel.indexOf(newName)===0?oldLabel.slice(newName.length).trim():'';
-  var patch={label:newName};
-  if(!t.own){ patch.mr=t.mrName||null; patch.mr_office=t.office; }
-  var p=Promise.resolve();
-  if(extra&&ids.length){
-    p=db.from('schedules').select('id,situation').in('id',ids).then(function(res){
-      if(res.error) throw res.error;
-      return Promise.all((res.data||[]).filter(function(r){ return String(r.situation||'').indexOf(extra)<0; }).map(function(r){
-        var s=String(r.situation||'').trim();
-        return db.from('schedules').update({situation:s?(s+'\n'+extra):extra}).eq('id',r.id);
-      }));
+  var manual=(t.own&&gr.manual)?gr.manual:null;
+  // 임시 거래처가 있으면 두 거래처의 지금 값을 먼저 읽어서, 확인창에 무엇이 어떻게 합쳐지는지 미리 보여줌
+  var pre=manual?Promise.all([
+    db.from('clinics').select('*').in('id',[manual.id, t.id]),
+    db.from('clinic_doctors').select('id').eq('clinic_id',manual.id)
+  ]).then(function(r){
+    if(r[0].error) throw r[0].error;
+    var mRow=r[0].data.find(function(x){ return x.id===manual.id; }), oRow=r[0].data.find(function(x){ return x.id===t.id; });
+    if(!mRow||!oRow) return null;
+    return {plan:unkPlanMerge(mRow,oRow,oldLabel), docs:(r[1].data||[]).length, manualId:manual.id};
+  }):Promise.resolve(null);
+  pre.then(function(mg){
+    // 방문 메모(캘린더 일정에 남긴 메모) 미리보기
+    var seen={}, oldMemos=raws.filter(function(r){ if(seen[r]) return false; seen[r]=true; return true; })
+      .map(function(r){ return String(MEMO_STORE[r]||'').trim(); }).filter(function(m){ return m&&String(MEMO_STORE[newName]||'').indexOf(m)<0; });
+    var msg=(t.own
+      ? ('"'+oldLabel+'"'+(cnt?(' 일정 '+cnt+'건을'):'을')+' "'+newName+'"(으)로 바꿀까요?')
+      : ('"'+oldLabel+'" 일정 '+cnt+'건을 '+t.office+' "'+newName+'"(담당 '+(t.mrName||'-')+' MR) 동도 일정으로 바꿀까요?'))+'\n';
+    if(cnt) msg+='\n▶ 바뀌는 일정'+(t.own?'':' (캘린더에 "'+officeShortName(t.office)+' '+newName+'" 동도로 표시)')+'\n'+unkEvLines(ids)+'\n   요청사항·방문 목적·메모는 그대로 옮겨져요\n';
+    if(oldMemos.length) msg+='\n▶ 방문 메모'+(String(MEMO_STORE[newName]||'').trim()?'(기존 방문 메모 아래 줄에 추가)':'')+'\n   '+oldMemos.join(' / ')+'\n';
+    if(mg){
+      msg+='\n▶ 직접 등록한 "'+oldLabel+'" 기록 → "'+newName+'"\n'
+        +(mg.plan.lines.length?mg.plan.lines.join('\n'):'   옮길 값 없음("'+newName+'"에 이미 같은 값이 있어요)')+'\n'
+        +(mg.docs?('   원장 정보 '+mg.docs+'명 옮김\n'):'')
+        +'   옮긴 뒤 임시 거래처 "'+oldLabel+'"는 정리돼요\n';
+    } else if(!t.own&&gr.manual){
+      msg+='\n· 직접 등록해 둔 "'+oldLabel+'" 임시 거래처는 다른 사무소 거래처라 합치지 않고 그대로 둬요\n';
+    }
+    if(!confirm(msg)) return;
+    // 거래처명 뒤에 붙여 쓴 설명(예: "사랑의내과 교육 및 상주"의 "교육 및 상주")은 방문 목적 칸으로 옮겨서 안 사라지게
+    // (칸에 이미 내용이 있으면 그 아래 줄에 덧붙임)
+    var extra=oldLabel.indexOf(newName)===0?oldLabel.slice(newName.length).trim():'';
+    var patch={label:newName};
+    if(!t.own){ patch.mr=t.mrName||null; patch.mr_office=t.office; }
+    var p=Promise.resolve();
+    if(extra&&ids.length){
+      p=db.from('schedules').select('id,situation').in('id',ids).then(function(res){
+        if(res.error) throw res.error;
+        return Promise.all((res.data||[]).filter(function(r){ return String(r.situation||'').indexOf(extra)<0; }).map(function(r){
+          var s=String(r.situation||'').trim();
+          return db.from('schedules').update({situation:s?(s+'\n'+extra):extra}).eq('id',r.id);
+        }));
+      });
+    }
+    return p.then(function(){ return ids.length?db.from('schedules').update(patch).in('id',ids).eq('office',currentOffice):{}; })
+    .then(function(res){ if(res&&res.error) throw res.error; return unkMergeMemo(raws,newName); })
+    .then(function(){ return mg?unkApplyManualMerge(mg, t.id):''; })
+    .then(function(msg2){
+      alert('"'+newName+'"(으)로 바꿨어요.'+(msg2?('\n'+msg2):''));
+      // 저장은 끝났으니 화면 새로고침이 혹시 실패해도 '바꾸기 실패'로 보이지 않게 따로 처리
+      Promise.all([loadSchedules(), loadMemos(), loadClinics()]).then(function(){
+        if(document.getElementById('view-list').classList.contains('v-active')) renderList();
+      }).catch(function(e){ console.error(e); });
     });
-  }
-  p.then(function(){ return ids.length?db.from('schedules').update(patch).in('id',ids).eq('office',currentOffice):{}; })
-  .then(function(res){ if(res&&res.error) throw res.error; return unkMergeMemo(raws,newName); })
-  .then(function(){ return t.own?unkMergeManualClinic(oldLabel, t):''; })
-  .then(function(msg2){
-    alert('"'+newName+'"(으)로 바꿨어요.'+(msg2?('\n'+msg2):''));
-    // 저장은 끝났으니 화면 새로고침이 혹시 실패해도 '바꾸기 실패'로 보이지 않게 따로 처리
-    Promise.all([loadSchedules(), loadMemos(), loadClinics()]).then(function(){
-      if(document.getElementById('view-list').classList.contains('v-active')) renderList();
-    }).catch(function(e){ console.error(e); });
-  }, function(e){ alert('바꾸기 실패: '+(e&&e.message?e.message:e)); });
+  }).catch(function(e){ alert('바꾸기 실패: '+(e&&e.message?e.message:e)); });
 }
 function unkMergeMemo(raws, newName){
   var seen={};
@@ -8723,26 +8785,12 @@ function unkMergeMemo(raws, newName){
   olds.forEach(function(o){ if(merged.indexOf(o)<0) merged=merged?(merged+'\n'+o):o; });
   return db.from('clinic_memos').upsert({clinic_name:newName, memo:merged, updated_at:new Date().toISOString()});
 }
-function unkMergeManualClinic(oldLabel, official){
-  var manual=officeRows().find(function(x){ return x.id!==official.id&&String(x.name||'').trim()===oldLabel.trim()&&!String(x.biz_no||'').trim(); });
-  if(!manual) return Promise.resolve('');
-  return db.from('clinics').select('*').in('id',[manual.id, official.id]).then(function(res){
-    if(res.error) throw res.error;
-    var mRow=res.data.find(function(r){ return r.id===manual.id; }), oRow=res.data.find(function(r){ return r.id===official.id; });
-    if(!mRow||!oRow) return '';
-    var patch={};
-    Object.keys(UNK_CLINIC_DEFAULTS).forEach(function(k){
-      var def=UNK_CLINIC_DEFAULTS[k];
-      var oEmpty=(oRow[k]==null||oRow[k]===def||oRow[k]===''), mHas=!(mRow[k]==null||mRow[k]===def||mRow[k]==='');
-      if(oEmpty&&mHas) patch[k]=mRow[k];
-    });
-    var mNote=String(mRow.note||'').trim(), oNote=String(oRow.note||'').trim();
-    if(mNote&&oNote.indexOf(mNote)<0) patch.note=oNote?(oNote+'\n'+mNote):mNote;
-    return (Object.keys(patch).length?db.from('clinics').update(patch).eq('id',official.id):Promise.resolve({}))
-      .then(function(r){ if(r&&r.error) throw r.error; return db.from('clinic_doctors').update({clinic_id:official.id}).eq('clinic_id',manual.id); })
-      .then(function(r){ if(r&&r.error) throw r.error; return db.from('clinics').delete().eq('id',manual.id); })
-      .then(function(r){ return r&&r.error?'(임시 거래처 정보는 옮겼지만 임시 거래처 삭제는 실패했어요: '+r.error.message+')':'직접 등록해 둔 임시 거래처의 기록도 합쳤어요.'; });
-  });
+function unkApplyManualMerge(mg, officialId){
+  var patch=mg.plan.patch;
+  return (Object.keys(patch).length?db.from('clinics').update(patch).eq('id',officialId):Promise.resolve({}))
+    .then(function(r){ if(r&&r.error) throw r.error; return db.from('clinic_doctors').update({clinic_id:officialId}).eq('clinic_id',mg.manualId); })
+    .then(function(r){ if(r&&r.error) throw r.error; return db.from('clinics').delete().eq('id',mg.manualId); })
+    .then(function(r){ return r&&r.error?'(임시 거래처 기록은 옮겼지만 임시 거래처 정리는 실패했어요: '+r.error.message+')':'직접 등록해 둔 임시 거래처의 기록도 합쳤어요.'; });
 }
 
 function approveReq(id){
