@@ -983,14 +983,14 @@ td.drillable:hover .drill-ic{color:var(--dw)}
       </div>
 
                   <div class="pnl">
-        <div class="pnl-title">📝 거래처 방문 후 특이사항</div>
+        <div class="pnl-title">📝 특이사항 메모</div>
         <div class="memo-toolbar" id="visit-notes-toolbar">
           <button type="button" class="memo-tb-btn" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b> 굵게</button>
           <button type="button" class="memo-tb-btn" data-cmd="red" title="빨간 글씨" style="color:#B01A1A">● 빨강</button>
           <button type="button" class="memo-tb-btn" data-cmd="blue" title="파란 글씨" style="color:#1048A0">● 파랑</button>
           <button type="button" class="memo-tb-btn" data-cmd="clear" title="고른 부분의 굵게·색 없애기">서식 지우기</button>
         </div>
-        <div class="memo-area memo-rich" id="visit-notes" contenteditable="true" spellcheck="false" style="min-height:220px" data-placeholder="방문 후 특이사항을 기록하세요.
+        <div class="memo-area memo-rich" id="visit-notes" contenteditable="true" spellcheck="false" style="min-height:220px" data-placeholder="거래처 방문 전·후 특이사항을 기록하세요.
 예) 5.14 성모누리의원 6/11 반드시 방문 요청함(환자내원예정)
 예) 5.15 자애내과의원 : 홍보 엑스배너, 포스터 요청함."></div>
       </div>
@@ -1032,7 +1032,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
       <button type="button" class="stMemoBtn" id="st-memo-btn" onclick="toggleStMemo(event)"><span class="stMemoDot" id="st-memo-dot" hidden></span>📝 특이사항 메모 <span id="st-memo-caret" hidden>▲</span></button>
     </div>
     <div class="stMemoPop" id="st-memo-pop" hidden>
-      <div class="stMemoHead"><span class="stMemoTitle">📝 거래처 방문 후 특이사항</span><button type="button" class="stMemoX" onclick="closeStMemo()" title="닫기">✕</button></div>
+      <div class="stMemoHead"><span class="stMemoTitle">📝 특이사항 메모</span><button type="button" class="stMemoX" onclick="closeStMemo()" title="닫기">✕</button></div>
       <div class="stMemoSub">캘린더 메모와 같은 메모예요 · 자동 저장</div>
       <div class="memo-toolbar" id="st-memo-toolbar">
         <button type="button" class="memo-tb-btn" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b> 굵게</button>
@@ -1040,7 +1040,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
         <button type="button" class="memo-tb-btn" data-cmd="blue" title="파란 글씨" style="color:#1048A0">● 파랑</button>
         <button type="button" class="memo-tb-btn" data-cmd="clear" title="고른 부분의 굵게·색 없애기">서식 지우기</button>
       </div>
-      <div class="memo-area memo-rich" id="st-memo-area" contenteditable="true" spellcheck="false" style="min-height:180px;max-height:360px" data-placeholder="방문 후 특이사항을 기록하세요."></div>
+      <div class="memo-area memo-rich" id="st-memo-area" contenteditable="true" spellcheck="false" style="min-height:180px;max-height:360px" data-placeholder="거래처 방문 전·후 특이사항을 기록하세요."></div>
       <div class="stMemoFoot"><span id="st-memo-saved"></span><a href="#" onclick="closeStMemo();switchView('cal');return false;">캘린더에서 크게 보기 →</a></div>
     </div>
   </div>
@@ -1219,7 +1219,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
       </div>
     </div>
     <div style="margin-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">방문 후 특이사항 <span style="font-weight:400;color:var(--t3)">(선택)</span></div>
+      <div style="font-size:10px;font-weight:700;color:var(--t2);margin-bottom:4px">특이사항 메모 <span style="font-weight:400;color:var(--t3)">(선택)</span></div>
       <textarea id="inp-memo" class="memo-area" placeholder="ex) 교육자료 6부, 거래처 상주 필요, 웰체크&amp;일만사 프로세스 세팅 등"></textarea>
     </div>
     <input type="hidden" id="inp-type" value="visit">
@@ -2799,9 +2799,56 @@ function runNachimbanSync(D){
   }).then(function(res){
     if(!res||res.error) return {ok:false, error:(res&&res.error&&res.error.message)||status.textContent||'거래처 반영 실패', asOf:parsed.asOf};
     return applyNachimbanFinals(D).then(function(f){
-      return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
-        filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded};
+      // 월별 지표 저장은 부가 기능이라 실패해도 거래처 반영 성공/실패에는 안 섞음(로그에만 남김)
+      return saveNachimbanMonthly(D).catch(function(e){ return {rows:0, error:(e&&e.message)||String(e)}; }).then(function(mo){
+        return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
+          filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded, monthly:mo};
+      });
     });
+  });
+}
+// 나침반 월별 사무소·담당자 지표(목표·활성처·등급·청구)를 nb_monthly에 저장 - 지난달 목표·실적을 앱에서 보이게.
+// 같은 달이 여러 자료에 있으면 회사 확정 마감(final) > 나침반 월별 스냅샷 > 오늘자 순으로 쓰고,
+// 이미 확정 마감으로 저장된 달은 확정 아닌 값으로 다시 덮지 않음. 담당자는 사번(10자리)으로 저장.
+function saveNachimbanMonthly(D){
+  var snaps=(D&&D.snapshots)||[];
+  var cur=snaps.find(function(s){ return s.key===(D.meta&&D.meta.current); });
+  var best={};
+  var num=function(v){ return v==null||v===''||isNaN(Number(v))?null:Number(v); };
+  var int=function(v){ var n=num(v); return n==null?null:Math.round(n); };
+  snaps.forEach(function(s){
+    if(!s.month||!(s.off||[]).length) return;
+    var rank=s.final?3:(s.monthly?2:(s===cur?1:0));
+    if(!rank) return; // 이번 달 중간 회사 파일 스냅샷은 월 지표로 안 씀
+    var month=String(s.month).slice(0,7)+'-01', asOf=toSyncDateStr(s.asOf);
+    var put=function(row){
+      var k=row.office+'|'+month+'|'+row.scope+'|'+row.mr_sabun;
+      if(best[k]&&best[k].rank>=rank) return;
+      row.month=month; row.final=!!s.final; row.as_of=asOf; row.updated_at=new Date().toISOString();
+      best[k]={rank:rank, row:row};
+    };
+    var base=function(x){ return {target:num(x.target), act:int(x.act), act1:int(x.act1), act2:int(x.act2), fcst:int(x.fcst), grade:x.grade||null, rate:num(x.rate),
+      new_acc:int(x.newAcc), churn:int(x.churn), prev_close:int(x.prevClose), pat:int(x.pat), bill_n:int(x.billN), bill_amt:int(x.billAmt)}; };
+    (s.off||[]).forEach(function(o){
+      if(NATIONAL_OFFICES.indexOf(o.off)<0) return;
+      put(Object.assign(base(o), {office:o.off, scope:'office', mr_sabun:'', mr_name:null}));
+    });
+    (s.mr||[]).forEach(function(m){
+      if(NATIONAL_OFFICES.indexOf(m.off)<0||!m.id10) return;
+      put(Object.assign(base(m), {office:m.off, scope:'mr', mr_sabun:String(m.id10), mr_name:m.name||null}));
+    });
+  });
+  var keys=Object.keys(best);
+  if(!keys.length) return Promise.resolve({rows:0, months:[]});
+  return fetchAllRows('nb_monthly','id,office,month,scope,mr_sabun,final').then(function(ex){
+    if(ex.error) throw ex.error;
+    var locked={};
+    (ex.data||[]).forEach(function(r){ if(r.final) locked[r.office+'|'+String(r.month).slice(0,10)+'|'+r.scope+'|'+r.mr_sabun]=true; });
+    var rows=keys.filter(function(k){ return best[k].row.final||!locked[k]; }).map(function(k){ return best[k].row; });
+    var months={}; rows.forEach(function(r){ months[r.month.slice(0,7)]=true; });
+    return chunkArray(rows, 500).reduce(function(p, chunk){
+      return p.then(function(){ return db.from('nb_monthly').upsert(chunk, {onConflict:'office,month,scope,mr_sabun'}).then(function(r){ if(r.error) throw r.error; }); });
+    }, Promise.resolve()).then(function(){ return {rows:rows.length, months:Object.keys(months).sort()}; });
   });
 }
 // 'YYYY-MM-01' 문자열을 delta개월만큼 이동 (Date 객체 대신 순수 문자열 연산 - 타임존 영향 없음)
@@ -5927,7 +5974,7 @@ function clinicEvalGap(c){
 }
 var stTrendChart=null;
 function renderStrategyView(){
-  Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot(),loadMrClaims()]).then(function(){
+  Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot(),loadMrClaims(),loadNbMonthly()]).then(function(){
     buildClaimMap();
     renderStKPI();
     renderStMrCards();
@@ -6489,8 +6536,8 @@ function renderStKPI(){
   var monthLines=legend+'<div class="month-grid">'+monthsList.map(function(mm){
     var a=officeMonthGrade(mm);
     if(a.th==null) return '<span class="month-line">'+mm+'월 목표 데이터 없음</span>';
-    var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(achievementGrade(a.pct));
-    return '<span class="month-line">'+mm+'월 <span class="gradePill gradePill-sm '+pillCls+'">'+a.pct+'% '+achievementGrade(a.pct)+'등급</span></span>';
+    var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(a.grade);
+    return '<span class="month-line">'+mm+'월 <span class="gradePill gradePill-sm '+pillCls+'">'+a.pct+'% '+a.grade+'등급</span></span>';
   }).join('')+'</div>';
   // 카드 클릭 시 하단 리스트로 이동하지 않고(다른 미니카드와 달리 이 카드는 목록 필터링이 의미가
   // 없음 - 등급은 사무소 전체 지표라 개별 거래처 리스트로 안 이어짐) MR 카드처럼 월별 상세 팝업으로
@@ -6662,22 +6709,38 @@ function renderStMrCards(){
 function openMrTargetModal(mrCode){
   var m=officeManagers().find(function(x){return x.code===mrCode;});
   if(!m) return;
-  var months=m.emp_no?H2_TARGETS.filter(function(r){return r.scope==='mr'&&r.mr_sabun===m.emp_no;}).map(function(r){return r.month.slice(0,7);}).sort():[];
+  // 하반기 목표 파일에 있는 달 + 나침반 월별 지표에 이 담당자(사번)가 있는 달(1월~) - 지난달은 그 달 마감 활성처·등급까지
+  var yr=String(todayMonthStr()).slice(0,4), curMon=String(todayMonthStr()).slice(0,7);
+  var monSet={};
+  if(m.emp_no){
+    H2_TARGETS.forEach(function(r){ if(r.scope==='mr'&&r.mr_sabun===m.emp_no) monSet[r.month.slice(0,7)]=true; });
+    NB_MONTHLY.forEach(function(r){ if(r.scope==='mr'&&sabun7(r.mr_sabun)===sabun7(m.emp_no)) monSet[String(r.month).slice(0,7)]=true; });
+  }
+  var months=Object.keys(monSet).filter(function(x){ return x.slice(0,4)===yr; }).sort();
   var active=mrActiveCount(m.code);
-  var body='<div class="sub" style="margin-bottom:8px">현재 활성처 <b>'+active+'처</b>(주 2회 파일 기준 실시간) · 아래는 26년 하반기 목표 파일에 있는 달만 비교(1~7월은 이 파일에 데이터가 없어 표시하지 않음)</div>';
+  var body='<div class="sub" style="margin-bottom:8px">현재 활성처 <b>'+active+'처</b>(나침반 매일 갱신) · 지난달은 나침반 월마감 활성처·등급이에요</div>';
   if(!months.length){
     body+='<div class="sub">'+m.name+'님의 개인별 목표 데이터가 아직 없어요.</div>';
   } else {
     body+='<table style="width:100%;border-collapse:collapse;font-size:12px">'
-      +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">사무소 목표</th><th style="padding:5px 6px">'+m.name+'담당 목표</th></tr></thead><tbody>'
+      +'<thead><tr style="border-bottom:1.5px solid var(--bd);white-space:nowrap;font-size:11px"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 4px">사무소 목표</th><th style="padding:5px 4px">담당 목표</th><th style="padding:5px 4px">실적</th></tr></thead><tbody>'
       +months.map(function(mon){
-        var isCur=mon===todayMonthStr();
+        var isCur=mon===curMon, isPast=mon<curMon;
         var rowStyle=isCur?'border-bottom:0.5px solid var(--bd2);background:#FFF7EF;font-weight:800':'border-bottom:0.5px solid var(--bd2);color:var(--t2)';
-        var oT=h2OfficeTarget(currentOffice, mon);
-        var mT=h2MrTarget(m.emp_no, mon);
-        return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+parseInt(mon.slice(5,7),10)+'월'+(isCur?' (당월)':(mon<todayMonthStr()?' (지남)':' (예상)'))+'</td>'
+        var nbO=nbOfficeMonth(mon), nbM=nbMrMonth(m.emp_no, mon);
+        var oT=h2OfficeTarget(currentOffice, mon); if(oT==null&&nbO) oT=fmtTarget(nbO.target);
+        var mT=h2MrTarget(m.emp_no, mon); if(mT==null&&nbM) mT=fmtTarget(nbM.target);
+        var res='-';
+        if(isPast&&nbM&&nbM.act!=null){
+          res=nbM.act+'처'+(nbM.grade?(' <span class="gradePill gradePill-sm gradePill-confirmed '+gradeClass(nbM.grade)+'">'+nbM.grade+'</span>'):'');
+        } else if(isCur){
+          var g=mT?achievementGrade(Math.round(active/mT*100)):null;
+          res=active+'처'+(g?(' <span class="gradePill gradePill-sm gradePill-projected '+gradeClass(g)+'">'+g+'</span>'):'');
+        }
+        return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700;white-space:nowrap">'+parseInt(mon.slice(5,7),10)+'월'+(isCur?' (당월)':(isPast?' (지남)':' (예상)'))+'</td>'
           +'<td style="text-align:center;padding:5px 6px">'+(oT!=null?oT+'처':'-')+'</td>'
-          +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+(mT!=null?mT+'처':'-')+'</td></tr>';
+          +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+(mT!=null?mT+'처':'-')+'</td>'
+          +'<td style="text-align:center;padding:5px 6px;white-space:nowrap">'+res+'</td></tr>';
       }).join('')
       +'</tbody></table>';
   }
@@ -6726,11 +6789,22 @@ function officeMonthGrade(mm){
   var thisYear=new Date().getFullYear();
   var mStr=thisYear+'-'+(mm<10?'0'+mm:mm);
   var mTh=h2OfficeTarget(currentOffice, mStr);
+  var nbO=nbOfficeMonth(mStr); // 나침반 월별 지표(1월~) - 하반기 목표 파일에 없는 달(1~6월)의 목표도 여기서
+  if(mTh==null&&nbO&&Number(nbO.target)) mTh=Math.round(Number(nbO.target));
   var ocRow=oc.find(function(o){ return o.month.slice(0,7)===mStr; });
   var official=!!(ocRow&&ocRow.eval_clinic_cnt); // 그 달 청구현황 베이스라인(월마감)으로 확정된 값인지
   var cnt=official?ocRow.eval_clinic_cnt:k.active; // 확정 전이면 현재 실시간 활성처수로 대체(예상)
+  // 베이스라인 파일이 없는 지난달(8월~)은 나침반 월마감 활성처수(office_claims.active_count)로 - 예전엔 지난달도 지금
+  // 활성처수(예: 65처)로 채워져서 8월이 A등급처럼 보였음(나침반 실제 8월 38처 C등급)
+  // 지난달은 나침반 월별 지표(그 달 활성처·나침반 등급)를 우선 - 담당자별 숫자도 나침반이라 사무소 숫자와 맞춤.
+  // 나침반에 없는 달만 회사 베이스라인 파일(eval_clinic_cnt) → office_claims 마감 활성처수 순으로 대신함
+  var closed=false, nbGrade=null;
+  if(mStr<String(todayMonthStr()).slice(0,7)){
+    if(nbO&&nbO.act!=null){ cnt=Number(nbO.act)||0; closed=!nbO.final; official=true; nbGrade=nbO.grade||null; }
+    else if(!official&&ocRow&&ocRow.active_count!=null){ cnt=Number(ocRow.active_count)||0; closed=true; official=true; }
+  }
   var mPct=mTh?Math.round(cnt/mTh*100):null;
-  return {th:mTh, pct:mPct, cnt:cnt, official:official};
+  return {th:mTh, pct:mPct, cnt:cnt, official:official, closed:closed, grade:nbGrade||(mPct!=null?achievementGrade(mPct):null)};
 }
 // "7~12월 등급 현황" 카드 클릭 시 - 다른 미니카드처럼 하단 거래처 리스트로 이동하는 게 아니라
 // (사무소 등급은 개별 거래처 리스트로 이어질 정보가 아님), openMrTargetModal과 같은 형태의
@@ -6738,8 +6812,9 @@ function officeMonthGrade(mm){
 function openOfficeGradeModal(){
   var thisYear=new Date().getFullYear();
   var todayM=todayMonthStr();
-  var monthsList=[7,8,9,10,11,12];
-  var body='<div class="sub" style="margin-bottom:8px">청구현황 베이스라인(월마감)으로 확정된 달은 그 달 실제 활성처수, 아직 마감 전인 달(당월 포함)은 현재 실시간 활성처수 기준(예상)이에요.</div>'
+  // 1~6월은 나침반 월별 지표가 있는 달만, 7~12월(하반기 목표 파일)은 항상
+  var monthsList=[1,2,3,4,5,6,7,8,9,10,11,12].filter(function(mm){ return mm>=7||officeMonthGrade(mm).th!=null; });
+  var body='<div class="sub" style="margin-bottom:8px">지난달은 나침반 기준 그 달 마감 활성처수·등급이에요(회사 확정 마감이 있는 달=확정, 나머지=마감). 당월·다음 달은 현재 활성처수 기준(예상)이에요.</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:12px">'
     +'<thead><tr style="border-bottom:1.5px solid var(--bd)"><th style="text-align:left;padding:5px 6px">월</th><th style="padding:5px 6px">목표</th><th style="padding:5px 6px">활성처수</th><th style="padding:5px 6px">달성률</th><th style="padding:5px 6px">등급</th></tr></thead><tbody>'
     +monthsList.map(function(mm){
@@ -6749,15 +6824,15 @@ function openOfficeGradeModal(){
       var monthLbl=mm+'월'+(isCur?' (당월)':(mStr<todayM?' (지남)':' (예상)'));
       var a=officeMonthGrade(mm);
       if(a.th==null) return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td><td colspan="4" style="text-align:center;padding:5px 6px">목표 데이터 없음</td></tr>';
-      var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(achievementGrade(a.pct));
-      return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td>'
+      var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(a.grade);
+      return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700;white-space:nowrap">'+monthLbl+'</td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.th+'처</td>'
-        +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.official?'#145C38':'#B26A00')+'">('+(a.official?'확정':'예상')+')</span></td>'
+        +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.official?'#145C38':'#B26A00')+'">('+(a.closed?'마감':a.official?'확정':'예상')+')</span></td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.pct+'%</td>'
-        +'<td style="text-align:center;padding:5px 6px"><span class="gradePill gradePill-sm '+pillCls+'">'+achievementGrade(a.pct)+'등급</span></td></tr>';
+        +'<td style="text-align:center;padding:5px 6px"><span class="gradePill gradePill-sm '+pillCls+'">'+a.grade+'등급</span></td></tr>';
     }).join('')
     +'</tbody></table>';
-  showSimpleModal(currentOffice+' · 7~12월 목표', body);
+  showSimpleModal(currentOffice+' · 월별 목표·등급', body);
 }
 function renderStTrend(){
   var ctx=document.getElementById('officeTrend');
@@ -7156,6 +7231,19 @@ function loadH2Targets(){
     H2_TARGETS=res.data;
   });
 }
+// 나침반 월별 지표(이 사무소분) - 지난달 목표·활성처·등급 표시용(saveNachimbanMonthly가 매일 저장)
+var NB_MONTHLY=[];
+function loadNbMonthly(){
+  return db.from('nb_monthly').select('*').eq('office', currentOffice).then(function(res){
+    if(res.error){ console.error(res.error); NB_MONTHLY=[]; return; }
+    NB_MONTHLY=res.data||[];
+  });
+}
+function nbOfficeMonth(mStr){ return NB_MONTHLY.find(function(r){ return r.scope==='office'&&String(r.month).slice(0,7)===mStr; })||null; }
+// 사번은 10자리(1202250170)로 저장되지만 7자리(2250170)로 등록된 담당자도 있어서 뒤 7자리로 비교
+function sabun7(v){ var t=String(v==null?'':v).trim(); return /^120\d{7}$/.test(t)?t.slice(3):t; }
+function nbMrMonth(sabun, mStr){ var s7=sabun7(sabun); return s7?(NB_MONTHLY.find(function(r){ return r.scope==='mr'&&sabun7(r.mr_sabun)===s7&&String(r.month).slice(0,7)===mStr; })||null):null; }
+function fmtTarget(v){ if(v==null) return null; var n=Number(v); if(!n) return null; return Math.round(n)===n?n:Math.round(n*10)/10; } // 0은 '목표 없음'(나침반 1월 개인 목표 등)
 // 이번달 사무소 목표: h2_targets에 해당 사무소·이번달 데이터가 있으면 그걸 우선 사용(반올림),
 // 없으면(파일이 아직 없거나 6~7월처럼 이 파일 적용 범위 밖인 경우) 기존 베이스라인 target으로 폴백
 function h2OfficeTarget(office, monthStr){

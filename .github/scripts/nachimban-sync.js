@@ -79,7 +79,10 @@ async function readNachimban(browser) {
     const files = D.snapshots.filter((s) => cur && s !== cur && !s.final && !String(s.key).startsWith('wc') && s.month === cur.month && (s.accounts || []).length)
       .sort((a, b) => String(a.asOf) < String(b.asOf) ? -1 : 1);
     const latestFile = files.length ? [files[files.length - 1]] : [];
-    return { meta: { current: D.meta.current }, wc: { updated: D.wc && D.wc.updated }, snapshots: [cur].concat(latestFile, finals).filter(Boolean).map(pick) };
+    // 월별 사무소·담당자 지표(목표·활성처·등급·청구) - 나침반 월별 스냅샷(wc2026-01 ...). 거래처 목록은 빼고 가볍게
+    const monthly = D.snapshots.filter((s) => s !== cur && String(s.key).startsWith('wc') && (s.off || []).length)
+      .map((s) => ({ key: s.key, month: s.month, asOf: s.asOf, label: s.label, final: false, monthly: true, off: s.off, mr: s.mr }));
+    return { meta: { current: D.meta.current }, wc: { updated: D.wc && D.wc.updated }, snapshots: [cur].concat(latestFile, finals).filter(Boolean).map(pick).concat(monthly) };
   });
   await page.close();
   return data;
@@ -170,7 +173,7 @@ async function fail(userMessage, logMessage) {
       return await fail(notFound ? 'GitHub에 등록된 나침반 주소가 틀림(Google: 페이지 없음) - 전체 주소로 다시 등록해 주세요' : '나침반 사이트 접속 실패 - 다음 예약 때 다시 시도해요', '실행 오류: ' + (e && e.message));
     }
     const cur = data.snapshots[0] || {};
-    console.log(`나침반 데이터: ${cur.key} (${cur.asOf}), 거래처 ${(cur.accounts || []).length}곳, 회사 파일 스냅샷 ${data.snapshots.length - 1}개`);
+    console.log(`나침반 데이터: ${cur.key} (${cur.asOf}), 거래처 ${(cur.accounts || []).length}곳, 회사 파일 스냅샷 ${data.snapshots.filter((s) => s !== cur && !s.monthly).length}개 · 월별 지표 ${data.snapshots.filter((s) => s.monthly).length}개월`);
     const res = await applyToApp(browser, data);
     const c = res.commit || {};
     const f = res.finals || {};
@@ -178,7 +181,8 @@ async function fail(userMessage, logMessage) {
       + ` · 오늘자 시트에 없어 회사 파일(${res.fileSnap || '-'})로 채운 거래처 ${res.filled || 0}곳`
       + ` · 지난달 마감 갱신 ${f.rows || 0}건${(f.months || []).length ? '(' + f.months.join(',') + ')' : ''}`
       + ` · 새로 등록한 담당자 ${((res.managersAdded || {}).added || []).length}명`
-      + ` · 사번 채운 담당자 ${((res.managersAdded || {}).sabunFilled || []).length}명`);
+      + ` · 사번 채운 담당자 ${((res.managersAdded || {}).sabunFilled || []).length}명`
+      + ` · 월별 지표 ${(res.monthly || {}).rows || 0}건${(res.monthly || {}).months && res.monthly.months.length ? '(' + res.monthly.months[0] + '~' + res.monthly.months[res.monthly.months.length - 1] + ')' : ''}${(res.monthly || {}).error ? ' 저장 실패: ' + String(res.monthly.error).slice(0, 80) : ''}`);
     if (!res.ok) {
       const why = res.error || c.claimError || f.error || '알 수 없음';
       return await fail('나침반 데이터 저장 실패: ' + String(why).slice(0, 80), '실패 원인: ' + why);
