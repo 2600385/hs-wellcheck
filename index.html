@@ -1579,7 +1579,11 @@ function deleteRegion(id){
 // 두 개의 진입점이 있음: 거래처현황판 아래 버튼("simple" - RAW/MAU만, 항상 거래처현황판만 갱신)과
 // 전국 사업부 하단 버튼("full" - 베이스라인 포함, 관리자면 청구현황판·전국 비교까지 반영). 같은 모달을 재사용하고 IMPORT_MODE로 갈라짐
 var IMPORT_MODE='full';
+// 파일 업로드(데이터 업로드·마감 파일로 바로잡기)는 관리자 중 업로드 담당 계정만(employees.can_upload=true).
+// 업로드 담당 사번은 저장소가 공개라 코드에 적지 않고 DB 칸으로만 구분함
+function canUploadFiles(){ return !!(currentUser&&currentUser.role==='관리자'&&currentUser.can_upload===true); }
 function openImportModal(mode){
+  if(!canUploadFiles()){ alert('파일 업로드는 업로드 담당 관리자 계정에서만 할 수 있어요.'); return; }
   IMPORT_MODE=mode||'full';
   // simple 모드는 지금 사무소 하나만 영향받지만, full(관리자) 모드는 파일 하나로 전국 37개 사무소가 다 같이 갱신되므로
   // "현재 선택된 사무소" 문구를 그대로 쓰면 마치 이 사무소만 바뀌는 것처럼 오해하게 됨
@@ -4274,10 +4278,11 @@ function applyRoleGating(){
   if(empBtn) empBtn.style.display = isAdmin?'block':'none'; // 직원 관리는 관리자만 가능(사업부장·신사업팀장도 접근 불가)
   var clinicMgmtBtn=document.getElementById('clinic-mgmt-btn');
   if(clinicMgmtBtn) clinicMgmtBtn.style.display = isAdmin?'block':'none'; // 거래처 관리(전국 검색)도 관리자 전용
+  // 파일 업로드는 관리자 중에서도 업로드 담당 계정(employees.can_upload)만 - 7777(관리자)은 업로드 버튼이 안 보임
   var importBtn=document.getElementById('data-import-btn');
-  if(importBtn) importBtn.style.display = isAdmin?'block':'none'; // 거래처현황판 전용 간소화 업로드도 이제 관리자 전용
+  if(importBtn) importBtn.style.display = canUploadFiles()?'block':'none';
   var importBtnFull=document.getElementById('data-import-btn-full');
-  if(importBtnFull) importBtnFull.style.display = isAdmin?'block':'none'; // 베이스라인 포함 전체 파일 종류 - 관리자 전용
+  if(importBtnFull) importBtnFull.style.display = canUploadFiles()?'block':'none';
   var uiLine=document.getElementById('userInfoLine');
   // 로그아웃 링크는 이제 사이드바 맨 아래 고정 버튼(sb-footer)으로 옮겨서 여기선 이름(역할)만 표기
   if(uiLine) uiLine.textContent=currentUser.name+'('+roleLabel(currentUser.role)+')';
@@ -6850,7 +6855,7 @@ function openOfficeGradeModal(){
 // 기록이 없던 일만사 1곳이 빠짐). 사용자 원칙 "나침반 기준으로 매일 업데이트, 이상한 부분은 파일을 올려서 변경"대로
 // 회사 월 마감 파일(예: 6/30 기준)을 올리면 그 달 사무소·담당자 숫자를 파일 값으로 고정(nb_monthly source='file',
 // 이후 나침반 반영이 덮어쓰지 않음). 거래처 현황판·청구현황 등 다른 데이터는 건드리지 않음.
-function canFixMonthlyByFile(){ return !!(currentUser&&(currentUser.role==='관리자'||currentUser.role==='간호사')); }
+function canFixMonthlyByFile(){ return canUploadFiles(); }
 function cfNorm(v){ return String(v==null?'':v).replace(/\s+/g,''); }
 function cfFindCol(row, test, from){
   for(var c=(from||0);c<(row||[]).length;c++){ if(row[c]!=null&&test(cfNorm(row[c]))) return c; }
@@ -6937,7 +6942,7 @@ function parseClosingFileMonthly(wb){
   return {rows:rows, asOf:asOf, month:month, isMonthEnd:day>=lastDay-3, lastDay:lastDay};
 }
 function pickClosingFile(){
-  if(!canFixMonthlyByFile()){ alert('마감 파일로 바로잡기는 관리자·교육간호사만 할 수 있어요.'); return; }
+  if(!canFixMonthlyByFile()){ alert('마감 파일로 바로잡기는 업로드 담당 관리자 계정에서만 할 수 있어요.'); return; }
   var inp=document.createElement('input');
   inp.type='file'; inp.accept='.xlsx,.xls';
   inp.onchange=function(){
