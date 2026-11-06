@@ -150,6 +150,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cal-head{background:var(--white);border-bottom:1.5px solid var(--bd);padding:13px 20px 11px;display:flex;align-items:center;justify-content:space-between}
 .cal-head-title{font-size:26px;font-weight:800;color:var(--t1);letter-spacing:-.6px}
 .cal-head-right{font-size:11px;color:var(--t3)}
+.cal-pick-row{background:var(--white);border-bottom:1px solid var(--bd);padding:7px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--t2)}
+.cal-pick-row select{font-size:12px;font-family:inherit;padding:4px 8px;border:1px solid var(--bd2);border-radius:8px;background:var(--white);color:var(--t1);max-width:100%}
+.cal-pick-row .cal-pick-note{font-size:11px;color:#B26A00}
+@media(max-width:768px){.cal-pick-row{padding:6px 16px}}
 
 /* 탑바 */
 .cal-topbar{background:var(--white);border-bottom:1px solid var(--bd);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -877,6 +881,7 @@ td.drillable:hover .drill-ic{color:var(--dw)}
     <div class="cal-head-title" id="cal-head-title">CM 캘린더</div>
     <div class="cal-head-right" id="cal-head-right">경인1사무소 · 부평 / 계양 / 김포</div>
   </div>
+  <div class="cal-pick-row" id="cal-pick-row" style="display:none"></div>
   <div class="cal-topbar">
     <span class="mr-lbl">담당자</span>
     <span id="mr-btn-wrap" style="display:contents"></span>
@@ -4109,12 +4114,19 @@ function homeViewForRole(){ return (currentUser && currentUser.role==='간호사
 function canApproveRequests(){ return !!(currentUser && (currentUser.role==='간호사'||currentUser.role==='관리자')) && !isNurseViewingOtherOffice(); }
 // 간호사가 다른 사무소를 보고 있는지 - 그 사무소 캘린더는 그 사무소 간호사 일정이라 추가·수정·삭제·방문체크·
 // 메모·요청 승낙을 막고 보기만 하게 함(내 사무소로 돌아오면 원래대로)
+// [2026-11-06] 사무소명·사번(MR) 로그인도 다른 사무소 간호사 캘린더를 볼 수 있게 되면서(캘린더 위 "간호사 일정 보기"),
+// 간호사뿐 아니라 사무소 하나만 쓰는 역할이 다른 사무소를 보고 있을 때도 똑같이 보기 전용
 function isNurseViewingOtherOffice(){
-  return !!(currentUser&&currentUser.role==='간호사'&&currentUser.office&&currentOffice!==currentUser.office);
+  return !!(currentUser&&currentUser.office&&currentOffice!==currentUser.office&&(currentUser.role==='간호사'||!isMultiOfficeRole(currentUser.role)));
+}
+// 사무소 하나만 쓰는 역할(MR·사무소명 로그인)이 캘린더에서 다른 사무소 간호사 일정을 보는 중인지 - 캘린더 밖으로 나가면 자기 사무소로 되돌림
+var CAL_VISIT=false; // 캘린더의 "간호사 일정 보기"로 다른 사무소에 와 있는 중(로그인 직후 사무소 맞추는 중과 구분)
+function isCalOnlyVisitor(){
+  return !!(CAL_VISIT&&currentUser&&currentUser.office&&currentOffice!==currentUser.office&&!isMultiOfficeRole(currentUser.role));
 }
 function blockIfOtherOfficeCalendar(){
   if(!isNurseViewingOtherOffice()) return false;
-  alert('다른 사무소 캘린더는 보기만 가능해요.\n일정은 '+currentUser.office+' 캘린더에서 관리해 주세요.');
+  alert('다른 사무소 캘린더는 보기만 가능해요.\n일정 추가·요청은 '+currentUser.office+' 캘린더에서 해 주세요.');
   return true;
 }
 function doLogin(){
@@ -4177,6 +4189,7 @@ function findMRBySabun(empNo){
 }
 function logout(){
   currentUser=null;
+  CAL_VISIT=false; CAL_AUTO_PICKED=false; CAL_PICK_NOTE=''; // 다음 로그인 사람 기준으로 "간호사 일정 보기" 다시 판단
   localStorage.removeItem('wc_emp_no');
   document.getElementById('login-empno').value='';
   document.getElementById('login-error').style.display='none';
@@ -5001,6 +5014,61 @@ function renderCalHeadTitle(){
   if(!el) return;
   var cm=officeCM(currentOffice);
   el.textContent=currentOffice+'사무소 캘린더'+(cm?('('+cm.name+'CM)'):'')+(isNurseViewingOtherOffice()?' · 👀 보기 전용':'');
+  renderCalPickRow();
+}
+// 캘린더 위 "간호사 일정 보기" - 어떤 로그인(사무소명·사번·간호사·관리자)이든 다른 사무소 간호사 일정을 골라 볼 수 있음.
+// 내 사무소가 아니면 보기 전용(isNurseViewingOtherOffice). 목록 = 내 사무소 + 간호사가 배정된 사무소
+var CAL_PICK_NOTE='';
+function renderCalPickRow(){
+  var row=document.getElementById('cal-pick-row');
+  if(!row) return;
+  if(!currentUser){ row.style.display='none'; return; }
+  var home=currentUser.office||currentOffice;
+  var nurses=(EMPLOYEES||[]).filter(function(e){ return e.role==='간호사'&&e.office; });
+  var offs=[home];
+  nurses.map(function(e){ return e.office; }).sort(function(a,b){ return String(a).localeCompare(String(b),'ko',{numeric:true}); })
+    .forEach(function(o){ if(offs.indexOf(o)<0) offs.push(o); });
+  if(offs.indexOf(currentOffice)<0) offs.push(currentOffice);
+  if(offs.length<2){ row.style.display='none'; return; }
+  var opt=function(o){
+    var cm=officeCM(o);
+    return '<option value="'+escapeHtml(o)+'"'+(o===currentOffice?' selected':'')+'>'+escapeHtml(o)+(cm?(' · '+escapeHtml(cm.name)+'CM'):' (간호사 일정 없음)')+(o===home?' — 내 사무소':'')+'</option>';
+  };
+  row.innerHTML='<span>👀 간호사 일정 보기</span><select onchange="pickCalOffice(this.value)">'+offs.map(opt).join('')+'</select>'
+    +(currentOffice!==home?('<button onclick="pickCalOffice(\''+escapeHtml(home)+'\')" style="font-size:11.5px;padding:4px 10px;border:1px solid var(--bd2);border-radius:999px;background:var(--white);cursor:pointer;font-family:inherit">← '+escapeHtml(home)+' 캘린더로</button>'):'')
+    +(CAL_PICK_NOTE&&currentOffice!==home?('<span class="cal-pick-note">'+escapeHtml(CAL_PICK_NOTE)+'</span>'):'');
+  row.style.display='flex';
+}
+function pickCalOffice(office){
+  if(!office||office===currentOffice) return;
+  CAL_PICK_NOTE='';
+  CAL_VISIT=!!(currentUser&&office!==currentUser.office);
+  setCurrentOffice(office).then(function(){ switchView('cal'); });
+}
+// 내 사무소에 간호사 캘린더가 없는 MR·사무소명 로그인(예: 경인4)은 캘린더를 처음 열 때, 우리 사무소에 동도를 온
+// 간호사 캘린더(없으면 같은 사업부 간호사)를 바로 보여줌(보기 전용) - 세션당 한 번만(그 뒤엔 고른 대로)
+var CAL_AUTO_PICKED=false;
+function autoPickNurseCalendar(){
+  if(CAL_AUTO_PICKED||!currentUser||isMultiOfficeRole(currentUser.role)||currentUser.role==='간호사') return;
+  var home=currentUser.office;
+  if(!home||currentOffice!==home||officeCM(home)) { CAL_AUTO_PICKED=true; return; }
+  CAL_AUTO_PICKED=true;
+  db.from('schedules').select('office').eq('mr_office',home).neq('office',home).neq('status','rejected').then(function(res){
+    var cnt={};
+    ((res&&res.data)||[]).forEach(function(r){ if(officeCM(r.office)) cnt[r.office]=(cnt[r.office]||0)+1; });
+    var pick=Object.keys(cnt).sort(function(a,b){ return cnt[b]-cnt[a]; })[0];
+    var why=pick?(home+' 동도를 온 간호사'):'';
+    if(!pick){
+      var biz=NATIONAL_BUSINESS[home];
+      var same=(EMPLOYEES||[]).filter(function(e){ return e.role==='간호사'&&e.office&&NATIONAL_BUSINESS[e.office]===biz; });
+      if(same.length){ pick=same[0].office; why='같은 사업부('+biz+') 간호사'; }
+    }
+    if(!pick||currentOffice!==home||!document.getElementById('view-cal').classList.contains('v-active')) return;
+    var pcm=officeCM(pick);
+    CAL_PICK_NOTE=home+'엔 간호사 일정이 없어 '+why+'('+pick+(pcm?(' '+pcm.name+'CM'):'')+') 일정을 보여드려요 · 보기 전용';
+    CAL_VISIT=true;
+    setCurrentOffice(pick).then(function(){ renderCalendar(); });
+  });
 }
 // ===== 유틸 =====
 function escapeHtml(s){
@@ -5028,6 +5096,9 @@ var claimHubTab='strategy'; // 청구처 현황판의 마지막으로 본 하위
 // 캘린더는 이제 웰체크 현황판 하위가 아니라 "홈"에서만 들어감(거래처현황판=list 하나만 남음) - 그래서
 // 이 허브를 누르면 항상 거래처현황판으로 감(예전엔 cal/list 중 마지막 본 탭을 기억했었음)
 function switchView(v){
+  // 다른 사무소 간호사 캘린더를 보던 MR·사무소명 로그인이 캘린더 밖(현황판 등)으로 가면 자기 사무소로 먼저 되돌림 -
+  // 다른 사무소 현황판·청구현황은 지금처럼 못 보게(캘린더만 열어 줌)
+  if(v!=='cal'&&isCalOnlyVisitor()){ var homeOff=currentUser.office; CAL_VISIT=false; setCurrentOffice(homeOff).then(function(){ switchView(v); }); return; }
   if(v==='claimhub') v=claimHubTab;
   if(v==='welcheckhub') v='list';
   if(v==='strategy'||v==='claim'||v==='clinicslist') claimHubTab=v;
@@ -5050,7 +5121,7 @@ function switchView(v){
   if(chubStrategy) chubStrategy.classList.toggle('sub-active', v==='strategy');
   if(chubClaim) chubClaim.classList.toggle('sub-active', v==='claim');
   if(chubClinics) chubClinics.classList.toggle('sub-active', v==='clinicslist');
-  if(v==='cal') renderCalendar();
+  if(v==='cal'){ renderCalendar(); autoPickNurseCalendar(); }
   if(v==='list') renderList();
   if(v==='claim') renderClaimView();
   if(v==='strategy') renderStrategyView();
