@@ -2847,13 +2847,26 @@ function saveNachimbanMonthly(D){
   return fetchAllRows('nb_monthly','id,office,month,scope,mr_sabun,final,source').then(function(ex){
     if(ex.error) throw ex.error;
     // locked: 확정 마감으로 저장된 달(확정 아닌 값으로 안 덮음), fileLocked: 사용자가 회사 마감 파일로 고정한 달(나침반이 절대 안 덮음)
-    var locked={}, fileLocked={};
+    var locked={}, fileLocked={}, exists={};
     (ex.data||[]).forEach(function(r){
       var k=r.office+'|'+String(r.month).slice(0,10)+'|'+r.scope+'|'+r.mr_sabun;
+      exists[k]=true;
       if(r.final) locked[k]=true;
       if(r.source==='file') fileLocked[k]=true;
     });
-    var rows=keys.filter(function(k){ return !fileLocked[k]&&(best[k].row.final||!locked[k]); }).map(function(k){ return best[k].row; });
+    // [2026-11-13] 지난달 기록 고정: 나침반은 지난달 담당자별 숫자를 "지금 담당자" 기준으로 매일 다시 계산해서, 거래처가
+    // 후임에게 넘어가면 전임자의 지난 실적이 줄어듦(실사례: 최주호 거래처 11곳이 류한재로 넘어간 날 최주호 1~5·7월 활성처가
+    // 7→2처로 줄고 류한재에게도 안 붙어 사라짐). 그래서 끝난 달(나침반 오늘자 달보다 이전 달)은 이미 저장된 기록을
+    // 확정 마감(final)·마감 파일 말고는 다시 덮지 않음 - 그 달이 끝날 때의 담당자 기준 기록이 그대로 남음
+    var curMonthStart=cur&&cur.month?String(cur.month).slice(0,7)+'-01':'';
+    var rows=keys.filter(function(k){
+      if(fileLocked[k]) return false;
+      var r=best[k].row;
+      if(r.final) return true;
+      if(locked[k]) return false;
+      if(curMonthStart&&r.month<curMonthStart&&exists[k]) return false;
+      return true;
+    }).map(function(k){ return best[k].row; });
     var months={}; rows.forEach(function(r){ months[r.month.slice(0,7)]=true; });
     return chunkArray(rows, 500).reduce(function(p, chunk){
       return p.then(function(){ return db.from('nb_monthly').upsert(chunk, {onConflict:'office,month,scope,mr_sabun'}).then(function(r){ if(r.error) throw r.error; }); });
