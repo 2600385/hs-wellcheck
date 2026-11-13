@@ -1466,6 +1466,7 @@ function renderMgrList(){
       +'<span class="mr-chip" style="background:'+m.bg+';color:'+m.fg+'">'+m.name+'</span>'
       +(activeCodes[m.code]?'':'<span style="font-size:10px;color:var(--t3)">맡은 거래처 없음 · 목록에서 숨김</span>')
       +'<span style="flex:1"></span>'
+      +(activeCodes[m.code]||!m.emp_no?'':'<button onclick="openMgrHistory(\''+m.code+'\')" style="padding:3px 9px;font-size:11px;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">📜 기록 보기</button>')
       +'<button onclick="showMgrForm('+m.id+')" style="padding:3px 9px;font-size:11px;border:0.5px solid var(--bd2);border-radius:6px;background:white;cursor:pointer;font-family:inherit">✏️ 수정</button>'
       +'<button onclick="deleteMgr('+m.id+')" style="padding:3px 9px;font-size:11px;border:0.5px solid #F7C1C1;border-radius:6px;background:white;color:#B01A1A;cursor:pointer;font-family:inherit">삭제</button>'
       +'</div>';
@@ -6737,11 +6738,15 @@ function openMrTargetModal(mrCode){
   var monSet={};
   if(m.emp_no){
     H2_TARGETS.forEach(function(r){ if(r.scope==='mr'&&r.mr_sabun===m.emp_no) monSet[r.month.slice(0,7)]=true; });
-    NB_MONTHLY.forEach(function(r){ if(r.scope==='mr'&&sabun7(r.mr_sabun)===sabun7(m.emp_no)) monSet[String(r.month).slice(0,7)]=true; });
+    // 목표·활성처가 둘 다 0인 달(아직 오기 전 - 예: 류한재 8~10월)은 빼기
+    NB_MONTHLY.forEach(function(r){ if(r.scope==='mr'&&sabun7(r.mr_sabun)===sabun7(m.emp_no)&&((Number(r.act)||0)>0||(Number(r.target)||0)>0)) monSet[String(r.month).slice(0,7)]=true; });
   }
   var months=Object.keys(monSet).filter(function(x){ return x.slice(0,4)===yr; }).sort();
   var active=mrActiveCount(m.code);
-  var body='<div class="sub" style="margin-bottom:8px">현재 활성처 <b>'+active+'처</b>(나침반 매일 갱신) · 지난달은 나침반 월마감 활성처·등급이에요</div>';
+  var departed=!activeOfficeManagers().some(function(x){ return x.code===m.code; });
+  var body=departed
+    ?'<div class="sub" style="margin-bottom:8px"><b style="color:#B26A00">퇴사·전출</b> · 지금 맡은 거래처는 없어요. 아래는 이 담당자가 일했던 달의 기록이에요(그 달 마감 기준, 후임에게 넘어간 뒤에도 그대로 남아요).</div>'
+    :'<div class="sub" style="margin-bottom:8px">현재 활성처 <b>'+active+'처</b>(나침반 매일 갱신) · 지난달은 그 달 마감 기준 활성처·등급이에요(후임에게 거래처가 넘어가도 그대로 남아요)</div>';
   if(!months.length){
     body+='<div class="sub">'+m.name+'님의 개인별 목표 데이터가 아직 없어요.</div>';
   } else {
@@ -6848,19 +6853,63 @@ function openOfficeGradeModal(){
       var a=officeMonthGrade(mm);
       if(a.th==null) return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700">'+monthLbl+'</td><td colspan="4" style="text-align:center;padding:5px 6px">목표 데이터 없음</td></tr>';
       var pillCls=(a.official?'gradePill-confirmed':'gradePill-projected')+' '+gradeClass(a.grade);
-      return '<tr style="'+rowStyle+'"><td style="padding:5px 6px;font-weight:700;white-space:nowrap">'+monthLbl+'</td>'
+      var mrRows=officeMonthMrRows(mStr);
+      var clickAttr=mrRows.length?(' onclick="toggleOfficeMonthMr(\''+mStr+'\')" style="cursor:pointer;'+rowStyle+'" title="눌러서 이 달 담당자별 실적 보기"'):(' style="'+rowStyle+'"');
+      return '<tr'+clickAttr+'><td style="padding:5px 6px;font-weight:700;white-space:nowrap">'+(mrRows.length?'<span id="omr-caret-'+mStr+'" style="display:inline-block;width:10px;color:var(--t3)">▸</span>':'')+monthLbl+'</td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.th+'처</td>'
         +'<td style="text-align:center;padding:5px 6px;font-weight:800">'+a.cnt+'처 <span style="font-size:9px;font-weight:700;color:'+(a.fromFile?'#1048A0':a.official?'#145C38':'#B26A00')+'">('+(a.fromFile?'마감파일':a.closed?'나침반':a.official?'확정':'예상')+')</span></td>'
         +'<td style="text-align:center;padding:5px 6px">'+a.pct+'%</td>'
-        +'<td style="text-align:center;padding:5px 6px"><span class="gradePill gradePill-sm '+pillCls+'">'+a.grade+'등급</span></td></tr>';
+        +'<td style="text-align:center;padding:5px 6px"><span class="gradePill gradePill-sm '+pillCls+'">'+a.grade+'등급</span></td></tr>'
+        +(mrRows.length?('<tr id="omr-'+mStr+'" style="display:none"><td colspan="5" style="padding:4px 6px 10px 18px;background:var(--bg2)">'+officeMonthMrTable(mStr, mrRows)+'</td></tr>'):'');
     }).join('')
-    +'</tbody></table>';
+    +'</tbody></table>'
+    +'<div class="sub" style="margin-top:6px;font-size:10.5px">달을 누르면 그 달 담당자별 실적이 나와요(그 달에 일했던 담당자 기준 · 퇴사·전출한 담당자 기록도 남아 있어요).</div>';
   if(canFixMonthlyByFile()){
     body+='<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--bd2);display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       +'<div style="flex:1;min-width:180px;font-size:11px;color:var(--t3);line-height:1.5">"나침반" 표시 달이 회사 월 마감 파일과 다르면 그 달 마감 파일을 올려 주세요. 전 사무소·담당자 숫자가 파일 값으로 고정돼요.</div>'
       +'<button onclick="pickClosingFile()" style="background:white;color:#1048A0;border:1px solid #1048A0;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">📄 마감 파일로 바로잡기</button></div>';
   }
   showSimpleModal(currentOffice+' · 월별 목표·등급', body);
+}
+// ===== 담당자 히스토리 =====
+// 그 달 담당자별 실적(나침반 월별 지표, 사번 기준) - 그 달에 일했던 사람 기준이라 지금은 없는 담당자(퇴사·전출)도 그대로 나옴.
+// 목표·활성처가 둘 다 0인 줄(그 달엔 아직 오지 않은 후임자 - 예: 류한재 8~10월)은 뺌
+function officeMonthMrRows(mStr){
+  return (NB_MONTHLY||[]).filter(function(r){ return r.scope==='mr'&&String(r.month).slice(0,7)===mStr&&((Number(r.act)||0)>0||(Number(r.target)||0)>0); })
+    .sort(function(a,b){ return (Number(b.act)||0)-(Number(a.act)||0); });
+}
+function mgrBySabun(sabun){
+  var s7=sabun7(sabun);
+  return officeManagers().find(function(m){ return m.emp_no&&sabun7(m.emp_no)===s7; })||null;
+}
+function officeMonthMrTable(mStr, rows){
+  var activeCodes={}; activeOfficeManagers().forEach(function(m){ activeCodes[m.code]=true; });
+  var mNum=parseInt(mStr.slice(5,7),10);
+  return '<div style="font-size:11px;font-weight:700;color:var(--t2);margin:2px 0 4px">'+mNum+'월 담당자별 실적</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead><tr style="color:var(--t3);white-space:nowrap"><th style="text-align:left;padding:3px 4px">담당자</th><th style="padding:3px 4px">목표</th><th style="padding:3px 4px">활성처</th><th style="padding:3px 4px">등급</th></tr></thead><tbody>'
+    +rows.map(function(r){
+      var m=mgrBySabun(r.mr_sabun);
+      var gone=m&&!activeCodes[m.code];
+      var t=fmtTarget(r.target);
+      var nameHtml=(m?('<a href="javascript:void(0)" onclick="event.stopPropagation();openMrTargetModal(\''+m.code+'\')" style="color:inherit;text-decoration:underline dotted">'+escapeHtml(r.mr_name||m.name)+'</a>'):escapeHtml(r.mr_name||'-'))
+        +(gone?' <span style="font-size:9.5px;color:#B26A00;font-weight:700">퇴사·전출</span>':'');
+      return '<tr style="border-top:0.5px solid var(--bd)"><td style="padding:3px 4px;white-space:nowrap">'+nameHtml+'</td>'
+        +'<td style="text-align:center;padding:3px 4px">'+(t!=null?t+'처':'-')+'</td>'
+        +'<td style="text-align:center;padding:3px 4px;font-weight:700">'+(r.act!=null?r.act+'처':'-')+'</td>'
+        +'<td style="text-align:center;padding:3px 4px">'+(r.grade?('<span class="gradePill gradePill-sm gradePill-confirmed '+gradeClass(r.grade)+'">'+r.grade+'</span>'):'-')+'</td></tr>';
+    }).join('')+'</tbody></table>';
+}
+function toggleOfficeMonthMr(mStr){
+  var tr=document.getElementById('omr-'+mStr), caret=document.getElementById('omr-caret-'+mStr);
+  if(!tr) return;
+  var open=tr.style.display==='none';
+  tr.style.display=open?'':'none';
+  if(caret) caret.textContent=open?'▾':'▸';
+}
+// 담당자 관리에서 숨겨진(퇴사·전출) 담당자의 지난 월별 기록 보기 - 캘린더에서 열면 전략판 데이터가 아직 없을 수 있어 먼저 불러옴
+function openMgrHistory(code){
+  closeMgrModal();
+  Promise.all([loadNbMonthly(), loadH2Targets(), loadMrClaims()]).then(function(){ openMrTargetModal(code); });
 }
 // ===== 회사 월 마감 파일로 지난달 숫자 바로잡기 =====
 // 나침반의 지난달(1~7월 등) 숫자는 나침반이 "웰체크 공유 시트" 이력으로 다시 계산한 값이라 회사 마감 파일과 다를 수
