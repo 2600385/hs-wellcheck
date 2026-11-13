@@ -357,15 +357,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .infoBar2{margin:0 0 18px;border:1px solid #eadfd4;border-radius:16px;background:#fffdf9;padding:12px 16px;color:#8b8178;font-size:13px;font-weight:700;display:flex;gap:14px;flex-wrap:wrap}
 .infoBar2 b{color:#6f655c;font-weight:800}
 .kpiGrid{display:grid;grid-template-columns:1.45fr 1fr 1fr 1fr 1fr;gap:14px}
-/* 청구처 현황판 "지난 히스토리" - 월별 마감 스냅샷 */
-.stHistBar{display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;padding:2px 0 12px;-webkit-overflow-scrolling:touch}
-.stHistLbl{font-size:12px;font-weight:800;color:var(--t2);margin-right:2px}
-.stHistBtn{padding:5px 11px;font-size:12px;font-weight:600;border:1px solid var(--bd2);border-radius:999px;background:var(--white);color:var(--t2);cursor:pointer;font-family:inherit;flex-shrink:0}
-.stHistBtn.on{border-color:var(--t1);color:var(--t1);font-weight:800;background:#FFF7EF}
-.stHistHead{background:#FFF7EF;border:1px solid #F3D9BF;border-radius:12px;padding:12px 14px;margin-bottom:6px}
-.stHistTitle{font-size:16px;font-weight:900;color:var(--t1)}
-#st-hist-kpi{grid-template-columns:repeat(5,1fr)}
-@media(max-width:768px){#st-hist-kpi{display:flex;overflow-x:auto;gap:8px}#st-hist-kpi .kcard{min-width:140px}}
 /* display:flex 세로 배치 + khint에 margin-top:auto - 카드 높이는 (같은 행에서) 제일 큰 카드
    기준으로 그대로 맞추되(=현재 활성처 카드 기준), 짧은 카드는 큰 숫자 밑에 바로 붙던 부연설명을
    카드 맨 아래로 밀어내려서 "숫자와 설명 사이" 쪽에 여백이 생기게 함 - 예전처럼 설명 밑에
@@ -1054,9 +1045,6 @@ td.drillable:hover .drill-ic{color:var(--dw)}
     </div>
   </div>
   <div class="list-content" style="padding:16px">
-    <div id="st-hist-bar" class="stHistBar" style="display:none"></div>
-    <div id="st-hist-panel" style="display:none"></div>
-    <div id="st-live">
     <div id="st-info" class="infoBar2"></div>
     <div class="sectionTitle" style="margin-top:0">현재 지표</div>
     <div class="kpiGrid" id="st-kpi"></div>
@@ -1076,7 +1064,6 @@ td.drillable:hover .drill-ic{color:var(--dw)}
     <div class="sectionTitle">거래처 리스트</div>
     <div class="stFilters" id="st-filters"></div>
     <div id="st-table"></div>
-    </div><!-- /st-live -->
   </div>
 </div><!-- /view-strategy -->
 
@@ -4109,7 +4096,6 @@ function setCurrentOffice(o){
   document.querySelectorAll('.biz-tag').forEach(function(t){ t.classList.toggle('cur', t.textContent===o); });
   activeMR='all';
   stMR='all';
-  if(ST_HIST_MONTH){ ST_HIST_MONTH=null; var stl=document.getElementById('st-live'), sth=document.getElementById('st-hist-panel'); if(stl) stl.style.display=''; if(sth) sth.style.display='none'; } // 사무소를 바꾸면 지난 히스토리 보기는 '이번 달'로
   // 거래처현황판(웰체크 현황판 ②)의 담당자/지역/방문/빠른 필터도 사무소 전환 시 반드시 초기화해야 함 -
   // 이걸 안 해주면 다른 사무소에서 특정 담당자로 필터링해둔 상태(listMR)가 그대로 남아서, 이 사무소엔
   // 없는 담당자 코드로 필터링되어 "전체현황"을 기대하고 눌러도 0건짜리 빈 화면이 뜨는 버그가 났었음.
@@ -6044,8 +6030,6 @@ function clinicEvalGap(c){
 var stTrendChart=null;
 function renderStrategyView(){
   Promise.all([loadOfficeClaims(),loadClinicClaims(),loadH2Targets(),loadRawMonthlySnapshot(),loadMrClaims(),loadNbMonthly()]).then(function(){
-    renderStHistBar();
-    if(ST_HIST_MONTH){ renderStHistPanel(); return; }
     buildClaimMap();
     renderStKPI();
     renderStMrCards();
@@ -6918,79 +6902,6 @@ function openOfficeGradeModal(){
       +'<button onclick="pickClosingFile()" style="background:white;color:#1048A0;border:1px solid #1048A0;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap">📄 마감 파일로 바로잡기</button></div>';
   }
   showSimpleModal(currentOffice+' · 월별 목표·등급', body);
-}
-// ===== 청구처 현황판 "지난 히스토리" =====
-// 달마다 마감 때 모습을 스냅샷처럼 보여줌(nb_monthly - 끝난 달은 고정돼서 이후 담당자가 바뀌어도 그대로).
-// 사무소 지표 + 그 달에 일했던 담당자별 카드(퇴사자 포함). 이번 달은 지금처럼 실시간 화면
-var ST_HIST_MONTH=null;
-function stHistMonths(){
-  var cur=String(todayMonthStr()).slice(0,7), set={};
-  (NB_MONTHLY||[]).forEach(function(r){ var mo=String(r.month).slice(0,7); if(r.scope==='office'&&mo<cur) set[mo]=true; });
-  return Object.keys(set).sort().reverse();
-}
-function renderStHistBar(){
-  var bar=document.getElementById('st-hist-bar');
-  if(!bar) return;
-  var ms=stHistMonths(), yr=String(todayMonthStr()).slice(0,4);
-  if(!ms.length){ bar.style.display='none'; return; }
-  bar.style.display='flex';
-  bar.innerHTML='<span class="stHistLbl">📜 지난 히스토리</span>'
-    +'<button class="stHistBtn'+(!ST_HIST_MONTH?' on':'')+'" onclick="setStHistMonth(null)">이번 달</button>'
-    +ms.map(function(mo){
-      return '<button class="stHistBtn'+(ST_HIST_MONTH===mo?' on':'')+'" onclick="setStHistMonth(\''+mo+'\')">'+(mo.slice(0,4)!==yr?(mo.slice(2,4)+'년 '):'')+parseInt(mo.slice(5,7),10)+'월 마감</button>';
-    }).join('');
-}
-function setStHistMonth(mo){
-  ST_HIST_MONTH=mo||null;
-  var live=document.getElementById('st-live'), panel=document.getElementById('st-hist-panel');
-  renderStHistBar();
-  if(!ST_HIST_MONTH){ if(panel) panel.style.display='none'; if(live) live.style.display=''; renderStrategyView(); return; }
-  if(live) live.style.display='none';
-  if(panel) panel.style.display='';
-  renderStHistPanel();
-}
-function renderStHistPanel(){
-  var el=document.getElementById('st-hist-panel');
-  if(!el||!ST_HIST_MONTH) return;
-  var mo=ST_HIST_MONTH, mm=parseInt(mo.slice(5,7),10), yr=String(new Date().getFullYear());
-  var o=nbOfficeMonth(mo)||{};
-  var a=mo.slice(0,4)===yr?officeMonthGrade(mm):null;
-  var th=(a&&a.th!=null)?a.th:fmtTarget(o.target);
-  var cnt=a?a.cnt:(o.act||0);
-  var pct=th?Math.round(cnt/th*100):null;
-  var grade=(a&&a.grade)||o.grade||(pct!=null?achievementGrade(pct):'-');
-  var fileRow=!!(a&&a.fromFile);
-  var src=fileRow?'회사 마감 파일':(o.final?'회사 확정 마감':'나침반 월말 기준');
-  var kc=function(lbl,val,hint){ return '<div class="kcard" style="cursor:default"><div class="klbl">'+lbl+'</div><div class="kval">'+val+'</div><div class="khint">'+(hint||'')+'</div></div>'; };
-  var activeCodes={}; activeOfficeManagers().forEach(function(m){ activeCodes[m.code]=true; });
-  var mrs=officeMonthMrRows(mo);
-  el.innerHTML='<div class="stHistHead"><div class="stHistTitle">📜 '+escapeHtml(currentOffice)+' '+mm+'월 마감 기록</div>'
-    +'<div class="sub" style="margin-top:3px">'+(o.as_of?shortMD(o.as_of)+' 기준 · ':'')+src+' · 그 달 마감 때 모습 그대로예요(이후 담당자가 바뀌어도 안 바뀌어요)</div></div>'
-    +'<div class="sectionTitle" style="margin-top:8px">사무소 지표</div>'
-    +'<div class="kpiGrid" id="st-hist-kpi">'
-    +kc('활성처', cnt+'처', (o.act1!=null&&!fileRow?('일만사 '+o.act1+' · 비일만사 '+(o.act2||0)):''))
-    +kc('목표 · 달성률', (th!=null?th+'처':'-'), (pct!=null?pct+'% 달성':''))
-    +kc('등급', '<span class="gradePill '+gradeClass(grade)+'">'+grade+'등급</span>', '')
-    +kc('청구처 · 청구금액', (o.bill_n!=null?o.bill_n+'처':'-'), (o.bill_amt!=null?moneyK(o.bill_amt):''))
-    +kc('신규 · 이탈', (o.new_acc!=null?'+'+o.new_acc:'-')+' / '+(o.churn!=null?'-'+o.churn:'-'), (o.prev_close!=null?'전월 마감 '+o.prev_close+'처':''))
-    +'</div>'
-    +'<div class="sectionTitle">담당자별 실적 <span class="titleHint">그 달에 일했던 담당자 기준 · 카드를 누르면 그 담당자 월별 기록</span></div>'
-    +'<div class="card" style="padding:8px 14px"><div style="display:flex;flex-wrap:wrap;gap:10px">'
-    +(mrs.length?mrs.map(function(r){
-      var m=mgrBySabun(r.mr_sabun);
-      var gone=m&&(!activeCodes[m.code]||isRetiredMgr(m));
-      var t=fmtTarget(r.target), p=t?Math.round((r.act||0)/t*100):null;
-      var g=r.grade||(p!=null?achievementGrade(p):null);
-      return '<div class="mrGoalChip"'+(m?(' onclick="openMrTargetModal(\''+m.code+'\')"'):' style="cursor:default"')+'>'
-        +'<div style="display:flex;align-items:center;gap:6px;font-weight:800;font-size:12.5px">'+(m?mrCircle(m):'')+escapeHtml(r.mr_name||'-')+'담당'
-        +(g?(' <span class="gradePill gradePill-sm gradePill-confirmed '+gradeClass(g)+'">'+g+'등급</span>'):'')
-        +(gone?' <span style="font-size:9.5px;color:#B26A00;font-weight:800">퇴사·전출</span>':'')+'</div>'
-        +'<div style="margin-top:4px"><b style="font-size:18px">'+(r.act!=null?r.act:'-')+'처</b><span style="color:var(--t3);font-size:11px"> '+mm+'월 마감</span></div>'
-        +'<div style="font-size:11px;font-weight:700;color:var(--t1)">'+(t!=null?('목표 '+t+'처 ('+p+'% 달성)'):'목표 데이터 없음')+'</div>'
-        +(r.bill_n!=null?('<div style="margin-top:3px;font-size:11px;color:var(--t2)">청구 '+r.bill_n+'처'+(r.bill_amt!=null?(' · '+moneyK(r.bill_amt)):'')+'</div>'):'')
-        +'</div>';
-    }).join(''):'<div class="sub" style="padding:8px 0">이 달 담당자별 기록이 없어요.</div>')
-    +'</div></div>';
 }
 // ===== 담당자 히스토리 =====
 // 그 달 담당자별 실적(나침반 월별 지표, 사번 기준) - 그 달에 일했던 사람 기준이라 지금은 없는 담당자(퇴사·전출)도 그대로 나옴.
