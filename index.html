@@ -2808,8 +2808,10 @@ function runNachimbanSync(D){
     return applyNachimbanFinals(D).then(function(f){
       // 월별 지표 저장은 부가 기능이라 실패해도 거래처 반영 성공/실패에는 안 섞음(로그에만 남김)
       return saveNachimbanMonthly(D).catch(function(e){ return {rows:0, error:(e&&e.message)||String(e)}; }).then(function(mo){
-        return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
-          filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded, monthly:mo};
+        return saveNachimbanClinicMonthly(D).catch(function(e){ return {rows:0, error:(e&&e.message)||String(e)}; }).then(function(cm){
+          return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
+            filled:parsed.filledFromFile, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded, monthly:mo, clinicMonthly:cm};
+        });
       });
     });
   });
@@ -2874,6 +2876,78 @@ function saveNachimbanMonthly(D){
     return chunkArray(rows, 500).reduce(function(p, chunk){
       return p.then(function(){ return db.from('nb_monthly').upsert(chunk, {onConflict:'office,month,scope,mr_sabun'}).then(function(r){ if(r.error) throw r.error; }); });
     }, Promise.resolve()).then(function(){ return {rows:rows.length, months:Object.keys(months).sort()}; });
+  });
+}
+// 거래처별 월 기록(clinic_claims) - 8월부터는 청구현황 베이스라인 파일이 없어 거래처 그래프가 7월에서 멈춰 있었음
+// (11/14 사용자 지적: "거래처 누르면 왜 7월로 멈춰있음"). 나침반 거래처별 월 값으로 채움 - 활성환자=wcIlPat(현황판
+// 환자수와 같은 값), 청구금액=amt, 케어플랜/교육상담/환자관리/점검평가 건수(금액은 건수×청구단가).
+// 달마다: 회사 확정 마감(final)에 있는 거래처는 그 값, 없으면 나침반 월별 값. 이번 달은 매일 갱신.
+// 끝난 달은 처음 한 번 채운 뒤 그대로(확정 마감이 새로 오면 그때 한 번 더) - 어느 달을 채웠는지는 sync_status
+// 'clinic_claims_months'에 기록. 7월 이전은 사용자가 올린 청구현황 베이스라인 그대로 둠
+var CC_START='2026-08';
+function saveNachimbanClinicMonthly(D){
+  var snaps=(D&&D.snapshots)||[];
+  var cur=snaps.find(function(s){ return s.key===(D.meta&&D.meta.current); });
+  if(!cur||!cur.month) return Promise.resolve({rows:0, months:[]});
+  var curM=String(cur.month).slice(0,7);
+  var byM={};
+  snaps.forEach(function(s){
+    var m=String(s.month||'').slice(0,7);
+    if(!m||m<CC_START||m>curM||!(s.accounts||[]).length) return;
+    var e=byM[m]||(byM[m]={});
+    if(s===cur) e.cur=s; else if(s.final) e.final=s; else if(s.monthly) e.monthly=s;
+  });
+  if(!byM[curM]) return Promise.resolve({rows:0, months:[]});
+  var P=CLAIM_UNIT_PRICE;
+  return db.from('sync_status').select('*').eq('key','clinic_claims_months').then(function(res){
+    var done={}; try{ done=JSON.parse((((res&&res.data)||[])[0]||{}).message||'{}')||{}; }catch(e){ done={}; }
+    var all=Object.keys(byM).sort();
+    var need=all.filter(function(m){
+      var e=byM[m];
+      if(m===curM) return true;
+      if(e.final) return done[m]!=='final';
+      return !done[m];
+    });
+    // 앞쪽 달을 새로 쓰면 그 뒤 달의 누적청구도 다시 계산해야 해서, 가장 이른 달부터 이번 달까지 이어서 씀
+    var start=need[0];
+    var months=all.filter(function(m){ return m>=start; });
+    var prevM=shiftMonthStr(start+'-01',-1);
+    return Promise.all([
+      fetchAllRows('clinics','id,office,biz_no,name'),
+      fetchAllRowsWhere('clinic_claims','clinic_id,cum_claim',function(q){ return q.eq('month',prevM); })
+    ]).then(function(r){
+      if(r[0].error) throw r[0].error;
+      if(r[1].error) throw r[1].error;
+      var byBiz={};
+      (r[0].data||[]).forEach(function(c){ var b=String(c.biz_no||'').trim(); if(b) (byBiz[b]=byBiz[b]||[]).push(c); });
+      var cum={};
+      (r[1].data||[]).forEach(function(x){ if(x.clinic_id) cum[x.clinic_id]=Number(x.cum_claim)||0; });
+      var rows=[], stamp=new Date().toISOString();
+      months.forEach(function(m){
+        var e=byM[m], src={};
+        var take=function(s){ (s&&s.accounts||[]).forEach(function(a){ var b=String(a.biz||'').trim(); if(b) src[b]=a; }); };
+        if(m===curM) take(e.cur); else { take(e.monthly); take(e.final); } // 확정 마감에 있는 거래처는 그 값으로 덮음
+        Object.keys(src).forEach(function(b){
+          var a=src[b], list=byBiz[b];
+          if(!list) return;
+          var n=function(v){ return Math.round(Number(v)||0); };
+          var claim=n(a.amt), pat=n(a.wcIlPat), care=n(a.careCnt), edu=n(a.eduCnt), mgmt=n(a.mgmtCnt), chk=n(a.evalCnt);
+          list.forEach(function(c){
+            var base=cum[c.id]||0, cc=base+claim;
+            cum[c.id]=cc;
+            rows.push({clinic_id:c.id, clinic_name:c.name, office:c.office, month:m+'-01', patient:pat, cum_patient:pat, claim:claim, cum_claim:cc,
+              care_cnt:care, edu_cnt:edu, mgmt_cnt:mgmt, check_cnt:chk,
+              care_amt:care*P.care, edu_amt:edu*P.edu, mgmt_amt:mgmt*P.mgmt, check_amt:chk*P.check, updated_at:stamp});
+          });
+        });
+      });
+      return chunkArray(rows, 500).reduce(function(p, chunk){
+        return p.then(function(){ return db.from('clinic_claims').upsert(chunk, {onConflict:'clinic_id,month'}).then(function(x){ if(x.error) throw x.error; }); });
+      }, Promise.resolve()).then(function(){
+        months.forEach(function(m){ if(m!==curM) done[m]=byM[m].final?'final':'monthly'; });
+        return db.from('sync_status').upsert({key:'clinic_claims_months', ok:true, message:JSON.stringify(done), source_date:kstDateStr(), ran_at:stamp}, {onConflict:'key'});
+      }).then(function(){ return {rows:rows.length, months:months}; });
+    });
   });
 }
 // 'YYYY-MM-01' 문자열을 delta개월만큼 이동 (Date 객체 대신 순수 문자열 연산 - 타임존 영향 없음)
@@ -4581,6 +4655,19 @@ function wireDoctorList(div, c, el, dateField, whichPopup){
 // Supabase(PostgREST)는 명시적으로 다 받아오지 않으면 한 번에 최대 1000행만 돌려줌 - 전국 거래처는
 // 4천건이 넘어서(37개 사무소 합산) 그냥 select()만 하면 뒷부분 사무소/거래처가 통째로 누락됨.
 // range()로 1000건씩 끝까지 이어받아서 전체를 다 받는다(정렬 기준이 있어야 페이지 간 중복/누락이 안 생김).
+// fetchAllRows와 같지만 조건(where: 쿼리를 받아 .eq() 등을 붙여 돌려주는 함수)을 걸 수 있음
+function fetchAllRowsWhere(table, cols, where){
+  var PAGE=1000;
+  function loop(from, acc){
+    return where(db.from(table).select(cols)).order('id').range(from, from+PAGE-1).then(function(res){
+      if(res.error) return res;
+      acc=acc.concat(res.data);
+      if(res.data.length<PAGE) return {data:acc, error:null};
+      return loop(from+PAGE, acc);
+    });
+  }
+  return loop(0, []);
+}
 function fetchAllRows(table, cols){
   var PAGE=1000;
   function loop(from, acc){
@@ -7455,8 +7542,10 @@ function loadMrClaims(){
   });
 }
 function mrClaimsFor(sabun){ return MR_CLAIMS.filter(function(r){ return r.mr_sabun===sabun; }); }
+// 거래처별 월 기록은 지금 사무소 것만(예전엔 전국 3만여 건을 다 받아서 전략판이 10초 넘게 걸렸음 - 쓰는 곳은 전부
+// 이 사무소 거래처(clinic_id)·office 기준이라 사무소로 걸러도 결과는 같음)
 function loadClinicClaims(){
-  return fetchAllRows('clinic_claims','*').then(function(res){
+  return fetchAllRowsWhere('clinic_claims','*',function(q){ return q.eq('office', currentOffice); }).then(function(res){
     if(res.error){ console.error(res.error); CLINIC_CLAIMS=[]; return; }
     CLINIC_CLAIMS=res.data.sort(function(a,b){return a.month<b.month?-1:a.month>b.month?1:0;});
   });

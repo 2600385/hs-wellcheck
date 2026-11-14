@@ -81,7 +81,10 @@ async function readNachimban(browser) {
     const latestFile = files.length ? [files[files.length - 1]] : [];
     // 월별 사무소·담당자 지표(목표·활성처·등급·청구) - 나침반 월별 스냅샷(wc2026-01 ...). 거래처 목록은 빼고 가볍게
     const monthly = D.snapshots.filter((s) => s !== cur && String(s.key).startsWith('wc') && (s.off || []).length)
-      .map((s) => ({ key: s.key, month: s.month, asOf: s.asOf, label: s.label, final: false, monthly: true, off: s.off, mr: s.mr }));
+      .map((s) => ({ key: s.key, month: s.month, asOf: s.asOf, label: s.label, final: false, monthly: true, off: s.off, mr: s.mr,
+        // 거래처별 월 기록(그래프용) - 8월부터만, 필요한 칸만 골라 가볍게
+        accounts: String(s.month || '') >= '2026-08' ? (s.accounts || []).map((a) => ({ biz: a.biz, off: a.off, wcIlPat: a.wcIlPat, amt: a.amt,
+          careCnt: a.careCnt, eduCnt: a.eduCnt, mgmtCnt: a.mgmtCnt, evalCnt: a.evalCnt })) : undefined }));
     return { meta: { current: D.meta.current }, wc: { updated: D.wc && D.wc.updated }, snapshots: [cur].concat(latestFile, finals).filter(Boolean).map(pick).concat(monthly) };
   });
   await page.close();
@@ -182,6 +185,7 @@ async function fail(userMessage, logMessage) {
       + ` · 지난달 마감 갱신 ${f.rows || 0}건${(f.months || []).length ? '(' + f.months.join(',') + ')' : ''}`
       + ` · 새로 등록한 담당자 ${((res.managersAdded || {}).added || []).length}명`
       + ` · 사번 채운 담당자 ${((res.managersAdded || {}).sabunFilled || []).length}명`
+      + ` · 거래처 월 기록 ${(res.clinicMonthly || {}).rows || 0}건${(res.clinicMonthly || {}).months && res.clinicMonthly.months.length ? '(' + res.clinicMonthly.months.join(',') + ')' : ''}${(res.clinicMonthly || {}).error ? ' 저장 실패: ' + String(res.clinicMonthly.error).slice(0, 80) : ''}`
       + ` · 월별 지표 ${(res.monthly || {}).rows || 0}건${(res.monthly || {}).months && res.monthly.months.length ? '(' + res.monthly.months[0] + '~' + res.monthly.months[res.monthly.months.length - 1] + ')' : ''}${(res.monthly || {}).error ? ' 저장 실패: ' + String(res.monthly.error).slice(0, 80) : ''}`);
     if (!res.ok) {
       const why = res.error || c.claimError || f.error || '알 수 없음';
