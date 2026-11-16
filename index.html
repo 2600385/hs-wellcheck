@@ -2574,10 +2574,23 @@ function nbSabun10(id, idMap){
   if(idMap[s]) return idMap[s];
   return /^\d{7}$/.test(s)?('120'+s):s;
 }
-// 나침반 담당 명단에 아직 없는 거래처(D.wc.extra - 러너가 웰체크 시트에서 골라 보냄) 중 이 앱 DB에 사업자번호로
-// 등록된 거래처만, 그 거래처의 사무소·담당자 정보를 가져옴 → parseNachimbanData가 그 사무소 활성처로 더함
+// 원본(웰체크 시트, D.wc.rows) 거래처 중 나침반 담당 명단(D.wc.owner)에 사무소가 없는 것(명단에 없음/사무소 빈칸) -
+// 이번 달이나 지난달 값이 있는 것만. 나침반이 일부러 뺀 거래처(excl: 테스트 계정 등)는 제외
+function nbWcUnassigned(D){
+  var wc=D&&D.wc;
+  if(!wc||!wc.rows||!wc.owner) return [];
+  var nz=function(r){ return !!(r&&r.some(function(v){ return Number(v); })); };
+  return Object.keys(wc.rows).filter(function(b){
+    var o=wc.owner[b];
+    if(o&&(o[2]||o[0])) return false;
+    var x=wc.rows[b];
+    return nz(x[1])||nz(x[2]);
+  });
+}
+// 위 거래처 중 이 앱 DB에 사업자번호로 등록된 거래처만, 그 거래처의 사무소·담당자 정보를 가져옴
+// → parseNachimbanData가 그 사무소·담당자 거래처로 넣음
 function loadNbOwnerlessKnown(D){
-  var list=((D&&D.wc&&D.wc.extra)||[]).map(function(x){ return String(x.biz||'').replace(/[^0-9]/g,''); }).filter(Boolean);
+  var list=nbWcUnassigned(D);
   if(!list.length) return Promise.resolve({});
   return Promise.all([
     db.from('clinics').select('office,mr,biz_no,name').in('biz_no', list),
@@ -2589,13 +2602,33 @@ function loadNbOwnerlessKnown(D){
     var known={}, seen={};
     (r[0].data||[]).forEach(function(c){
       var b=String(c.biz_no);
-      if(seen[b]){ known[b]=null; return; } // 같은 사업자번호가 두 사무소에 있으면 어느 쪽인지 몰라 더하지 않음
+      if(seen[b]){ known[b]=null; return; } // 같은 사업자번호가 두 사무소에 있으면 어느 쪽인지 몰라 넣지 않음
       seen[b]=true;
       var m=mg[c.office+'|'+c.mr]||{};
       known[b]={office:c.office, name:c.name, mrCode:c.mr||'', mrSabun:m.emp_no?String(m.emp_no):''};
     });
     return known;
   }).catch(function(){ return {}; });
+}
+// 거래처 목록으로 사무소·담당자 집계 - 나침반 화면의 사무소/담당자 숫자와 같은 정의(11/16 38개 사무소·249명 전부 일치 확인)
+var NB_AGG_KEYS=['act','act1','act2','fcst','churn','newAcc','prevClose','pat','pat1','pat2','billN','billAmt'];
+function nbAggregate(accounts, keyFn){
+  var t={};
+  accounts.forEach(function(a){
+    var k=keyFn(a);
+    if(!k) return;
+    var g=t[k];
+    if(!g){ g=t[k]={}; NB_AGG_KEYS.forEach(function(x){ g[x]=0; }); }
+    var act=a.status==='active', il=Number(a.wcIlPat)||0, non=Number(a.wau)||0, amt=Number(a.amt)||0;
+    if(act){ g.act++; if(a.a1) g.act1++; else if(a.a2) g.act2++; if(!a.prevActive) g.newAcc++; }
+    if(a.prevActive||act) g.fcst++;
+    if(a.prevActive) g.prevClose++;
+    if(a.status==='churn') g.churn++;
+    g.pat1+=il; g.pat2+=non; g.pat+=il+non;
+    if(amt>0) g.billN++;
+    g.billAmt+=amt;
+  });
+  return t;
 }
 function parseNachimbanData(D, ownerlessKnown){
   var cur=D&&D.meta?D.meta.current:null;
@@ -2613,58 +2646,103 @@ function parseNachimbanData(D, ownerlessKnown){
   var fileSnap=(D.snapshots||[]).filter(function(s){
     return s!==snap&&!s.final&&String(s.key||'').indexOf('wc')!==0&&s.month===snap.month&&(s.accounts||[]).length;
   }).sort(function(a,b){ return String(a.asOf)<String(b.asOf)?-1:1; }).pop();
-  var inDaily={};
-  (snap.accounts||[]).forEach(function(a){ inDaily[String(a.biz)]=true; });
-  var extraAccounts=fileSnap?fileSnap.accounts.filter(function(a){ return a.biz&&!inDaily[String(a.biz)]&&NATIONAL_OFFICES.indexOf(a.off)>=0; }):[];
-  // [2026-11-16] 나침반 담당 명단(영업지원부)에 아직 없는 신규 거래처는 웰체크 시트엔 있어도 사무소·담당자를 못 붙여
-  // 나침반 집계에서 통째로 빠짐(실사례: 경인1 굿프라임메디컬의원 - 11월 신규 활성, 웰뷰 61처·예측 70 vs 나침반 60·69).
-  // 이 앱에 사업자번호로 등록된 거래처만 이 앱의 사무소·담당자로 붙여서 더함. 활성/전환 판정은 웰체크 시트의 act1/act2
-  // (이번 달·지난달)로 하는데, 나침반 거래처 4,979곳 전부에서 나침반 판정과 똑같이 나오는 것 확인함(11/16).
-  // 나중에 나침반 명단에 올라오면 오늘자 거래처(inDaily)에 들어가므로 여기선 자동으로 빠짐(이중 집계 없음)
-  var inFile={}; extraAccounts.forEach(function(a){ inFile[String(a.biz)]=true; });
-  var WF=(D.wc&&D.wc.fields)||[];
-  var mrIdBy={};
-  (snap.mr||[]).forEach(function(m){ if(m.id&&m.id10) mrIdBy[m.off+'|'+String(m.id10).replace(/^120(\d{7})$/,'$1')]=String(m.id); });
-  var ownerless=[];
-  if(ownerlessKnown&&WF.length) ((D.wc&&D.wc.extra)||[]).forEach(function(x){
-    var b=String(x.biz||'').replace(/[^0-9]/g,'');
-    if(!b||inDaily[b]||inFile[b]) return;
-    var k=ownerlessKnown[b];
-    if(!k||NATIONAL_OFFICES.indexOf(k.office)<0) return;
-    var v=function(row,key){ var i=WF.indexOf(key); return row&&i>=0?(Number(row[i])||0):0; };
-    var r=x.cur||[], pr=x.prev||null;
-    var act=!!(v(r,'act1')||v(r,'act2')), pa=!!(v(pr,'act1')||v(pr,'act2'));
-    var s7=String(k.mrSabun||'').replace(/^120(\d{7})$/,'$1');
-    // 담당자는 이 앱에 등록된 그대로(담당자 코드를 넘기면 commitCurrentRaw의 mrCode가 코드 그대로 둠)
-    ownerless.push({off:k.office, biz:b, name:x.name||k.name||'', mr:k.mrCode||'-', mrId:(s7&&mrIdBy[k.office+'|'+s7])||'',
-      status:act?'active':(pa?'churn':'none'), a1:v(r,'act1'), a2:v(r,'act2'), prevActive:pa?1:0,
-      wcIlPat:v(r,'wcIlPat'), wau:v(r,'wauNonIl'), prevPat1:v(pr,'wcIlPat'), amt:v(r,'billAmt'),
-      careCnt:v(r,'careCnt'), eduCnt:v(r,'eduCnt'), mgmtCnt:v(r,'mgmtCnt'), evalCnt:v(r,'evalCnt'), lastSync:x.sync||''});
-  });
-  extraAccounts=extraAccounts.concat(ownerless);
-  var adjOff={}, adjMr={};
-  extraAccounts.forEach(function(a){
-    var act=a.status==='active', amt=Number(a.amt)||0;
-    var inc={fcst:(a.prevActive?1:0)+(act&&!a.prevActive?1:0), act:act?1:0, act1:act&&a.a1?1:0, act2:act&&!a.a1&&a.a2?1:0,
-      pat1:Number(a.wcIlPat)||0, billN:amt>0?1:0, billAmt:amt};
-    [[adjOff,a.off],[adjMr,String(a.mrId||'')]].forEach(function(p){
-      if(!p[1]) return;
-      var t=p[0][p[1]]||(p[0][p[1]]={fcst:0,act:0,act1:0,act2:0,pat1:0,billN:0,billAmt:0});
-      Object.keys(inc).forEach(function(k){ t[k]+=inc[k]; });
+  // [2026-11-16 사용자 지시: "나침반에 보여지는 게 아니라 원본 데이터(웰체크 시트)를 끌고 와야 함"]
+  // 거래처별 숫자(활성/전환 판정·환자·청구·청구 4종)는 원본(웰체크 시트, D.wc.rows: 이번 달·지난달 값)에서 바로 계산하고,
+  // 나침반에선 거래처가 어느 사무소·담당자 것인지(영업지원부 담당 명단, D.wc.owner)와 사무소·담당자 목표만 가져옴.
+  // 사무소·담당자 집계(활성처·마감예측·전환·신규·환자·청구)도 그 거래처 목록으로 직접 셈.
+  // 11/16 검증: 이렇게 계산한 거래처 4,979곳의 판정·숫자, 38개 사무소·249명 담당자 집계 12개 항목이 나침반 화면 값과 전부
+  // 일치함(나침반 화면 = 원본 x 담당 명단). 차이는 담당 명단에 아직 없거나 사무소가 빈칸인 거래처뿐 - 나침반은 이런
+  // 거래처를 화면·집계에서 통째로 뺌(실사례: 경인1 굿프라임메디컬의원 - 11월 신규 활성인데 명단에 없어 웰뷰 61처 vs
+  // 나침반 60처). 이 앱에 사업자번호로 등록된 거래처면 이 앱의 사무소·담당자로 넣음. 명단에 올라오면 명단 기준으로 바뀜.
+  // 원본이 없으면(나침반 구조 변경 등) 예전처럼 나침반 거래처 목록을 그대로 씀
+  var WC=D.wc||{}, WF=WC.fields||[];
+  var useWc=!!(WC.rows&&WC.owner&&WF.length&&String(WC.month||'')===String(snap.month||''));
+  var baseAccounts=snap.accounts||[], ownerless=[];
+  if(useWc){
+    var n7=function(x){ var t=String(x==null?'':x); return /^120\d{7}$/.test(t)?t.slice(3):t; };
+    var accMrId={};
+    (snap.accounts||[]).forEach(function(a){ if(a.mrId) accMrId[String(a.biz)]=String(a.mrId); });
+    var mrIdByName={}, mrIdBySabun={};
+    (snap.mr||[]).forEach(function(m){
+      if(!m.id) return;
+      var k=m.off+'|'+m.name;
+      mrIdByName[k]=mrIdByName.hasOwnProperty(k)?'':String(m.id); // 같은 사무소 동명이인이면 이름으로 안 붙임
+      if(m.id10) mrIdBySabun[m.off+'|'+n7(m.id10)]=String(m.id);
     });
-  });
-  function nbGradeOf(rate){ return rate>=1?'S':rate>=0.8?'A':rate>=0.6?'B':'C'; }
-  function nbAdjust(row, adj){
-    if(!adj) return row;
-    var r=Object.assign({}, row);
-    ['fcst','act','act1','act2','pat1','billN','billAmt'].forEach(function(k){ r[k]=(Number(row[k])||0)+adj[k]; });
-    if(Number(r.target)>0){ r.rate=r.fcst/Number(r.target); r.grade=nbGradeOf(r.rate); }
-    return r;
+    var v=function(row,key){ var i=WF.indexOf(key); return row&&i>=0?(Number(row[i])||0):0; };
+    var fromWc=function(b, x, who){
+      var r=x[1], pr=x[2];
+      var act=!!(v(r,'act1')||v(r,'act2')), pa=!!(v(pr,'act1')||v(pr,'act2'));
+      return {off:who.off, biz:b, name:who.name, mr:who.mr, mrId:who.mrId,
+        status:act?'active':(pa?'churn':'none'), a1:v(r,'act1'), a2:v(r,'act2'), prevActive:pa?1:0,
+        wcIlPat:v(r,'wcIlPat'), wau:v(r,'wauNonIl'), prevPat1:v(pr,'wcIlPat'), amt:v(r,'billAmt'),
+        // 최종연동일은 원본의 마지막 동기화일(나침반 화면은 올해 기록만 보여서 2024년에 마지막으로 연동된 거래처는 빈칸이었음)
+        careCnt:v(r,'careCnt'), eduCnt:v(r,'eduCnt'), mgmtCnt:v(r,'mgmtCnt'), evalCnt:v(r,'evalCnt'), lastSync:x[3]||''};
+    };
+    var unassigned={};
+    nbWcUnassigned(D).forEach(function(b){ unassigned[b]=true; });
+    var bizSet={};
+    Object.keys(WC.rows).forEach(function(b){ bizSet[b]=true; });
+    Object.keys(WC.owner).forEach(function(b){ bizSet[b]=true; });
+    baseAccounts=[];
+    Object.keys(bizSet).forEach(function(b){
+      var x=WC.rows[b]||['',null,null,''], o=WC.owner[b];
+      if(o&&o[2]) return; // 나침반이 일부러 뺀 거래처(테스트 계정 등)
+      if(o&&o[0]){
+        baseAccounts.push(fromWc(b, x, {off:o[0], name:o[3]||x[0]||'', mr:o[1]||'', mrId:accMrId[b]||mrIdByName[o[0]+'|'+(o[1]||'')]||''}));
+        return;
+      }
+      var k=unassigned[b]&&ownerlessKnown&&ownerlessKnown[b];
+      if(!k||NATIONAL_OFFICES.indexOf(k.office)<0) return;
+      // 담당자는 이 앱에 등록된 그대로(담당자 코드를 넘기면 commitCurrentRaw의 mrCode가 코드 그대로 둠)
+      baseAccounts.push(fromWc(b, x, {off:k.office, name:x[0]||k.name||'', mr:k.mrCode||'-', mrId:mrIdBySabun[k.office+'|'+n7(k.mrSabun)]||''}));
+      ownerless.push(b);
+    });
   }
-  var offRows=(snap.off||[]).map(function(o){ return nbAdjust(o, adjOff[o.off]); });
-  var mrRows=(snap.mr||[]).map(function(m){ return nbAdjust(m, adjMr[String(m.id||'')]); });
+  var inDaily={};
+  baseAccounts.forEach(function(a){ inDaily[String(a.biz)]=true; });
+  var extraAccounts=fileSnap?fileSnap.accounts.filter(function(a){ return a.biz&&!inDaily[String(a.biz)]&&NATIONAL_OFFICES.indexOf(a.off)>=0; }):[];
+  function nbGradeOf(rate){ return rate>=1?'S':rate>=0.8?'A':rate>=0.6?'B':'C'; }
+  var offRows, mrRows;
+  if(useWc){
+    var allAcc=baseAccounts.concat(extraAccounts);
+    var aggOff=nbAggregate(allAcc, function(a){ return a.off; });
+    var aggMr=nbAggregate(allAcc, function(a){ return a.mrId?String(a.mrId):''; });
+    var nbMerge=function(row, g){
+      var r=Object.assign({}, row);
+      NB_AGG_KEYS.forEach(function(k){ r[k]=g?g[k]:0; });
+      r.mom=r.act-r.prevClose;
+      r.billAvg=r.billN?r.billAmt/r.billN:0;
+      // 마감예측이 나침반 화면과 달라진 경우(명단에 없는 거래처·시트에 늦게 들어온 거래처)만 달성률·등급을 다시 매김
+      if(Number(r.fcst)!==Number(row.fcst)&&Number(r.target)>0){ r.rate=r.fcst/Number(r.target); r.grade=nbGradeOf(r.rate); }
+      return r;
+    };
+    offRows=(snap.off||[]).map(function(o){ return nbMerge(o, aggOff[o.off]); });
+    mrRows=(snap.mr||[]).map(function(m){ return nbMerge(m, aggMr[String(m.id||'')]); });
+  } else {
+    var adjOff={}, adjMr={};
+    extraAccounts.forEach(function(a){
+      var act=a.status==='active', amt=Number(a.amt)||0;
+      var inc={fcst:(a.prevActive?1:0)+(act&&!a.prevActive?1:0), act:act?1:0, act1:act&&a.a1?1:0, act2:act&&!a.a1&&a.a2?1:0,
+        pat1:Number(a.wcIlPat)||0, billN:amt>0?1:0, billAmt:amt};
+      [[adjOff,a.off],[adjMr,String(a.mrId||'')]].forEach(function(p){
+        if(!p[1]) return;
+        var t=p[0][p[1]]||(p[0][p[1]]={fcst:0,act:0,act1:0,act2:0,pat1:0,billN:0,billAmt:0});
+        Object.keys(inc).forEach(function(k){ t[k]+=inc[k]; });
+      });
+    });
+    var nbAdjust=function(row, adj){
+      if(!adj) return row;
+      var r=Object.assign({}, row);
+      ['fcst','act','act1','act2','pat1','billN','billAmt'].forEach(function(k){ r[k]=(Number(row[k])||0)+adj[k]; });
+      if(Number(r.target)>0){ r.rate=r.fcst/Number(r.target); r.grade=nbGradeOf(r.rate); }
+      return r;
+    };
+    offRows=(snap.off||[]).map(function(o){ return nbAdjust(o, adjOff[o.off]); });
+    mrRows=(snap.mr||[]).map(function(m){ return nbAdjust(m, adjMr[String(m.id||'')]); });
+  }
   var updates=[], natUpdates=[], natToday={};
-  (snap.accounts||[]).concat(extraAccounts).forEach(function(a){
+  baseAccounts.concat(extraAccounts).forEach(function(a){
     var off=a.off;
     if(NATIONAL_OFFICES.indexOf(off)<0) return;
     var biz=String(a.biz==null?'':a.biz).replace(/\.0$/,'');
@@ -2728,8 +2806,8 @@ function parseNachimbanData(D, ownerlessKnown){
   });
   return {updates:updates, natToday:natToday, natBusiness:natBusiness, natEval:natEval, natMrEval:natMrEval, natUpdates:natUpdates,
     asOf:asOf, importType:'nachimban', label:snap.label||'', updated:(D.wc&&D.wc.updated)||snap.asOf,
-    filledFromFile:extraAccounts.length-ownerless.length, fileSnapKey:fileSnap?fileSnap.key:null,
-    ownerless:ownerless.length, extraCur:extraAccounts, offRowsAdj:offRows, mrRowsAdj:mrRows};
+    filledFromFile:extraAccounts.length, fileSnapKey:fileSnap?fileSnap.key:null, fromWc:useWc,
+    ownerless:ownerless.length, extraCur:useWc?baseAccounts.concat(extraAccounts):extraAccounts, offRowsAdj:offRows, mrRowsAdj:mrRows};
 }
 // 나침반에 들어있는 회사 월마감 파일(예: "9월_청구금액 평가 시뮬레이션(최종)")로 지난달들의 청구현황을 확정치로
 // 맞춤 - 청구금액은 달이 지나도 원장님들이 늦게 청구하면 계속 늘어나서 마감 파일이 나중에 다시 오므로(사용자
@@ -2865,7 +2943,7 @@ function runNachimbanSync(D){
       return saveNachimbanMonthly(D, parsed).catch(function(e){ return {rows:0, error:(e&&e.message)||String(e)}; }).then(function(mo){
         return saveNachimbanClinicMonthly(D, parsed.extraCur).catch(function(e){ return {rows:0, error:(e&&e.message)||String(e)}; }).then(function(cm){
           return {ok:res.ok&&!f.error, asOf:parsed.asOf, label:parsed.label, updated:parsed.updated, commit:res, finals:f, status:status.textContent,
-            filled:parsed.filledFromFile, ownerless:parsed.ownerless, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded, monthly:mo, clinicMonthly:cm};
+            filled:parsed.filledFromFile, ownerless:parsed.ownerless, fromWc:parsed.fromWc, fileSnap:parsed.fileSnapKey, managersAdded:mgrAdded, monthly:mo, clinicMonthly:cm};
         });
       });
     });

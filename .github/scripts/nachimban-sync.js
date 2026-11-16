@@ -85,18 +85,22 @@ async function readNachimban(browser) {
         // 거래처별 월 기록(그래프용) - 8월부터만, 필요한 칸만 골라 가볍게
         accounts: String(s.month || '') >= '2026-08' ? (s.accounts || []).map((a) => ({ biz: a.biz, off: a.off, wcIlPat: a.wcIlPat, amt: a.amt,
           careCnt: a.careCnt, eduCnt: a.eduCnt, mgmtCnt: a.mgmtCnt, evalCnt: a.evalCnt })) : undefined }));
-    // 웰체크 시트(D.wc.byBiz)엔 있는데 나침반 거래처 목록(cur.accounts)엔 없는 거래처 - 나침반의 담당 명단(영업지원부)에
-    // 아직 안 올라온 신규 거래처는 사무소·담당자를 못 붙여서 나침반 집계에서 통째로 빠짐(실사례 11/16: 경인1
-    // 굿프라임메디컬의원 - 11월 신규 활성인데 웰뷰 61처 vs 나침반 60처). 이번 달 값이 있는 것만 보내고, 앱이 자기 DB에
-    // 사업자번호로 등록된 거래처만 골라 그 사무소 활성처로 더함
+    // 원본(웰체크 시트, D.wc.byBiz) - 앱이 거래처별 숫자를 나침반 화면 대신 여기서 바로 계산함(사용자 지시 11/16).
+    // 거래처마다 [이름, 이번 달 값, 지난달 값, 마지막 동기화]만, 담당 명단(D.wc.owner.byBiz)은 [사무소, 담당자, 제외 여부, 이름]만 보냄.
+    // 나침반 화면은 담당 명단에 없는 신규 거래처를 통째로 빼서(실사례: 경인1 굿프라임메디컬의원) 원본과 달라짐
     const W = D.wc || {};
-    const inAcc = new Set(((cur && cur.accounts) || []).map((a) => String(a.biz)));
     const mi = cur ? (W.months || []).indexOf(cur.month) : -1;
-    const extra = mi < 0 ? [] : Object.keys(W.byBiz || {}).filter((b) => !inAcc.has(b)).map((b) => {
-      const w = W.byBiz[b] || {};
-      return { biz: b, name: w.name || '', cur: (w.m || [])[mi] || null, prev: mi > 0 ? (w.m || [])[mi - 1] || null : null, sync: w.sync || '' };
-    }).filter((x) => x.cur && x.cur.some((v) => v));
-    return { meta: { current: D.meta.current }, wc: { updated: D.wc && D.wc.updated, fields: W.fields || [], extra }, snapshots: [cur].concat(latestFile, finals).filter(Boolean).map(pick).concat(monthly) };
+    const rows = {}, owner = {};
+    if (mi >= 0) {
+      Object.keys(W.byBiz || {}).forEach((b) => {
+        const w = W.byBiz[b] || {};
+        rows[b] = [w.name || '', (w.m || [])[mi] || null, mi > 0 ? (w.m || [])[mi - 1] || null : null, w.sync || ''];
+      });
+      const O = (W.owner && W.owner.byBiz) || {};
+      Object.keys(O).forEach((b) => { const o = O[b] || {}; owner[b] = [o.off || '', o.mr || '', o.excl ? 1 : 0, o.name || '']; });
+    }
+    return { meta: { current: D.meta.current }, wc: { updated: D.wc && D.wc.updated, month: cur ? cur.month : '', fields: W.fields || [], rows, owner },
+      snapshots: [cur].concat(latestFile, finals).filter(Boolean).map(pick).concat(monthly) };
   });
   await page.close();
   return data;
@@ -193,7 +197,8 @@ async function fail(userMessage, logMessage) {
     const f = res.finals || {};
     console.log(`반영 결과: ${res.ok ? '성공' : '실패'} · 기준일 ${res.asOf || '-'} · 거래처 ${c.clinics || 0}곳 · 사무소 ${c.offices || 0}곳 · 사무소 표기 다른 거래처 ${c.conflicts || 0}곳`
       + ` · 오늘자 시트에 없어 회사 파일(${res.fileSnap || '-'})로 채운 거래처 ${res.filled || 0}곳`
-      + ` · 나침반 담당 명단에 없어 앱 등록 정보로 더한 거래처 ${res.ownerless || 0}곳(후보 ${((data.wc || {}).extra || []).length}곳)`
+      + ` · ${res.fromWc ? '원본(웰체크 시트) 기준' : '⚠ 원본 없음 - 나침반 목록 기준'} · 원본 거래처 ${Object.keys((data.wc || {}).rows || {}).length}곳`
+      + ` · 나침반 담당 명단에 없어 앱 등록 정보로 넣은 거래처 ${res.ownerless || 0}곳`
       + ` · 지난달 마감 갱신 ${f.rows || 0}건${(f.months || []).length ? '(' + f.months.join(',') + ')' : ''}`
       + ` · 새로 등록한 담당자 ${((res.managersAdded || {}).added || []).length}명`
       + ` · 사번 채운 담당자 ${((res.managersAdded || {}).sabunFilled || []).length}명`
