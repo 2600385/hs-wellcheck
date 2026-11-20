@@ -4460,7 +4460,9 @@ var _appVersionTag=null;
 function checkAppUpdate(){
   if(!/^https?:$/.test(location.protocol)) return;
   fetch(location.pathname, {method:'HEAD', cache:'no-store'}).then(function(r){
-    var tag=r.headers.get('etag')||r.headers.get('last-modified');
+    // [2026-11-20] Vercel은 같은 버전이어도 압축 여부에 따라 ETag를 W/"abc"(약한) 또는 "abc"(강한)로 다르게 줘서,
+    // 버전이 그대로인데도 "새 버전" 안내가 뜰 수 있었음 - 앞의 W/를 떼고 비교
+    var tag=String(r.headers.get('etag')||'').replace(/^W\//,'')||r.headers.get('last-modified');
     if(!r.ok||!tag) return;
     if(_appVersionTag===null){ _appVersionTag=tag; return; }
     if(tag!==_appVersionTag) showAppUpdateBanner();
