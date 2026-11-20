@@ -2988,10 +2988,11 @@ function saveNachimbanMonthly(D, parsed){
   return fetchAllRows('nb_monthly','id,office,month,scope,mr_sabun,final,source').then(function(ex){
     if(ex.error) throw ex.error;
     // locked: 확정 마감으로 저장된 달(확정 아닌 값으로 안 덮음), fileLocked: 사용자가 회사 마감 파일로 고정한 달(나침반이 절대 안 덮음)
-    var locked={}, fileLocked={}, exists={};
+    var locked={}, fileLocked={}, exists={}, monthHas={};
     (ex.data||[]).forEach(function(r){
       var k=r.office+'|'+String(r.month).slice(0,10)+'|'+r.scope+'|'+r.mr_sabun;
       exists[k]=true;
+      monthHas[r.office+'|'+String(r.month).slice(0,10)+'|'+r.scope]=true;
       if(r.final) locked[k]=true;
       if(r.source==='file') fileLocked[k]=true;
     });
@@ -3006,6 +3007,11 @@ function saveNachimbanMonthly(D, parsed){
       if(r.final) return true;
       if(locked[k]) return false;
       if(curMonthStart&&r.month<curMonthStart&&exists[k]) return false;
+      // [2026-11-20] 끝난 달에 "새 담당자" 행을 새로 만들지 않음 - 나침반은 지난달도 지금 담당자 기준으로 다시 세서,
+      // 거래처를 넘겨받은 사람에게 그 사람이 오기 전 달의 실적이 생김(실사례 11/20: 경인1 최주호 거래처를 받은 류한재에게
+      // 1~7월 7처, 조예린 거래처를 받은 김경식 소장에게 1~10월 실적이 새로 생겨 전임자 기록과 이중으로 잡힘).
+      // 그 달 기록이 처음 저장될 때(그 사무소·그 달에 아무 행도 없을 때)만 새 행을 넣음
+      if(curMonthStart&&r.month<curMonthStart&&monthHas[r.office+'|'+r.month+'|'+r.scope]) return false;
       return true;
     }).map(function(k){ return best[k].row; });
     var months={}; rows.forEach(function(r){ months[r.month.slice(0,7)]=true; });
